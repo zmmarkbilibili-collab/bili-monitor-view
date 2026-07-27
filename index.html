@@ -1,1 +1,72 @@
-<h1>B站监控面板</h1>
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>B站视频监控面板</title>
+  <style>
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #4CAF50; color: white; }
+    tr:nth-child(even) { background-color: #f2f2f2; }
+  </style>
+</head>
+<body>
+  <h1>监控视频列表</h1>
+  <table id="video-table">
+    <thead>
+      <tr>
+        <th>BV号</th><th>标题</th><th>UP主</th><th>当前小时</th><th>分组</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>粉丝监控最新数据</h2>
+  <div id="fans-info"></div>
+
+  <script>
+    const SUPABASE_URL = "https://你的项目ID.supabase.co";   // 替换！
+    const SUPABASE_KEY = "你的anon public key";               // 替换！
+
+    async function loadVideos() {
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/videos?select=*`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const videos = await res.json();
+        const tbody = document.querySelector('#video-table tbody');
+        tbody.innerHTML = videos.map(v => `
+          <tr>
+            <td>${v.bvid}</td>
+            <td>${v.title || '无标题'}</td>
+            <td>${v.up_name || ''}</td>
+            <td>${v.current_hour || 0}</td>
+            <td>${v.group_name || ''}</td>
+          </tr>
+        `).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadFans() {
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/fans_monitor?select=*`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const data = await res.json();
+        if (data.length > 0) {
+          const fm = data[0];
+          document.getElementById('fans-info').innerHTML = `
+            <p>启用: ${fm.enabled ? '是' : '否'}</p>
+            <p>新闻UID: ${fm.cctv_news_uid}, 军事UID: ${fm.cctv_military_uid}</p>
+            <p>周一基准: 新闻 ${fm.monday_base_news}, 军事 ${fm.monday_base_military}</p>
+            <p>今日基准: 新闻 ${fm.daily_base_news}, 军事 ${fm.daily_base_military} (日期: ${fm.daily_base_date})</p>
+          `;
+        }
+      } catch(e) { console.error(e); }
+    }
+
+    loadVideos();
+    loadFans();
+  </script>
+</body>
+</html>
