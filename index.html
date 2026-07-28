@@ -106,7 +106,6 @@
     const SUPABASE_KEY = 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g';
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // 暴露全局函数
     window.loadVideos = loadVideos;
     window.addVideos = addVideos;
     window.pushSelected = pushSelected;
@@ -125,7 +124,6 @@
     window.saveFansSettings = saveFansSettings;
     window.triggerFansPush = triggerFansPush;
 
-    // 格式化播放量
     function formatView(n) {
         if (!n) return '0';
         if (n >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, '') + 'w';
@@ -187,7 +185,7 @@
         const events = ids.map(video_id => ({ action: 'push', video_id }));
         const { error } = await supabase.from('push_requests').insert(events);
         if (error) alert('推送请求提交失败');
-        else alert('推送请求已发送');
+        else alert('推送请求已发送，10秒内将更新播放量并推送');
       } finally {
         window.isPushing = false;
         document.getElementById('btnPushSelected').disabled = false;
@@ -243,7 +241,7 @@
       alert(msg || '暂无历史');
     }
 
-    // ========== 共青团板块 ==========
+    // 共青团板块
     async function loadGqtVideos() {
       const { data, error } = await supabase.from('videos').select('*').eq('category', 'gqt').order('created_at', { ascending: false });
       if (error) { alert('加载失败'); return; }
@@ -290,7 +288,7 @@
       const events = ids.map(video_id => ({ action: 'push', video_id }));
       const { error } = await supabase.from('push_requests').insert(events);
       if (error) alert('推送请求提交失败');
-      else alert('推送请求已发送');
+      else alert('推送请求已发送，10秒内将更新播放量并推送');
     }
 
     async function refreshGqtStatus() {
@@ -311,18 +309,16 @@
       else loadGqtVideos();
     }
 
-    // ========== 粉丝监控 ==========
-    async function saveFansSettings() { /* 保留原逻辑 */ }
-    async function triggerFansPush() { /* 保留原逻辑 */ }
+    // 粉丝监控
+    async function saveFansSettings() { /* 保留 */ }
+    async function triggerFansPush() { /* 保留 */ }
 
-    // 弹窗
     function openGqtAddModal() { document.getElementById('gqtAddModal').style.display = 'block'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     function toggleAll(cb) { document.querySelectorAll('.video-check').forEach(c => c.checked = cb.checked); }
     function toggleAllGqt(cb) { document.querySelectorAll('.gqt-check').forEach(c => c.checked = cb.checked); }
     window.openAddModal = () => document.getElementById('addModal').style.display = 'block';
 
-    // 初始化
     loadVideos();
     loadGqtVideos();
   </script>
