@@ -103,12 +103,11 @@
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-    // ⚠️ 请替换为你的 Supabase 信息
-    const SUPABASE_URL = 'https://你的项目ID.supabase.co';
-    const SUPABASE_KEY = '你的Publishable key';
+    // 您的 Supabase 信息
+    const SUPABASE_URL = 'https://erzjcvsbrkmukswkqfss.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g';
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // 暴露到全局作用域
     window.loadVideos = loadVideos;
     window.addVideos = addVideos;
     window.pushSelected = pushSelected;
@@ -123,10 +122,8 @@
     window.closeModal = closeModal;
     window.toggleAll = toggleAll;
 
-    // 简单的防重复点击锁
     let isPushing = false;
 
-    // ========== 视频列表 ==========
     async function loadVideos() {
       const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
       if (error) { alert('加载失败：' + error.message); return; }
@@ -148,7 +145,6 @@
       return [...document.querySelectorAll('.video-check:checked')].map(cb => parseInt(cb.value));
     }
 
-    // ========== 添加 ==========
     async function addVideos() {
       const bvText = document.getElementById('bvInput').value.trim();
       const startTime = document.getElementById('startTime').value.trim();
@@ -179,7 +175,6 @@
       loadVideos();
     }
 
-    // ========== 手动推送选中（加防重复点击） ==========
     async function pushSelected() {
       if (isPushing) return;
       const ids = getSelectedIds();
@@ -197,7 +192,6 @@
       }
     }
 
-    // ========== 一键推送全部（加防重复点击） ==========
     async function pushAll() {
       if (isPushing) return;
       const { data: videos } = await supabase.from('videos').select('id').neq('alert_only', true);
@@ -215,7 +209,6 @@
       }
     }
 
-    // ========== 编辑 ==========
     let editingId = null;
     async function openEditModal() {
       const ids = getSelectedIds();
@@ -265,7 +258,6 @@
       }
     }
 
-    // ========== 删除 ==========
     async function deleteSelected() {
       const ids = getSelectedIds();
       if (!ids.length) return alert('请选中视频');
@@ -275,7 +267,6 @@
       else loadVideos();
     }
 
-    // ========== 查看历史 ==========
     async function viewHistory() {
       const ids = getSelectedIds();
       if (ids.length !== 1) return alert('请选择一个视频查看历史');
@@ -284,41 +275,21 @@
       const contentDiv = document.getElementById('historyContent');
       modal.style.display = 'block';
       contentDiv.innerHTML = '加载中...';
-      
-      const { data, error } = await supabase
-        .from('history')
-        .select('*')
-        .eq('video_id', videoId)
-        .order('hour', { ascending: false });
-      
-      if (error) {
-        contentDiv.innerHTML = `<p style="color:red">加载失败：${error.message}</p>`;
-        return;
-      }
-      if (!data || data.length === 0) {
-        contentDiv.innerHTML = '<p>该视频暂无历史记录</p>';
-        return;
-      }
-      
-      // 获取视频标题
+
+      const { data, error } = await supabase.from('history').select('*').eq('video_id', videoId).order('hour', { ascending: false });
+      if (error) { contentDiv.innerHTML = `<p style="color:red">加载失败：${error.message}</p>`; return; }
+      if (!data || data.length === 0) { contentDiv.innerHTML = '<p>该视频暂无历史记录</p>'; return; }
+
       const { data: videoData } = await supabase.from('videos').select('title').eq('id', videoId).single();
       const title = videoData?.title || '未知视频';
-      
-      let tableHtml = `<h4>${title} 历史播放数据</h4>`;
-      tableHtml += `<table><thead><tr><th>小时</th><th>播放量</th><th>在线人数</th><th>记录时间</th></tr></thead><tbody>`;
+      let tableHtml = `<h4>${title} 历史播放数据</h4><table><thead><tr><th>小时</th><th>播放量</th><th>在线人数</th><th>记录时间</th></tr></thead><tbody>`;
       data.forEach(r => {
-        tableHtml += `<tr>
-          <td>${r.hour ?? ''}</td>
-          <td>${r.view ?? ''}</td>
-          <td>${r.online_total ?? ''}</td>
-          <td>${new Date(r.recorded_at).toLocaleString()}</td>
-        </tr>`;
+        tableHtml += `<tr><td>${r.hour ?? ''}</td><td>${r.view ?? ''}</td><td>${r.online_total ?? ''}</td><td>${new Date(r.recorded_at).toLocaleString()}</td></tr>`;
       });
       tableHtml += '</tbody></table>';
       contentDiv.innerHTML = tableHtml;
     }
 
-    // ========== 粉丝监控 ==========
     async function loadFansSettings() {
       const { data } = await supabase.from('fans_monitor').select('*').limit(1);
       if (data && data.length > 0) {
@@ -360,14 +331,10 @@
       }
     }
 
-    // ========== 弹窗 ==========
     function openAddModal() { document.getElementById('addModal').style.display = 'block'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-    function toggleAll(cb) {
-      document.querySelectorAll('.video-check').forEach(c => c.checked = cb.checked);
-    }
+    function toggleAll(cb) { document.querySelectorAll('.video-check').forEach(c => c.checked = cb.checked); }
 
-    // 初始加载
     loadVideos();
     loadFansSettings();
   </script>
