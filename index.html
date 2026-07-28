@@ -24,6 +24,8 @@
   <div class="section">
     <h2>视频列表</h2>
     <button onclick="openAddModal()">批量添加 BV</button>
+    <button onclick="pushSelected()">手动推送选中视频</button>
+    <button onclick="pushAll()">一键推送全部视频</button>
     <button onclick="deleteSelected()">删除选中</button>
     <button onclick="openEditModal()">编辑选中</button>
     <button onclick="loadVideos()">刷新列表</button>
@@ -55,7 +57,7 @@
   <div id="addModal" class="modal">
     <div class="modal-content">
       <h3>添加 BV</h3>
-      <p>多个 BV 用英文逗号分隔，CID 和标题会自动获取（请稍后刷新）</p>
+      <p>多个 BV 用英文逗号分隔，CID 和标题会自动获取</p>
       <div class="form-row"><label>BV号:</label><input id="bvInput" placeholder="BVxxx, BVyyy"></div>
       <div class="form-row"><label>开始时间:</label><input id="startTime" placeholder="2025.07.20 12:31 或 12:31"></div>
       <div class="form-row"><label>已监控小时:</label><input id="monitoredHours" type="number" value="0"></div>
@@ -91,15 +93,16 @@
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-    // ========== 请修改为自己的 Supabase 信息 ==========
-    const SUPABASE_URL = 'https://erzjcvsbrkmukswkqfss.supabase.co';   // 改成你的
-    const SUPABASE_KEY = 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g';               // 改成你的
-    // ================================================
+    // ⚠️ 请替换为你的 Supabase 信息
+    const SUPABASE_URL = 'https://你的项目ID.supabase.co';
+    const SUPABASE_KEY = '你的Publishable key';
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // 将函数暴露到全局作用域
+    // 暴露到全局作用域
     window.loadVideos = loadVideos;
     window.addVideos = addVideos;
+    window.pushSelected = pushSelected;
+    window.pushAll = pushAll;
     window.deleteSelected = deleteSelected;
     window.openEditModal = openEditModal;
     window.saveEdit = saveEdit;
@@ -150,13 +153,37 @@
         alert_only: alertOnly
       }));
 
-      const { error } = await supabase.from('videos').insert(entries);
-      if (error) alert('添加失败：' + error.message);
-      else {
-        alert('添加成功！系统将在1分钟内自动获取CID和标题，请稍后刷新。');
-        closeModal('addModal');
-        loadVideos();
+      const { data: newVideos, error } = await supabase.from('videos').insert(entries).select();
+      if (error) { alert('添加失败：' + error.message); return; }
+
+      // 插入 new_video 事件，让脚本立即补全CID并尝试推送
+      if (newVideos) {
+        const events = newVideos.map(v => ({ action: 'new_video', video_id: v.id }));
+        await supabase.from('push_requests').insert(events);
       }
+      alert('添加成功！后台正在获取视频信息，稍后将自动推送。');
+      closeModal('addModal');
+      loadVideos();
+    }
+
+    // ========== 手动推送选中 ==========
+    async function pushSelected() {
+      const ids = getSelectedIds();
+      if (!ids.length) return alert('请勾选视频');
+      const events = ids.map(video_id => ({ action: 'push', video_id }));
+      const { error } = await supabase.from('push_requests').insert(events);
+      if (error) alert('推送请求提交失败：' + error.message);
+      else alert('推送请求已发送，后台将在10秒内执行推送');
+    }
+
+    // ========== 一键推送全部 ==========
+    async function pushAll() {
+      const { data: videos } = await supabase.from('videos').select('id').neq('alert_only', true);
+      if (!videos || videos.length === 0) return alert('没有可推送的视频');
+      const events = videos.map(v => ({ action: 'push', video_id: v.id }));
+      const { error } = await supabase.from('push_requests').insert(events);
+      if (error) alert('推送请求提交失败：' + error.message);
+      else alert(`已提交 ${videos.length} 个视频的推送请求`);
     }
 
     // ========== 编辑 ==========
@@ -251,17 +278,14 @@
       alert('粉丝监控设置已保存');
     }
 
-    // 立即推送：在 fans_monitor 中设置一个 push_trigger 字段为 true，后台脚本检测到后执行推送
     async function triggerFansPush() {
       await saveFansSettings();
-      // 添加一个临时标记
-      const { data: existing } = await supabase.from('fans_monitor').select('id').limit(1);
-      if (existing && existing.length > 0) {
-        await supabase.from('fans_monitor').update({ push_trigger: true }).eq('id', existing[0].id);
-        document.getElementById('fansPushMsg').innerText = '推送请求已发送，后台脚本稍后执行（约1分钟内）';
+      // 插入 fans_push 事件，让脚本立即执行粉丝推送
+      const { error } = await supabase.from('push_requests').insert([{ action: 'fans_push', video_id: 0 }]);
+      if (error) alert('请求失败：' + error.message);
+      else {
+        document.getElementById('fansPushMsg').innerText = '推送请求已发送，后台将在10秒内处理';
         setTimeout(() => { document.getElementById('fansPushMsg').innerText = ''; }, 5000);
-      } else {
-        alert('请先保存设置');
       }
     }
 
