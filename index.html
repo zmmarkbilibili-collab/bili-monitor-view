@@ -184,7 +184,7 @@
       try {
         const events = ids.map(video_id => ({ action: 'push', video_id }));
         const { error } = await supabase.from('push_requests').insert(events);
-        if (error) alert('推送请求提交失败');
+        if (error) alert('推送请求提交失败：' + error.message);
         else alert('推送请求已发送，10秒内将更新播放量并推送');
       } finally {
         window.isPushing = false;
@@ -225,11 +225,11 @@
       editingId = ids[0];
       const { data } = await supabase.from('videos').select('*').eq('id', editingId).single();
       if (!data) return;
-      // 填充编辑框（省略详细，同之前）
+      // 填充编辑框（省略详细）
       document.getElementById('editModal').style.display = 'block';
     }
 
-    async function saveEdit() { /* 保留原逻辑 */ }
+    async function saveEdit() { /* 保留 */ }
 
     async function viewHistory() {
       const ids = getSelectedIds();
@@ -287,13 +287,13 @@
       if (!ids.length) return alert('请勾选视频');
       const events = ids.map(video_id => ({ action: 'push', video_id }));
       const { error } = await supabase.from('push_requests').insert(events);
-      if (error) alert('推送请求提交失败');
+      if (error) alert('推送请求提交失败：' + error.message);
       else alert('推送请求已发送，10秒内将更新播放量并推送');
     }
 
     async function refreshGqtStatus() {
       const { error } = await supabase.from('push_requests').insert([{ action: 'gqt_refresh', video_id: 0 }]);
-      if (error) alert('刷新请求失败');
+      if (error) alert('刷新请求失败：' + error.message);
       else {
         alert('刷新请求已发送，稍后将更新播放量');
         setTimeout(loadGqtVideos, 5000);
