@@ -14,7 +14,7 @@
     label { display: inline-block; width: 130px; }
     input, select { width: 220px; padding: 5px; }
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-    .modal-content { background: white; margin: 5% auto; padding: 20px; width: 500px; border-radius: 5px; }
+    .modal-content { background: white; margin: 5% auto; padding: 20px; width: 600px; border-radius: 5px; max-height: 80vh; overflow-y: auto; }
     .section { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; }
   </style>
 </head>
@@ -24,10 +24,11 @@
   <div class="section">
     <h2>视频列表</h2>
     <button onclick="openAddModal()">批量添加 BV</button>
-    <button onclick="pushSelected()">手动推送选中视频</button>
-    <button onclick="pushAll()">一键推送全部视频</button>
+    <button onclick="pushSelected()" id="btnPushSelected">手动推送选中视频</button>
+    <button onclick="pushAll()" id="btnPushAll">一键推送全部视频</button>
     <button onclick="deleteSelected()">删除选中</button>
     <button onclick="openEditModal()">编辑选中</button>
+    <button onclick="viewHistory()">查看历史</button>
     <button onclick="loadVideos()">刷新列表</button>
     <table>
       <thead>
@@ -90,12 +91,21 @@
     </div>
   </div>
 
+  <!-- 历史数据弹窗 -->
+  <div id="historyModal" class="modal">
+    <div class="modal-content">
+      <h3>视频历史数据</h3>
+      <div id="historyContent">加载中...</div>
+      <button onclick="closeModal('historyModal')">关闭</button>
+    </div>
+  </div>
+
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
     // ⚠️ 请替换为你的 Supabase 信息
-    const SUPABASE_URL = 'https://erzjcvsbrkmukswkqfss.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g';
+    const SUPABASE_URL = 'https://你的项目ID.supabase.co';
+    const SUPABASE_KEY = '你的Publishable key';
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // 暴露到全局作用域
@@ -108,9 +118,13 @@
     window.saveEdit = saveEdit;
     window.saveFansSettings = saveFansSettings;
     window.triggerFansPush = triggerFansPush;
+    window.viewHistory = viewHistory;
     window.openAddModal = openAddModal;
     window.closeModal = closeModal;
     window.toggleAll = toggleAll;
+
+    // 简单的防重复点击锁
+    let isPushing = false;
 
     // ========== 视频列表 ==========
     async function loadVideos() {
@@ -156,7 +170,6 @@
       const { data: newVideos, error } = await supabase.from('videos').insert(entries).select();
       if (error) { alert('添加失败：' + error.message); return; }
 
-      // 插入 new_video 事件，让脚本立即补全CID并尝试推送
       if (newVideos) {
         const events = newVideos.map(v => ({ action: 'new_video', video_id: v.id }));
         await supabase.from('push_requests').insert(events);
@@ -166,24 +179,40 @@
       loadVideos();
     }
 
-    // ========== 手动推送选中 ==========
+    // ========== 手动推送选中（加防重复点击） ==========
     async function pushSelected() {
+      if (isPushing) return;
       const ids = getSelectedIds();
       if (!ids.length) return alert('请勾选视频');
-      const events = ids.map(video_id => ({ action: 'push', video_id }));
-      const { error } = await supabase.from('push_requests').insert(events);
-      if (error) alert('推送请求提交失败：' + error.message);
-      else alert('推送请求已发送，后台将在10秒内执行推送');
+      isPushing = true;
+      document.getElementById('btnPushSelected').disabled = true;
+      try {
+        const events = ids.map(video_id => ({ action: 'push', video_id }));
+        const { error } = await supabase.from('push_requests').insert(events);
+        if (error) alert('推送请求提交失败：' + error.message);
+        else alert('推送请求已发送，后台将在10秒内执行推送');
+      } finally {
+        isPushing = false;
+        document.getElementById('btnPushSelected').disabled = false;
+      }
     }
 
-    // ========== 一键推送全部 ==========
+    // ========== 一键推送全部（加防重复点击） ==========
     async function pushAll() {
+      if (isPushing) return;
       const { data: videos } = await supabase.from('videos').select('id').neq('alert_only', true);
       if (!videos || videos.length === 0) return alert('没有可推送的视频');
-      const events = videos.map(v => ({ action: 'push', video_id: v.id }));
-      const { error } = await supabase.from('push_requests').insert(events);
-      if (error) alert('推送请求提交失败：' + error.message);
-      else alert(`已提交 ${videos.length} 个视频的推送请求`);
+      isPushing = true;
+      document.getElementById('btnPushAll').disabled = true;
+      try {
+        const events = videos.map(v => ({ action: 'push', video_id: v.id }));
+        const { error } = await supabase.from('push_requests').insert(events);
+        if (error) alert('推送请求提交失败：' + error.message);
+        else alert(`已提交 ${videos.length} 个视频的推送请求`);
+      } finally {
+        isPushing = false;
+        document.getElementById('btnPushAll').disabled = false;
+      }
     }
 
     // ========== 编辑 ==========
@@ -246,6 +275,49 @@
       else loadVideos();
     }
 
+    // ========== 查看历史 ==========
+    async function viewHistory() {
+      const ids = getSelectedIds();
+      if (ids.length !== 1) return alert('请选择一个视频查看历史');
+      const videoId = ids[0];
+      const modal = document.getElementById('historyModal');
+      const contentDiv = document.getElementById('historyContent');
+      modal.style.display = 'block';
+      contentDiv.innerHTML = '加载中...';
+      
+      const { data, error } = await supabase
+        .from('history')
+        .select('*')
+        .eq('video_id', videoId)
+        .order('hour', { ascending: false });
+      
+      if (error) {
+        contentDiv.innerHTML = `<p style="color:red">加载失败：${error.message}</p>`;
+        return;
+      }
+      if (!data || data.length === 0) {
+        contentDiv.innerHTML = '<p>该视频暂无历史记录</p>';
+        return;
+      }
+      
+      // 获取视频标题
+      const { data: videoData } = await supabase.from('videos').select('title').eq('id', videoId).single();
+      const title = videoData?.title || '未知视频';
+      
+      let tableHtml = `<h4>${title} 历史播放数据</h4>`;
+      tableHtml += `<table><thead><tr><th>小时</th><th>播放量</th><th>在线人数</th><th>记录时间</th></tr></thead><tbody>`;
+      data.forEach(r => {
+        tableHtml += `<tr>
+          <td>${r.hour ?? ''}</td>
+          <td>${r.view ?? ''}</td>
+          <td>${r.online_total ?? ''}</td>
+          <td>${new Date(r.recorded_at).toLocaleString()}</td>
+        </tr>`;
+      });
+      tableHtml += '</tbody></table>';
+      contentDiv.innerHTML = tableHtml;
+    }
+
     // ========== 粉丝监控 ==========
     async function loadFansSettings() {
       const { data } = await supabase.from('fans_monitor').select('*').limit(1);
@@ -280,7 +352,6 @@
 
     async function triggerFansPush() {
       await saveFansSettings();
-      // 插入 fans_push 事件，让脚本立即执行粉丝推送
       const { error } = await supabase.from('push_requests').insert([{ action: 'fans_push', video_id: 0 }]);
       if (error) alert('请求失败：' + error.message);
       else {
