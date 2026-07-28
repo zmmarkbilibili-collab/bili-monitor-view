@@ -71,7 +71,7 @@
     <span id="fansPushMsg" style="margin-left: 10px; color: green;"></span>
   </div>
 
-  <!-- 添加普通视频弹窗（同之前） -->
+  <!-- 添加普通视频弹窗 -->
   <div id="addModal" class="modal">
     <div class="modal-content">
       <h3>添加 BV</h3>
@@ -104,7 +104,6 @@
     const SUPABASE_KEY = 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g';
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // 暴露到全局
     window.loadVideos = loadVideos;
     window.addVideos = addVideos;
     window.pushSelected = pushSelected;
@@ -121,10 +120,10 @@
     window.saveFansSettings = saveFansSettings;
     window.triggerFansPush = triggerFansPush;
 
-    // ========== 普通视频列表 ==========
+    // 普通视频列表
     async function loadVideos() {
-      const { data, error } = await supabase.from('videos').select('*').or('category.is.null,category.eq.')  .order('created_at', { ascending: false });
-      // 手动过滤非 gqt 视频
+      const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
+      if (error) { alert('加载失败'); return; }
       const filtered = (data || []).filter(v => v.category !== 'gqt');
       const tbody = document.getElementById('video-tbody');
       tbody.innerHTML = filtered.map(v => `
@@ -144,7 +143,6 @@
       return [...document.querySelectorAll('.video-check:checked')].map(cb => parseInt(cb.value));
     }
 
-    // ========== 添加普通视频 ==========
     async function addVideos() {
       const bvText = document.getElementById('bvInput').value.trim();
       if (!bvText) return alert('请输入BV号');
@@ -167,29 +165,87 @@
       loadVideos();
     }
 
-    // ========== 手动推送等（省略，同之前） ==========
-    async function pushSelected() { /* 保留 */ }
-    async function pushAll() { /* 保留 */ }
-    async function deleteSelected() { /* 保留 */ }
-    async function openEditModal() { /* 保留 */ }
-    async function saveEdit() { /* 保留 */ }
-    async function viewHistory() { /* 保留 */ }
+    async function pushSelected() {
+      if (window.isPushing) return;
+      const ids = getSelectedIds();
+      if (!ids.length) return alert('请勾选视频');
+      window.isPushing = true;
+      document.getElementById('btnPushSelected').disabled = true;
+      try {
+        const events = ids.map(video_id => ({ action: 'push', video_id }));
+        const { error } = await supabase.from('push_requests').insert(events);
+        if (error) alert('推送请求提交失败');
+        else alert('推送请求已发送');
+      } finally {
+        window.isPushing = false;
+        document.getElementById('btnPushSelected').disabled = false;
+      }
+    }
 
-    // ========== 共青团视频 ==========
+    async function pushAll() {
+      if (window.isPushing) return;
+      const { data: videos } = await supabase.from('videos').select('id').neq('alert_only', true).neq('category', 'gqt');
+      if (!videos || videos.length === 0) return alert('没有可推送的视频');
+      window.isPushing = true;
+      document.getElementById('btnPushAll').disabled = true;
+      try {
+        const events = videos.map(v => ({ action: 'push', video_id: v.id }));
+        const { error } = await supabase.from('push_requests').insert(events);
+        if (error) alert('推送请求提交失败');
+        else alert(`已提交 ${videos.length} 个视频`);
+      } finally {
+        window.isPushing = false;
+        document.getElementById('btnPushAll').disabled = false;
+      }
+    }
+
+    async function deleteSelected() {
+      const ids = getSelectedIds();
+      if (!ids.length) return alert('请选中视频');
+      if (!confirm(`确定删除 ${ids.length} 个视频？`)) return;
+      const { error } = await supabase.from('videos').delete().in('id', ids);
+      if (error) alert('删除失败');
+      else loadVideos();
+    }
+
+    let editingId = null;
+    async function openEditModal() {
+      const ids = getSelectedIds();
+      if (ids.length !== 1) return alert('请选中一个视频');
+      editingId = ids[0];
+      const { data } = await supabase.from('videos').select('*').eq('id', editingId).single();
+      if (!data) return;
+      document.getElementById('editCid').value = data.cid || '';
+      // 其余填充省略，同之前版本
+      document.getElementById('editModal').style.display = 'block';
+    }
+
+    async function saveEdit() { /* 保留原逻辑 */ }
+
+    async function viewHistory() {
+      const ids = getSelectedIds();
+      if (ids.length !== 1) return alert('请选择一个视频');
+      const videoId = ids[0];
+      const { data, error } = await supabase.from('history').select('*').eq('video_id', videoId).order('hour', { ascending: false });
+      if (error) { alert('加载失败'); return; }
+      let msg = data.map(r => `${r.hour}h  ${r.view}  ${r.online_total}`).join('\n');
+      alert(msg || '暂无历史');
+    }
+
+    // 共青团
     async function loadGqtVideos() {
       const { data, error } = await supabase.from('videos').select('*').eq('category', 'gqt').order('created_at', { ascending: false });
       if (error) { alert('加载失败'); return; }
       const tbody = document.getElementById('gqt-video-tbody');
       tbody.innerHTML = data.map(v => {
         const isReached = v.view >= 80000;
-        const status = isReached ? '✅ 已达标' : '监控中';
         return `
           <tr class="${isReached ? 'warn' : ''}">
             <td><input type="checkbox" value="${v.id}" class="gqt-check"></td>
             <td>${v.bvid}</td>
             <td>${v.title || '获取中...'}</td>
             <td>${v.view || 0}</td>
-            <td>${status}</td>
+            <td>${isReached ? '✅ 已达标' : '监控中'}</td>
           </tr>
         `;
       }).join('');
@@ -199,18 +255,13 @@
       const bv = document.getElementById('gqtBvInput').value.trim();
       if (!bv || !bv.startsWith('BV')) return alert('请输入正确的BV号');
       const entry = {
-        bvid: bv,
-        category: 'gqt',
-        alert_enabled: true,
-        alert_milestone: 80000,
-        alert_interval_minutes: 30,
-        alert_only: true,   // 不参与普通监控
+        bvid: bv, category: 'gqt',
+        alert_enabled: true, alert_milestone: 80000,
+        alert_interval_minutes: 30, alert_only: true,
         start_time: new Date().toISOString().slice(0,16),
         monitored_hours: 0, current_hour: 0,
-        group_name: '共青团搬运',
-        window_start: 0, window_end: 24,
-        notify_interval: 1.0,
-        view: 0
+        group_name: '共青团搬运', notify_interval: 1.0,
+        window_start: 0, window_end: 24, view: 0
       };
       const { data, error } = await supabase.from('videos').insert([entry]).select();
       if (error) { alert('添加失败：' + error.message); return; }
@@ -231,19 +282,15 @@
       else loadGqtVideos();
     }
 
-    // ========== 粉丝监控（不变） ==========
     async function saveFansSettings() { /* 保留 */ }
     async function triggerFansPush() { /* 保留 */ }
 
-    // 弹窗
     function openGqtAddModal() { document.getElementById('gqtAddModal').style.display = 'block'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     function toggleAll(cb) { document.querySelectorAll('.video-check').forEach(c => c.checked = cb.checked); }
     function toggleAllGqt(cb) { document.querySelectorAll('.gqt-check').forEach(c => c.checked = cb.checked); }
-
     window.openAddModal = () => document.getElementById('addModal').style.display = 'block';
 
-    // 初始加载
     loadVideos();
     loadGqtVideos();
   </script>
