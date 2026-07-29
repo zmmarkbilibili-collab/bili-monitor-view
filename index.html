@@ -4,19 +4,26 @@
   <meta charset="UTF-8">
   <title>B站监控管理面板</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; background: white; }
     th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
     th { background: #4CAF50; color: white; }
-    tr:nth-child(even) { background: #f2f2f2; }
+    tr:nth-child(even) { background: #f9f9f9; }
     .warn { background-color: #ffe0e0; font-weight: bold; }
-    button { margin: 2px; padding: 5px 10px; cursor: pointer; }
+    .done { background-color: #e0ffe0; }
+    button { margin: 2px; padding: 6px 14px; cursor: pointer; border: none; border-radius: 4px; background: #4CAF50; color: white; font-size: 13px; }
+    button:hover { background: #45a049; }
+    button.danger { background: #f44336; }
+    button.danger:hover { background: #d32f2f; }
+    button.secondary { background: #2196F3; }
+    button.secondary:hover { background: #1976D2; }
     .form-row { margin-bottom: 10px; }
     label { display: inline-block; width: 130px; }
-    input, select { width: 220px; padding: 5px; }
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-    .modal-content { background: white; margin: 5% auto; padding: 20px; width: 600px; border-radius: 5px; max-height: 80vh; overflow-y: auto; }
-    .section { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; }
+    input, select { width: 220px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; }
+    .modal-content { background: white; margin: 5% auto; padding: 20px; width: 600px; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
+    .section { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; background: white; border-radius: 8px; }
+    .section h2 { margin-top: 0; }
     #progress-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 1000; text-align: center; padding-top: 100px; }
     .progress-container { width: 50%; margin: auto; }
     .progress-bar { width: 100%; background: #f0f0f0; border-radius: 8px; overflow: hidden; }
@@ -24,6 +31,8 @@
     .step-text { margin: 15px 0; font-size: 18px; }
     .sub-step { font-size: 14px; color: #666; margin: 5px 0; }
     .auto-refresh-hint { color: gray; font-size: 0.9em; margin-left: 10px; }
+    .fans-display { background: #e8f5e9; padding: 10px; border-radius: 4px; margin-top: 10px; }
+    .fans-display table { margin-bottom: 0; }
   </style>
 </head>
 <body>
@@ -32,9 +41,9 @@
   <div class="section">
     <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每10分钟自动刷新)</span></h2>
     <button onclick="openAddModal()">批量添加 BV</button>
-    <button onclick="pushSelected()" id="btnPushSelected">手动推送选中视频</button>
-    <button onclick="pushAll()" id="btnPushAll">一键推送全部视频</button>
-    <button onclick="deleteSelected()">删除选中</button>
+    <button onclick="pushSelected()" class="secondary">手动推送选中视频</button>
+    <button onclick="pushAll()" class="secondary">一键推送全部视频</button>
+    <button onclick="deleteSelected()" class="danger">删除选中</button>
     <button onclick="openEditModal()">编辑选中</button>
     <button onclick="viewHistory()">查看历史</button>
     <button onclick="loadVideos()">手动刷新列表</button>
@@ -42,7 +51,7 @@
       <thead>
         <tr>
           <th><input type="checkbox" id="selectAll" onchange="toggleAll(this)"></th>
-          <th>BV号</th><th>标题</th><th>UP主</th><th>分组</th><th>当前小时</th><th>预警</th>
+          <th>BV号</th><th>标题</th><th>UP主</th><th>分组</th><th>已推送小时</th><th>预警</th>
         </tr>
       </thead>
       <tbody id="video-tbody"></tbody>
@@ -52,9 +61,9 @@
   <div class="section">
     <h2>🚩 共青团搬运监控（达标 80000 自动推送） <span class="auto-refresh-hint">(每10分钟自动刷新)</span></h2>
     <button onclick="openGqtAddModal()">添加共青团视频</button>
-    <button onclick="pushGqtSelected()">手动推送选中视频</button>
-    <button onclick="refreshGqtStatus()">手动刷新状态</button>
-    <button onclick="deleteGqtSelected()">删除选中</button>
+    <button onclick="pushGqtSelected()" class="secondary">手动推送选中视频</button>
+    <button onclick="refreshGqtStatus()" class="secondary">手动刷新状态</button>
+    <button onclick="deleteGqtSelected()" class="danger">删除选中</button>
     <table>
       <thead>
         <tr>
@@ -67,15 +76,24 @@
   </div>
 
   <div class="section">
-    <h2>粉丝监控设置</h2>
+    <h2>📊 粉丝监控设置</h2>
     <div class="form-row"><label>新闻UID:</label><input id="newsUid" value="456664753"></div>
     <div class="form-row"><label>军事UID:</label><input id="militaryUid" value="46470268"></div>
-    <div class="form-row"><label>周一基准新闻:</label><input id="mondayNews" type="number"></div>
-    <div class="form-row"><label>周一基准军事:</label><input id="mondayMilitary" type="number"></div>
+    <div class="form-row"><label>周一基准新闻:</label><input id="mondayNews" type="number" placeholder="自动记录，可手动覆盖"></div>
+    <div class="form-row"><label>周一基准军事:</label><input id="mondayMilitary" type="number" placeholder="自动记录，可手动覆盖"></div>
     <div class="form-row"><label>Webhook URL:</label><input id="webhookUrl" placeholder="留空使用默认"></div>
     <div class="form-row"><label>启用监控:</label><input type="checkbox" id="fansEnabled"></div>
     <button onclick="saveFansSettings()">保存设置</button>
-    <button onclick="triggerFansPush()">立即推送粉丝数据</button>
+    <button onclick="triggerFansPush()" class="secondary">立即推送粉丝数据</button>
+    <div id="fans-display" class="fans-display" style="display:none;">
+      <h3>最近一次粉丝数据</h3>
+      <table>
+        <tr><th>项目</th><th>央视新闻</th><th>央视军事</th><th>差值</th></tr>
+        <tr><td>实时粉丝</td><td id="fd-news">-</td><td id="fd-military">-</td><td id="fd-diff">-</td></tr>
+        <tr><td>日维度涨粉</td><td id="fd-dnews">-</td><td id="fd-dmil">-</td><td id="fd-ddiff">-</td></tr>
+        <tr><td>周维度涨粉</td><td id="fd-wnews">-</td><td id="fd-wmil">-</td><td id="fd-wdiff">-</td></tr>
+      </table>
+    </div>
   </div>
 
   <!-- 进度条覆盖层 -->
@@ -101,7 +119,7 @@
       <div class="form-row"><label>组名:</label><input id="groupName" placeholder="留空自动生成"></div>
       <div class="form-row"><label>仅预警:</label><input type="checkbox" id="alertOnlyAdd"></div>
       <button onclick="addVideos()">提交</button>
-      <button onclick="closeModal('addModal')">取消</button>
+      <button onclick="closeModal('addModal')" class="danger">取消</button>
     </div>
   </div>
 
@@ -111,7 +129,7 @@
       <h3>编辑视频</h3>
       <div class="form-row"><label>CID:</label><input id="editCid"></div>
       <div class="form-row"><label>开始时间:</label><input id="editStartTime"></div>
-      <div class="form-row"><label>当前小时:</label><input id="editCurrentHour" type="number"></div>
+      <div class="form-row"><label>已推送小时:</label><input id="editCurrentHour" type="number"></div>
       <div class="form-row"><label>总监控时长:</label><input id="editMonitorHours" type="number"></div>
       <div class="form-row"><label>推送频率(小时):</label><input id="editNotifyInterval" type="number" step="0.5"></div>
       <div class="form-row"><label>组名:</label><input id="editGroupName"></div>
@@ -123,7 +141,7 @@
       <div class="form-row"><label>检查间隔(分):</label><input id="editInterval" type="number"></div>
       <div class="form-row"><label>仅预警:</label><input type="checkbox" id="editAlertOnly"></div>
       <button onclick="saveEdit()">保存</button>
-      <button onclick="closeModal('editModal')">取消</button>
+      <button onclick="closeModal('editModal')" class="danger">取消</button>
     </div>
   </div>
 
@@ -134,7 +152,7 @@
       <p>自动设置预警阈值为 80000，每 30 分钟检查一次</p>
       <div class="form-row"><label>BV号:</label><input id="gqtBvInput" placeholder="BVxxx"></div>
       <button onclick="addGqtVideo()">提交</button>
-      <button onclick="closeModal('gqtAddModal')">取消</button>
+      <button onclick="closeModal('gqtAddModal')" class="danger">取消</button>
     </div>
   </div>
 
@@ -145,7 +163,22 @@
     const SUPABASE_KEY = 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g';
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // 进度条逻辑
+    // ========== 工具函数 ==========
+    // 生成 "YYYY-MM-DD HH:MM" 格式的时间字符串（不含T和时区）
+    function formatLocalDateTime(date) {
+      const d = date || new Date();
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    // 格式化播放量
+    function formatView(n) {
+      if (!n) return '0';
+      if (n >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, '') + 'w';
+      return n.toString();
+    }
+
+    // ========== 进度条逻辑 ==========
     let pollingTimer = null;
     function showProgress(title) {
       document.getElementById('progress-overlay').style.display = 'block';
@@ -169,8 +202,8 @@
       'processing': { percent: 15, main: '后台已收到请求，开始处理...', sub: '正在读取视频信息' },
       'fetching_cid': { percent: 35, main: '正在获取视频 CID...', sub: '通过B站API获取视频标识符' },
       'pushing': { percent: 65, main: '正在获取最新播放量并推送...', sub: '查询B站接口，发送企业微信消息' },
-      'done': { percent: 100, main: '✅ 推送完成！', sub: '消息已成功发送至企业微信' },
-      'error': { percent: 0, main: '❌ 推送失败', sub: '请查看日志或检查视频信息' }
+      'done': { percent: 100, main: '✅ 操作完成！', sub: '' },
+      'error': { percent: 0, main: '❌ 操作失败', sub: '请查看日志或检查视频信息' }
     };
     async function pollPushStatus(requestId) {
       let attempts = 0;
@@ -179,7 +212,7 @@
       pollingTimer = setInterval(async () => {
         attempts++;
         if (attempts >= maxAttempts) {
-          updateProgress(0, '⏰ 推送超时，请稍后重试', '后台可能未响应');
+          updateProgress(0, '⏰ 操作超时，请稍后重试', '后台可能未响应');
           clearInterval(pollingTimer);
           setTimeout(hideProgress, 3000);
           return;
@@ -197,7 +230,7 @@
           updateProgress(step.percent, step.main, step.sub);
           if (data.status === 'done' || data.status === 'error') {
             clearInterval(pollingTimer);
-            setTimeout(hideProgress, 2500);
+            setTimeout(() => { hideProgress(); loadVideos(); loadGqtVideos(); }, 2500);
           }
         } catch (e) {
           updateProgress(0, '轮询异常', e.toString());
@@ -207,7 +240,7 @@
       }, 2000);
     }
 
-    // 普通视频列表
+    // ========== 普通视频列表 ==========
     async function loadVideos() {
       try {
         const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
@@ -218,10 +251,10 @@
           <tr>
             <td><input type="checkbox" value="${v.id}" class="video-check"></td>
             <td>${v.bvid}</td>
-            <td>${v.title || '获取中...'}</td>
+            <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
             <td>${v.up_name || ''}</td>
             <td>${v.group_name || ''}</td>
-            <td>${v.current_hour ?? 0}</td>
+            <td>${v.current_hour ?? 0}h</td>
             <td>${v.alert_enabled ? '是' : '否'}</td>
           </tr>
         `).join('');
@@ -233,16 +266,21 @@
 
     async function addVideos() {
       const bvText = document.getElementById('bvInput').value.trim();
-      const startTime = document.getElementById('startTime').value.trim();
+      let startTime = document.getElementById('startTime').value.trim();
       const monitoredHours = parseInt(document.getElementById('monitoredHours').value) || 0;
-      const groupName = document.getElementById('groupName').value.trim() || `web_${new Date().toISOString().slice(0,10)}`;
+      const groupName = document.getElementById('groupName').value.trim() || `web_${formatLocalDateTime().slice(0,10)}`;
       const alertOnly = document.getElementById('alertOnlyAdd').checked;
       if (!bvText) return alert('请输入BV号');
-      const bvs = bvText.split(',').map(b => b.trim()).filter(b => b.startsWith('BV'));
 
+      // 修复：确保时间格式为 "YYYY-MM-DD HH:MM"（空格分隔，不是T）
+      if (!startTime) {
+        startTime = formatLocalDateTime();
+      }
+
+      const bvs = bvText.split(',').map(b => b.trim()).filter(b => b.startsWith('BV'));
       const entries = bvs.map(bv => ({
         bvid: bv,
-        start_time: startTime || new Date().toISOString().slice(0,16),
+        start_time: startTime,
         monitored_hours: monitoredHours,
         current_hour: monitoredHours,
         group_name: groupName,
@@ -253,9 +291,10 @@
       const { data: newVideos, error } = await supabase.from('videos').insert(entries).select();
       if (error) { alert('添加失败：' + error.message); return; }
       if (newVideos) {
+        // 插入 new_video 请求，后台补全 CID 和元数据（不推送，首次推送在 start_time+1h）
         await supabase.from('push_requests').insert(newVideos.map(v => ({ action: 'new_video', video_id: v.id, status: 'pending' })));
       }
-      alert('添加成功！后台正在获取视频信息');
+      alert('添加成功！后台正在获取视频信息，首次推送将在开始时间+1小时后自动执行');
       closeModal('addModal');
       loadVideos();
     }
@@ -265,7 +304,6 @@
       const ids = getSelectedIds();
       if (!ids.length) return alert('请勾选视频');
       window.isPushing = true;
-      document.getElementById('btnPushSelected').disabled = true;
       try {
         const events = ids.map(video_id => ({ action: 'push', video_id, status: 'pending' }));
         const { data, error } = await supabase.from('push_requests').insert(events).select();
@@ -276,7 +314,6 @@
         } else alert('请求已提交，但未获取到ID');
       } finally {
         window.isPushing = false;
-        document.getElementById('btnPushSelected').disabled = false;
       }
     }
 
@@ -285,7 +322,6 @@
       const { data: videos } = await supabase.from('videos').select('id').neq('alert_only', true).neq('category', 'gqt');
       if (!videos || videos.length === 0) return alert('没有可推送的视频');
       window.isPushing = true;
-      document.getElementById('btnPushAll').disabled = true;
       try {
         const events = videos.map(v => ({ action: 'push', video_id: v.id, status: 'pending' }));
         const { error } = await supabase.from('push_requests').insert(events);
@@ -293,7 +329,6 @@
         else alert(`已提交 ${videos.length} 个视频，后台将逐个推送`);
       } finally {
         window.isPushing = false;
-        document.getElementById('btnPushAll').disabled = false;
       }
     }
 
@@ -358,45 +393,54 @@
       const ids = getSelectedIds();
       if (ids.length !== 1) return alert('请选择一个视频');
       const videoId = ids[0];
-      const { data, error } = await supabase.from('history').select('*').eq('video_id', videoId).order('hour', { ascending: false });
+      const { data, error } = await supabase.from('history').select('*').eq('video_id', videoId).order('hour', { ascending: true });
       if (error) { alert('加载失败'); return; }
-      let msg = data.map(r => `${r.hour}h  ${r.view}  ${r.online_total}`).join('\n');
-      alert(msg || '暂无历史');
+      if (!data || data.length === 0) { alert('暂无历史'); return; }
+      let msg = data.map(r => `${r.hour}h  播放:${r.view}  在看:${r.online_total}`).join('\n');
+      alert(msg);
     }
 
-    // 共青团板块
+    // ========== 共青团板块 ==========
     async function loadGqtVideos() {
       try {
         const { data, error } = await supabase.from('videos').select('*').eq('category', 'gqt').order('created_at', { ascending: false });
         if (error) { console.error(error); return; }
         const tbody = document.getElementById('gqt-video-tbody');
-        tbody.innerHTML = data.map(v => {
+        tbody.innerHTML = (data || []).map(v => {
           const isReached = v.view >= 80000;
+          const isAlertDisabled = !v.alert_enabled;
+          let statusText = '监控中';
+          let rowClass = '';
+          if (isReached && isAlertDisabled) {
+            statusText = '✅ 已达标';
+            rowClass = 'done';
+          } else if (isReached) {
+            statusText = '🔔 达标推送中';
+            rowClass = 'warn';
+          }
           return `
-            <tr class="${isReached ? 'warn' : ''}">
+            <tr class="${rowClass}">
               <td><input type="checkbox" value="${v.id}" class="gqt-check"></td>
               <td>${v.bvid}</td>
-              <td>${v.title || '获取中...'}</td>
+              <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
               <td>${formatView(v.view)}</td>
-              <td>${isReached ? '✅ 已达标' : '监控中'}</td>
+              <td>${statusText}</td>
             </tr>
           `;
         }).join('');
       } catch(e) { console.error(e); }
     }
-    function formatView(n) {
-        if (!n) return '0';
-        if (n >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, '') + 'w';
-        return n.toString();
-    }
+
     async function addGqtVideo() {
       const bv = document.getElementById('gqtBvInput').value.trim();
       if (!bv || !bv.startsWith('BV')) return alert('请输入正确的BV号');
+      // 修复：使用正确的时间格式
+      const nowStr = formatLocalDateTime();
       const entry = {
         bvid: bv, category: 'gqt',
         alert_enabled: true, alert_milestone: 80000,
         alert_interval_minutes: 30, alert_only: true,
-        start_time: new Date().toISOString().slice(0,16),
+        start_time: nowStr,
         monitored_hours: 0, current_hour: 0,
         group_name: '共青团搬运', notify_interval: 1.0,
         window_start: 0, window_end: 24, view: 0
@@ -410,6 +454,7 @@
       closeModal('gqtAddModal');
       loadGqtVideos();
     }
+
     async function pushGqtSelected() {
       const ids = [...document.querySelectorAll('.gqt-check:checked')].map(cb => parseInt(cb.value));
       if (!ids.length) return alert('请勾选视频');
@@ -421,14 +466,16 @@
         pollPushStatus(data[0].id);
       }
     }
+
     async function refreshGqtStatus() {
-      const { error } = await supabase.from('push_requests').insert([{ action: 'gqt_refresh', video_id: 0 }]);
+      const { error } = await supabase.from('push_requests').insert([{ action: 'gqt_refresh', video_id: 0, status: 'pending' }]);
       if (error) alert('刷新请求失败：' + error.message);
       else {
         alert('手动刷新已发送，稍后将更新播放量');
         setTimeout(loadGqtVideos, 5000);
       }
     }
+
     async function deleteGqtSelected() {
       const ids = [...document.querySelectorAll('.gqt-check:checked')].map(cb => parseInt(cb.value));
       if (!ids.length) return alert('请勾选视频');
@@ -438,7 +485,39 @@
       else loadGqtVideos();
     }
 
-    // 粉丝监控
+    // ========== 粉丝监控 ==========
+    async function loadFansSettings() {
+      try {
+        const { data, error } = await supabase.from('fans_monitor').select('*').limit(1);
+        if (error) { console.error('加载粉丝设置失败:', error); return; }
+        if (data && data.length > 0) {
+          const fm = data[0];
+          if (fm.cctv_news_uid) document.getElementById('newsUid').value = fm.cctv_news_uid;
+          if (fm.cctv_military_uid) document.getElementById('militaryUid').value = fm.cctv_military_uid;
+          if (fm.monday_base_news) document.getElementById('mondayNews').value = fm.monday_base_news;
+          if (fm.monday_base_military) document.getElementById('mondayMilitary').value = fm.monday_base_military;
+          if (fm.webhook_url) document.getElementById('webhookUrl').value = fm.webhook_url;
+          document.getElementById('fansEnabled').checked = fm.enabled || false;
+
+          // 显示最近粉丝数据（如果有基准数据）
+          if (fm.daily_base_news || fm.monday_base_news) {
+            document.getElementById('fans-display').style.display = 'block';
+            document.getElementById('fd-news').innerText = '-';
+            document.getElementById('fd-military').innerText = '-';
+            // 基准数据展示
+            if (fm.daily_base_news) {
+              document.getElementById('fd-dnews').innerText = `基准: ${fm.daily_base_news}`;
+              document.getElementById('fd-dmil').innerText = `基准: ${fm.daily_base_military || 0}`;
+            }
+            if (fm.monday_base_news) {
+              document.getElementById('fd-wnews').innerText = `基准: ${fm.monday_base_news}`;
+              document.getElementById('fd-wmil').innerText = `基准: ${fm.monday_base_military || 0}`;
+            }
+          }
+        }
+      } catch(e) { console.error('加载粉丝设置异常:', e); }
+    }
+
     async function saveFansSettings() {
       const fm = {
         cctv_news_uid: document.getElementById('newsUid').value,
@@ -456,20 +535,22 @@
       }
       alert('粉丝监控设置已保存');
     }
+
     async function triggerFansPush() {
       await saveFansSettings();
-      const { error } = await supabase.from('push_requests').insert([{ action: 'fans_push', video_id: 0 }]);
+      const { error } = await supabase.from('push_requests').insert([{ action: 'fans_push', video_id: 0, status: 'pending' }]);
       if (error) alert('请求失败');
-      else alert('推送请求已发送');
+      else alert('推送请求已发送，后台将立即执行粉丝数据推送');
     }
 
+    // ========== 弹窗/工具 ==========
     function openAddModal() { document.getElementById('addModal').style.display = 'block'; }
     function openGqtAddModal() { document.getElementById('gqtAddModal').style.display = 'block'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     function toggleAll(cb) { document.querySelectorAll('.video-check').forEach(c => c.checked = cb.checked); }
     function toggleAllGqt(cb) { document.querySelectorAll('.gqt-check').forEach(c => c.checked = cb.checked); }
 
-    // 暴露全局函数
+    // ========== 暴露全局函数 ==========
     window.loadVideos = loadVideos;
     window.addVideos = addVideos;
     window.pushSelected = pushSelected;
@@ -488,12 +569,14 @@
     window.saveFansSettings = saveFansSettings;
     window.triggerFansPush = triggerFansPush;
 
-    // 自动刷新：10分钟（600000毫秒），手动刷新不干扰
+    // ========== 自动刷新：10分钟 ==========
     setInterval(loadVideos, 600000);
     setInterval(loadGqtVideos, 600000);
 
+    // ========== 页面初始化 ==========
     loadVideos();
     loadGqtVideos();
+    loadFansSettings();
   </script>
 </body>
 </html>
