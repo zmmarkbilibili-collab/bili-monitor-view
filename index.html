@@ -29,7 +29,6 @@
 <body>
   <h1>B站视频监控管理</h1>
 
-  <!-- ========== 普通视频监控 ========== -->
   <div class="section">
     <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每10分钟自动刷新)</span></h2>
     <button onclick="openAddModal()">批量添加 BV</button>
@@ -50,7 +49,6 @@
     </table>
   </div>
 
-  <!-- ========== 共青团搬运监控 ========== -->
   <div class="section">
     <h2>🚩 共青团搬运监控（达标 80000 自动推送） <span class="auto-refresh-hint">(每10分钟自动刷新)</span></h2>
     <button onclick="openGqtAddModal()">添加共青团视频</button>
@@ -68,7 +66,6 @@
     </table>
   </div>
 
-  <!-- ========== 粉丝监控设置 ========== -->
   <div class="section">
     <h2>粉丝监控设置</h2>
     <div class="form-row"><label>新闻UID:</label><input id="newsUid" value="456664753"></div>
@@ -93,7 +90,7 @@
     </div>
   </div>
 
-  <!-- ========== 添加普通视频弹窗 ========== -->
+  <!-- 添加普通视频弹窗 -->
   <div id="addModal" class="modal">
     <div class="modal-content">
       <h3>添加 BV</h3>
@@ -108,7 +105,7 @@
     </div>
   </div>
 
-  <!-- ========== 编辑视频弹窗 ========== -->
+  <!-- 编辑视频弹窗 -->
   <div id="editModal" class="modal">
     <div class="modal-content">
       <h3>编辑视频</h3>
@@ -130,7 +127,7 @@
     </div>
   </div>
 
-  <!-- ========== 添加共青团视频弹窗 ========== -->
+  <!-- 添加共青团视频弹窗 -->
   <div id="gqtAddModal" class="modal">
     <div class="modal-content">
       <h3>添加共青团搬运视频</h3>
@@ -148,7 +145,7 @@
     const SUPABASE_KEY = 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g';
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // ========== 进度条逻辑 ==========
+    // 进度条逻辑
     let pollingTimer = null;
     function showProgress(title) {
       document.getElementById('progress-overlay').style.display = 'block';
@@ -210,7 +207,7 @@
       }, 2000);
     }
 
-    // ========== 普通视频列表 ==========
+    // 普通视频列表
     async function loadVideos() {
       try {
         const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
@@ -234,7 +231,6 @@
       return [...document.querySelectorAll('.video-check:checked')].map(cb => parseInt(cb.value));
     }
 
-    // ========== 添加视频 ==========
     async function addVideos() {
       const bvText = document.getElementById('bvInput').value.trim();
       const startTime = document.getElementById('startTime').value.trim();
@@ -264,7 +260,6 @@
       loadVideos();
     }
 
-    // ========== 手动推送 ==========
     async function pushSelected() {
       if (window.isPushing) return;
       const ids = getSelectedIds();
@@ -311,7 +306,6 @@
       else loadVideos();
     }
 
-    // ========== 编辑功能 ==========
     let editingId = null;
     async function openEditModal() {
       const ids = getSelectedIds();
@@ -370,7 +364,7 @@
       alert(msg || '暂无历史');
     }
 
-    // ========== 共青团板块 ==========
+    // 共青团板块
     async function loadGqtVideos() {
       try {
         const { data, error } = await supabase.from('videos').select('*').eq('category', 'gqt').order('created_at', { ascending: false });
@@ -444,7 +438,7 @@
       else loadGqtVideos();
     }
 
-    // ========== 粉丝监控 ==========
+    // 粉丝监控
     async function saveFansSettings() {
       const fm = {
         cctv_news_uid: document.getElementById('newsUid').value,
@@ -469,7 +463,6 @@
       else alert('推送请求已发送');
     }
 
-    // ========== 弹窗与选择 ==========
     function openAddModal() { document.getElementById('addModal').style.display = 'block'; }
     function openGqtAddModal() { document.getElementById('gqtAddModal').style.display = 'block'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -495,11 +488,10 @@
     window.saveFansSettings = saveFansSettings;
     window.triggerFansPush = triggerFansPush;
 
-    // 自动刷新：10分钟（600000毫秒），手动刷新不会干扰
+    // 自动刷新：10分钟（600000毫秒），手动刷新不干扰
     setInterval(loadVideos, 600000);
     setInterval(loadGqtVideos, 600000);
 
-    // 初始加载
     loadVideos();
     loadGqtVideos();
   </script>
