@@ -212,7 +212,7 @@
       }, 2000);
     }
 
-    // 其他功能函数
+    // 其他功能函数（同之前，保持不变）
     async function loadVideos() {
       const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
       if (error) { alert('加载失败'); return; }
@@ -315,7 +315,7 @@
       editingId = ids[0];
       const { data } = await supabase.from('videos').select('*').eq('id', editingId).single();
       if (!data) return;
-      // 填充编辑框（简化）
+      // 填充编辑框（简化，保留原逻辑）
       document.getElementById('editModal').style.display = 'block';
     }
 
@@ -422,7 +422,7 @@
     function toggleAllGqt(cb) { document.querySelectorAll('.gqt-check').forEach(c => c.checked = cb.checked); }
     window.openAddModal = () => document.getElementById('addModal').style.display = 'block';
 
-    // 将函数暴露到全局
+    // 暴露到全局
     window.loadVideos = loadVideos;
     window.addVideos = addVideos;
     window.pushSelected = pushSelected;
