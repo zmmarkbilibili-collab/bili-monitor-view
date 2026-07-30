@@ -33,7 +33,6 @@
     .auto-refresh-hint { color: gray; font-size: 0.9em; margin-left: 10px; }
     .fans-display { background: #e8f5e9; padding: 10px; border-radius: 4px; margin-top: 10px; }
     .fans-display table { margin-bottom: 0; }
-    /* 状态标签 */
     .badge { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold; white-space: nowrap; }
     .badge-success { background: #4CAF50; color: white; }
     .badge-error { background: #f44336; color: white; }
@@ -41,13 +40,11 @@
     .badge-processing { background: #2196F3; color: white; }
     .badge-done { background: #4CAF50; color: white; }
     .badge-info { background: #00BCD4; color: white; }
-    /* 日志面板 */
     .log-section { max-height: 400px; overflow-y: auto; }
     .log-section table { font-size: 12px; }
     .log-level-INFO { color: #2196F3; }
     .log-level-ERROR { color: #f44336; font-weight: bold; }
     .log-level-WARNING { color: #FF9800; }
-    /* 进度条 */
     .progress-cell { width: 80px; }
     .progress-cell-bar { background: #e0e0e0; border-radius: 4px; height: 16px; overflow: hidden; display: inline-block; width: 60px; vertical-align: middle; }
     .progress-cell-fill { height: 100%; background: #4CAF50; }
@@ -62,17 +59,17 @@
 
   <div class="section">
     <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
-    <button onclick="openAddModal()">批量添加 BV</button>
-    <button onclick="pushSelected()" class="secondary">手动推送选中</button>
-    <button onclick="pushAll()" class="secondary">一键推送全部</button>
-    <button onclick="deleteSelected()" class="danger">删除选中</button>
-    <button onclick="openEditModal()">编辑选中</button>
-    <button onclick="viewHistory()">查看历史</button>
-    <button onclick="loadVideos()">刷新列表</button>
+    <button id="btn-add">批量添加 BV</button>
+    <button id="btn-push-sel" class="secondary">手动推送选中</button>
+    <button id="btn-push-all" class="secondary">一键推送全部</button>
+    <button id="btn-del-sel" class="danger">删除选中</button>
+    <button id="btn-edit">编辑选中</button>
+    <button id="btn-history">查看历史</button>
+    <button id="btn-refresh">刷新列表</button>
     <table>
       <thead>
         <tr>
-          <th><input type="checkbox" id="selectAll" onchange="toggleAll(this)"></th>
+          <th><input type="checkbox" id="selectAll"></th>
           <th>BV号</th><th>标题</th><th>UP主</th><th>分组</th>
           <th>播放量</th><th>在线人数</th><th>开始时间</th>
           <th>已推送</th><th>进度</th><th>上次推送</th><th>预警</th>
@@ -84,14 +81,14 @@
 
   <div class="section">
     <h2>🚩 共青团搬运监控（达标 80000 自动推送） <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
-    <button onclick="openGqtAddModal()">添加共青团视频</button>
-    <button onclick="pushGqtSelected()" class="secondary">手动推送选中</button>
-    <button onclick="refreshGqtStatus()" class="secondary">手动刷新播放量</button>
-    <button onclick="deleteGqtSelected()" class="danger">删除选中</button>
+    <button id="btn-gqt-add">添加共青团视频</button>
+    <button id="btn-gqt-push" class="secondary">手动推送选中</button>
+    <button id="btn-gqt-refresh" class="secondary">手动刷新播放量</button>
+    <button id="btn-gqt-del" class="danger">删除选中</button>
     <table>
       <thead>
         <tr>
-          <th><input type="checkbox" id="selectAllGqt" onchange="toggleAllGqt(this)"></th>
+          <th><input type="checkbox" id="selectAllGqt"></th>
           <th>BV号</th><th>标题</th><th>UP主</th><th>当前播放量</th><th>状态</th><th>加入时间</th>
         </tr>
       </thead>
@@ -107,8 +104,8 @@
     <div class="form-row"><label>周一基准军事:</label><input id="mondayMilitary" type="number" placeholder="自动记录，可手动覆盖"></div>
     <div class="form-row"><label>Webhook URL:</label><input id="webhookUrl" placeholder="留空使用默认"></div>
     <div class="form-row"><label>启用监控:</label><input type="checkbox" id="fansEnabled"></div>
-    <button onclick="saveFansSettings()">保存设置</button>
-    <button onclick="triggerFansPush()" class="secondary">立即推送粉丝数据</button>
+    <button id="btn-save-fans">保存设置</button>
+    <button id="btn-push-fans" class="secondary">立即推送粉丝数据</button>
     <div id="fans-display" class="fans-display" style="display:none;">
       <h3>最近一次粉丝数据</h3>
       <table>
@@ -122,7 +119,7 @@
 
   <div class="section log-section">
     <h2>📋 操作日志 <span class="auto-refresh-hint">(每30秒自动刷新)</span></h2>
-    <button onclick="loadLogs()">刷新日志</button>
+    <button id="btn-refresh-log">刷新日志</button>
     <table>
       <thead>
         <tr>
@@ -157,8 +154,8 @@
       <div class="form-row"><label>已监控小时:</label><input id="monitoredHours" type="number" value="0"></div>
       <div class="form-row"><label>组名:</label><input id="groupName" placeholder="留空自动生成"></div>
       <div class="form-row"><label>仅预警:</label><input type="checkbox" id="alertOnlyAdd"></div>
-      <button onclick="addVideos()">提交</button>
-      <button onclick="closeModal('addModal')" class="danger">取消</button>
+      <button id="btn-submit-add">提交</button>
+      <button id="btn-cancel-add" class="danger">取消</button>
     </div>
   </div>
 
@@ -179,8 +176,8 @@
       <div class="form-row"><label>里程碑(万):</label><input id="editMilestone" type="number" step="0.1"></div>
       <div class="form-row"><label>检查间隔(分):</label><input id="editInterval" type="number"></div>
       <div class="form-row"><label>仅预警:</label><input type="checkbox" id="editAlertOnly"></div>
-      <button onclick="saveEdit()">保存</button>
-      <button onclick="closeModal('editModal')" class="danger">取消</button>
+      <button id="btn-submit-edit">保存</button>
+      <button id="btn-cancel-edit" class="danger">取消</button>
     </div>
   </div>
 
@@ -190,17 +187,17 @@
       <h3>添加共青团搬运视频</h3>
       <p>自动设置预警阈值为 80000，每 30 分钟检查一次</p>
       <div class="form-row"><label>BV号:</label><input id="gqtBvInput" placeholder="BVxxx"></div>
-      <button onclick="addGqtVideo()">提交</button>
-      <button onclick="closeModal('gqtAddModal')" class="danger">取消</button>
+      <button id="btn-submit-gqt">提交</button>
+      <button id="btn-cancel-gqt" class="danger">取消</button>
     </div>
   </div>
 
-  <!-- 使用 UMD 版本的 Supabase JS SDK，普通 script 标签中所有函数自动全局，onclick 无需 window 暴露 -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script>
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
     const SUPABASE_URL = 'https://erzjcvsbrkmukswkqfss.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // ========== 工具函数 ==========
     function formatLocalDateTime(date) {
@@ -208,13 +205,11 @@
       const pad = n => String(n).padStart(2, '0');
       return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
-
     function formatView(n) {
       if (!n) return '0';
       if (n >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, '') + 'w';
       return n.toString();
     }
-
     function formatTime(isoStr) {
       if (!isoStr) return '<span style="color:#ccc">-</span>';
       try {
@@ -224,7 +219,7 @@
       } catch { return isoStr; }
     }
 
-    // ========== 进度条逻辑 ==========
+    // ========== 进度条 ==========
     let pollingTimer = null;
     function showProgress(title) {
       document.getElementById('progress-overlay').style.display = 'block';
@@ -287,7 +282,7 @@
       }, 2000);
     }
 
-    // ========== 普通视频列表 ==========
+    // ========== 普通视频 ==========
     async function loadVideos() {
       try {
         const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
@@ -298,25 +293,23 @@
           const hour = v.current_hour ?? 0;
           const progress = Math.min(hour / 48 * 100, 100);
           const isComplete = hour > 48;
-          return `
-            <tr ${isComplete ? 'style="opacity:0.5"' : ''}>
-              <td><input type="checkbox" value="${v.id}" class="video-check"></td>
-              <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
-              <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
-              <td>${v.up_name || '-'}</td>
-              <td>${v.group_name || '-'}</td>
-              <td class="view-num">${formatView(v.view)}</td>
-              <td class="online-num">${v.online_total || '-'}</td>
-              <td class="time-text">${v.start_time || '-'}</td>
-              <td><strong>${hour}h</strong></td>
-              <td class="progress-cell">
-                <span class="progress-cell-bar"><span class="progress-cell-fill" style="width:${progress}%"></span></span>
-                <span class="progress-cell-text">${hour}/48</span>
-              </td>
-              <td class="time-text">${formatTime(v.last_push_time)}</td>
-              <td>${v.alert_enabled ? '<span class="badge badge-info">是</span>' : '否'}</td>
-            </tr>
-          `;
+          return `<tr ${isComplete ? 'style="opacity:0.5"' : ''}>
+            <td><input type="checkbox" value="${v.id}" class="video-check"></td>
+            <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
+            <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
+            <td>${v.up_name || '-'}</td>
+            <td>${v.group_name || '-'}</td>
+            <td class="view-num">${formatView(v.view)}</td>
+            <td class="online-num">${v.online_total || '-'}</td>
+            <td class="time-text">${v.start_time || '-'}</td>
+            <td><strong>${hour}h</strong></td>
+            <td class="progress-cell">
+              <span class="progress-cell-bar"><span class="progress-cell-fill" style="width:${progress}%"></span></span>
+              <span class="progress-cell-text">${hour}/48</span>
+            </td>
+            <td class="time-text">${formatTime(v.last_push_time)}</td>
+            <td>${v.alert_enabled ? '<span class="badge badge-info">是</span>' : '否'}</td>
+          </tr>`;
         }).join('');
       } catch(e) { console.error('loadVideos exception:', e); }
     }
@@ -332,30 +325,15 @@
       const alertOnly = document.getElementById('alertOnlyAdd').checked;
       if (!bvText) return alert('请输入BV号');
       if (!startTime) startTime = formatLocalDateTime();
-      // 支持多种分隔符：逗号、空格、换行
       const bvs = bvText.split(/[,，\s\n]+/).map(b => b.trim()).filter(b => b.startsWith('BV'));
       if (bvs.length === 0) return alert('未找到有效的BV号（需以BV开头）');
       const entries = bvs.map(bv => ({
-        bvid: bv,
-        start_time: startTime,
-        cid: null,
-        monitored_hours: monitoredHours,
-        current_hour: monitoredHours,
-        monitor_hours: 48,
-        group_name: groupName,
-        alert_only: alertOnly,
-        category: null,
-        notify_interval: 1.0,
-        window_start: 0,
-        window_end: 24,
-        alert_enabled: false,
-        alert_online_threshold: 0,
-        alert_milestone: null,
-        alert_interval_minutes: 15,
-        view: 0,
-        title: '',
-        up_name: '',
-        last_push_time: null
+        bvid: bv, start_time: startTime, cid: null,
+        monitored_hours: monitoredHours, current_hour: monitoredHours,
+        monitor_hours: 48, group_name: groupName, alert_only: alertOnly,
+        category: null, notify_interval: 1.0, window_start: 0, window_end: 24,
+        alert_enabled: false, alert_online_threshold: 0, alert_milestone: null,
+        alert_interval_minutes: 15, view: 0, title: '', up_name: '', last_push_time: null
       }));
       const { data: newVideos, error } = await supabase.from('videos').insert(entries).select();
       if (error) { alert('添加失败：' + error.message); return; }
@@ -366,42 +344,38 @@
       closeModal('addModal'); loadVideos(); loadLogs();
     }
 
+    let isPushing = false;
     async function pushSelected() {
-      if (window.isPushing) return;
+      if (isPushing) return;
       const ids = getSelectedIds();
       if (!ids.length) return alert('请勾选视频');
-      window.isPushing = true;
+      isPushing = true;
       try {
-        // 先取消这些视频的旧待处理请求，避免重复推送
-        await supabase.from('push_requests').update({ status: 'cancelled' })
-          .eq('status', 'pending').in('video_id', ids);
+        await supabase.from('push_requests').update({ status: 'cancelled' }).eq('status', 'pending').in('video_id', ids);
         const events = ids.map(video_id => ({ action: 'push', video_id, status: 'pending' }));
         const { data, error } = await supabase.from('push_requests').insert(events).select();
         if (error) { alert('推送请求提交失败：' + error.message); return; }
         if (data && data.length > 0) { showProgress('手动推送进度'); pollPushStatus(data[0].id); }
         else alert('请求已提交，但未获取到ID');
-      } finally { window.isPushing = false; }
+      } finally { isPushing = false; }
     }
 
     async function pushAll() {
-      if (window.isPushing) return;
-      // 查询所有非共青团视频，客户端过滤掉仅预警的
+      if (isPushing) return;
       const { data: videos, error: qErr } = await supabase.from('videos').select('id,alert_only,category').neq('category', 'gqt');
       if (qErr) return alert('查询失败：' + qErr.message);
       const filtered = (videos || []).filter(v => !v.alert_only);
       if (filtered.length === 0) return alert('没有可推送的视频');
       if (!confirm(`确定要推送全部 ${filtered.length} 个视频吗？\n（此操作会推送所有非共青团、非仅预警的视频）`)) return;
-      window.isPushing = true;
+      isPushing = true;
       try {
-        // 先取消所有旧的待处理推送请求，避免和新请求混在一起导致重复推送
-        await supabase.from('push_requests').update({ status: 'cancelled' })
-          .eq('status', 'pending').eq('action', 'push');
+        await supabase.from('push_requests').update({ status: 'cancelled' }).eq('status', 'pending').eq('action', 'push');
         const events = filtered.map(v => ({ action: 'push', video_id: v.id, status: 'pending' }));
         const { data, error } = await supabase.from('push_requests').insert(events).select();
         if (error) alert('推送请求提交失败：' + error.message);
         else if (data && data.length > 0) { showProgress('一键推送进度'); pollPushStatus(data[0].id); }
         else alert(`已提交 ${filtered.length} 个视频，后台将逐个推送`);
-      } finally { window.isPushing = false; }
+      } finally { isPushing = false; }
     }
 
     async function deleteSelected() {
@@ -413,7 +387,7 @@
     }
 
     let editingId = null;
-    let editingOriginalStartTime = null;  // 记录原始 start_time，用于检测是否被修改
+    let editingOriginalStartTime = null;
     async function openEditModal() {
       const ids = getSelectedIds();
       if (ids.length !== 1) return alert('请选中一个视频');
@@ -422,7 +396,7 @@
       if (error || !data) { alert('获取视频信息失败'); return; }
       document.getElementById('editCid').value = data.cid || '';
       document.getElementById('editStartTime').value = data.start_time || '';
-      editingOriginalStartTime = data.start_time || '';  // 保存原始值
+      editingOriginalStartTime = data.start_time || '';
       document.getElementById('editCurrentHour').value = data.current_hour ?? 0;
       document.getElementById('editMonitorHours').value = data.monitor_hours || 48;
       document.getElementById('editNotifyInterval').value = data.notify_interval || 1;
@@ -455,7 +429,7 @@
         alert_interval_minutes: parseInt(document.getElementById('editInterval').value) || 15,
         alert_only: document.getElementById('editAlertOnly').checked,
       };
-      // 如果 start_time 被修改了，重置 current_hour 为 0，让监控从新的开始时间重新计算
+      // 开始时间被修改 → 重置 current_hour = 0，监控按新开始时间重新开始
       if (editingOriginalStartTime && newStartTime && editingOriginalStartTime.trim() !== newStartTime.trim()) {
         updated.current_hour = 0;
         if (!confirm(`检测到开始时间已修改：\n  旧：${editingOriginalStartTime}\n  新：${newStartTime}\n\n将自动重置已推送小时为 0，监控将按新的开始时间重新开始。确认保存？`)) return;
@@ -468,15 +442,13 @@
     async function viewHistory() {
       const ids = getSelectedIds();
       if (ids.length !== 1) return alert('请选择一个视频');
-      const videoId = ids[0];
-      const { data, error } = await supabase.from('history').select('*').eq('video_id', videoId).order('hour', { ascending: true });
+      const { data, error } = await supabase.from('history').select('*').eq('video_id', ids[0]).order('hour', { ascending: true });
       if (error) { alert('加载失败'); return; }
       if (!data || data.length === 0) { alert('暂无历史'); return; }
-      let msg = data.map(r => `${r.hour}h  播放:${r.view}  在看:${r.online_total}`).join('\n');
-      alert(msg);
+      alert(data.map(r => `${r.hour}h  播放:${r.view}  在看:${r.online_total}`).join('\n'));
     }
 
-    // ========== 共青团板块 ==========
+    // ========== 共青团 ==========
     async function loadGqtVideos() {
       try {
         const { data, error } = await supabase.from('videos').select('*').eq('category', 'gqt').order('created_at', { ascending: false });
@@ -485,25 +457,18 @@
         tbody.innerHTML = (data || []).map(v => {
           const isReached = v.view >= 80000;
           const isAlertDisabled = !v.alert_enabled;
-          let statusText = '监控中';
-          let badgeClass = 'badge-pending';
-          let rowClass = '';
-          if (isReached && isAlertDisabled) {
-            statusText = '✅ 已达标'; badgeClass = 'badge-done'; rowClass = 'done';
-          } else if (isReached) {
-            statusText = '🔔 达标推送中'; badgeClass = 'badge-error'; rowClass = 'warn';
-          }
-          return `
-            <tr class="${rowClass}">
-              <td><input type="checkbox" value="${v.id}" class="gqt-check"></td>
-              <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
-              <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
-              <td>${v.up_name || '-'}</td>
-              <td class="view-num">${formatView(v.view)}</td>
-              <td><span class="badge ${badgeClass}">${statusText}</span></td>
-              <td class="time-text">${formatTime(v.created_at)}</td>
-            </tr>
-          `;
+          let statusText = '监控中', badgeClass = 'badge-pending', rowClass = '';
+          if (isReached && isAlertDisabled) { statusText = '✅ 已达标'; badgeClass = 'badge-done'; rowClass = 'done'; }
+          else if (isReached) { statusText = '🔔 达标推送中'; badgeClass = 'badge-error'; rowClass = 'warn'; }
+          return `<tr class="${rowClass}">
+            <td><input type="checkbox" value="${v.id}" class="gqt-check"></td>
+            <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
+            <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
+            <td>${v.up_name || '-'}</td>
+            <td class="view-num">${formatView(v.view)}</td>
+            <td><span class="badge ${badgeClass}">${statusText}</span></td>
+            <td class="time-text">${formatTime(v.created_at)}</td>
+          </tr>`;
         }).join('');
       } catch(e) { console.error(e); }
     }
@@ -511,17 +476,14 @@
     async function addGqtVideo() {
       const bv = document.getElementById('gqtBvInput').value.trim();
       if (!bv || !bv.startsWith('BV')) return alert('请输入正确的BV号（以BV开头）');
-      const nowStr = formatLocalDateTime();
       const entry = {
         bvid: bv, category: 'gqt', cid: null,
         alert_enabled: true, alert_milestone: 80000,
         alert_interval_minutes: 30, alert_only: true,
-        start_time: nowStr, monitored_hours: 0, current_hour: 0,
-        monitor_hours: 48,
-        group_name: '共青团搬运', notify_interval: 1.0,
+        start_time: formatLocalDateTime(), monitored_hours: 0, current_hour: 0,
+        monitor_hours: 48, group_name: '共青团搬运', notify_interval: 1.0,
         window_start: 0, window_end: 24, view: 0,
-        title: '', up_name: '', last_push_time: null,
-        alert_online_threshold: 0
+        title: '', up_name: '', last_push_time: null, alert_online_threshold: 0
       };
       const { data, error } = await supabase.from('videos').insert([entry]).select();
       if (error) { alert('添加失败：' + error.message); return; }
@@ -535,8 +497,7 @@
     async function pushGqtSelected() {
       const ids = [...document.querySelectorAll('.gqt-check:checked')].map(cb => parseInt(cb.value));
       if (!ids.length) return alert('请勾选视频');
-      const events = ids.map(video_id => ({ action: 'push', video_id, status: 'pending' }));
-      const { data, error } = await supabase.from('push_requests').insert(events).select();
+      const { data, error } = await supabase.from('push_requests').insert(ids.map(video_id => ({ action: 'push', video_id, status: 'pending' }))).select();
       if (error) { alert('推送请求提交失败：' + error.message); return; }
       if (data && data.length > 0) { showProgress('共青团手动推送进度'); pollPushStatus(data[0].id); }
     }
@@ -595,11 +556,8 @@
         enabled: document.getElementById('fansEnabled').checked,
       };
       const { data: existing } = await supabase.from('fans_monitor').select('id').limit(1);
-      if (existing && existing.length > 0) {
-        await supabase.from('fans_monitor').update(fm).eq('id', existing[0].id);
-      } else {
-        await supabase.from('fans_monitor').insert(fm);
-      }
+      if (existing && existing.length > 0) await supabase.from('fans_monitor').update(fm).eq('id', existing[0].id);
+      else await supabase.from('fans_monitor').insert(fm);
       alert('粉丝监控设置已保存');
     }
 
@@ -610,7 +568,7 @@
       else alert('推送请求已发送，后台将立即执行粉丝数据推送');
     }
 
-    // ========== 操作日志 ==========
+    // ========== 日志 ==========
     const ACTION_MAP = {
       'push': '📤 推送', 'new_video': '🎬 新视频', 'gqt_refresh': '🔄 共青团刷新', 'fans_push': '📊 粉丝推送',
       'scheduled_push': '⏰ 定时推送', 'gqt_check': '🚩 共青团检查', 'gqt_scan': '🔍 共青团扫描',
@@ -619,28 +577,23 @@
     async function loadLogs() {
       const tbody = document.getElementById('log-tbody');
       try {
-        // 优先尝试读取 monitor_logs 表（Python脚本写入的详细日志）
         const { data: logData, error: logError } = await supabase.from('monitor_logs')
           .select('*').order('created_at', { ascending: false }).limit(50);
         if (!logError && logData && logData.length > 0) {
           tbody.innerHTML = logData.map(r => {
             const levelClass = r.level === 'ERROR' ? 'log-level-ERROR' : r.level === 'WARNING' ? 'log-level-WARNING' : 'log-level-INFO';
-            return `<tr>
-              <td class="time-text">${formatTime(r.created_at)}</td>
+            return `<tr><td class="time-text">${formatTime(r.created_at)}</td>
               <td>${ACTION_MAP[r.action] || r.action || '-'}</td>
               <td class="${levelClass}">${r.level || 'INFO'}</td>
-              <td>${r.message || ''}</td>
-            </tr>`;
+              <td>${r.message || ''}</td></tr>`;
           }).join('');
           return;
         }
-      } catch(e) { /* 表可能不存在，降级到push_requests */ }
-
-      // 降级方案：从 push_requests 读取
+      } catch(e) {}
       try {
         const { data, error } = await supabase.from('push_requests')
           .select('*').order('created_at', { ascending: false }).limit(30);
-        if (error) { tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#999;">暂无日志数据</td></tr>`; return; }
+        if (error) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">暂无日志数据</td></tr>'; return; }
         const statusMap = {
           'pending': '<span class="badge badge-pending">等待中</span>',
           'processing': '<span class="badge badge-processing">处理中</span>',
@@ -654,30 +607,55 @@
           <td class="time-text">${formatTime(r.created_at)}</td>
           <td>${ACTION_MAP[r.action] || r.action || '-'}</td>
           <td>${statusMap[r.status] || r.status}</td>
-          <td>视频ID: ${r.video_id || '-'}</td>
-        </tr>`).join('') || `<tr><td colspan="4" style="text-align:center;color:#999;">暂无日志数据</td></tr>`;
-      } catch(e) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#999;">日志加载失败</td></tr>`;
-      }
+          <td>视频ID: ${r.video_id || '-'}</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:#999;">暂无日志数据</td></tr>';
+      } catch(e) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">日志加载失败</td></tr>'; }
     }
 
-    // ========== 弹窗/工具 ==========
-    function openAddModal() { document.getElementById('addModal').style.display = 'block'; }
-    function openGqtAddModal() { document.getElementById('gqtAddModal').style.display = 'block'; }
+    // ========== 弹窗 ==========
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-    function toggleAll(cb) { document.querySelectorAll('.video-check').forEach(c => c.checked = cb.checked); }
-    function toggleAllGqt(cb) { document.querySelectorAll('.gqt-check').forEach(c => c.checked = cb.checked); }
+
+    // ========== 事件绑定（addEventListener，不依赖 onclick 全局作用域）==========
+    document.getElementById('btn-add').addEventListener('click', () => { document.getElementById('addModal').style.display = 'block'; });
+    document.getElementById('btn-submit-add').addEventListener('click', addVideos);
+    document.getElementById('btn-cancel-add').addEventListener('click', () => closeModal('addModal'));
+    document.getElementById('btn-push-sel').addEventListener('click', pushSelected);
+    document.getElementById('btn-push-all').addEventListener('click', pushAll);
+    document.getElementById('btn-del-sel').addEventListener('click', deleteSelected);
+    document.getElementById('btn-edit').addEventListener('click', openEditModal);
+    document.getElementById('btn-submit-edit').addEventListener('click', saveEdit);
+    document.getElementById('btn-cancel-edit').addEventListener('click', () => closeModal('editModal'));
+    document.getElementById('btn-history').addEventListener('click', viewHistory);
+    document.getElementById('btn-refresh').addEventListener('click', loadVideos);
+    document.getElementById('selectAll').addEventListener('change', function() {
+      document.querySelectorAll('.video-check').forEach(c => c.checked = this.checked);
+    });
+
+    document.getElementById('btn-gqt-add').addEventListener('click', () => { document.getElementById('gqtAddModal').style.display = 'block'; });
+    document.getElementById('btn-submit-gqt').addEventListener('click', addGqtVideo);
+    document.getElementById('btn-cancel-gqt').addEventListener('click', () => closeModal('gqtAddModal'));
+    document.getElementById('btn-gqt-push').addEventListener('click', pushGqtSelected);
+    document.getElementById('btn-gqt-refresh').addEventListener('click', refreshGqtStatus);
+    document.getElementById('btn-gqt-del').addEventListener('click', deleteGqtSelected);
+    document.getElementById('selectAllGqt').addEventListener('change', function() {
+      document.querySelectorAll('.gqt-check').forEach(c => c.checked = this.checked);
+    });
+
+    document.getElementById('btn-save-fans').addEventListener('click', saveFansSettings);
+    document.getElementById('btn-push-fans').addEventListener('click', triggerFansPush);
+    document.getElementById('btn-refresh-log').addEventListener('click', loadLogs);
 
     // ========== 自动刷新 ==========
-    setInterval(loadVideos, 300000);   // 5分钟
-    setInterval(loadGqtVideos, 300000); // 5分钟
-    setInterval(loadLogs, 30000);       // 30秒
+    setInterval(loadVideos, 300000);
+    setInterval(loadGqtVideos, 300000);
+    setInterval(loadLogs, 30000);
 
-    // ========== 页面初始化 ==========
+    // ========== 初始化 ==========
     loadVideos();
     loadGqtVideos();
     loadFansSettings();
     loadLogs();
+
+    console.log('[B站监控] 页面初始化完成，所有按钮已绑定');
   </script>
 </body>
 </html>
