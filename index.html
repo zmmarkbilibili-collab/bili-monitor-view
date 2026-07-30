@@ -6,7 +6,7 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
     table { border-collapse: collapse; width: 100%; margin-bottom: 20px; background: white; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
     th { background: #4CAF50; color: white; }
     tr:nth-child(even) { background: #f9f9f9; }
     .warn { background-color: #ffe0e0; font-weight: bold; }
@@ -33,25 +33,49 @@
     .auto-refresh-hint { color: gray; font-size: 0.9em; margin-left: 10px; }
     .fans-display { background: #e8f5e9; padding: 10px; border-radius: 4px; margin-top: 10px; }
     .fans-display table { margin-bottom: 0; }
+    /* 状态标签 */
+    .badge { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold; white-space: nowrap; }
+    .badge-success { background: #4CAF50; color: white; }
+    .badge-error { background: #f44336; color: white; }
+    .badge-pending { background: #FF9800; color: white; }
+    .badge-processing { background: #2196F3; color: white; }
+    .badge-done { background: #4CAF50; color: white; }
+    .badge-info { background: #00BCD4; color: white; }
+    /* 日志面板 */
+    .log-section { max-height: 400px; overflow-y: auto; }
+    .log-section table { font-size: 12px; }
+    .log-level-INFO { color: #2196F3; }
+    .log-level-ERROR { color: #f44336; font-weight: bold; }
+    .log-level-WARNING { color: #FF9800; }
+    /* 进度条 */
+    .progress-cell { width: 80px; }
+    .progress-cell-bar { background: #e0e0e0; border-radius: 4px; height: 16px; overflow: hidden; display: inline-block; width: 60px; vertical-align: middle; }
+    .progress-cell-fill { height: 100%; background: #4CAF50; }
+    .progress-cell-text { font-size: 11px; margin-left: 4px; }
+    .view-num { color: #e83e8c; font-weight: bold; }
+    .online-num { color: #007bff; }
+    .time-text { color: #888; font-size: 12px; }
   </style>
 </head>
 <body>
   <h1>B站视频监控管理</h1>
 
   <div class="section">
-    <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每10分钟自动刷新)</span></h2>
+    <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
     <button onclick="openAddModal()">批量添加 BV</button>
-    <button onclick="pushSelected()" class="secondary">手动推送选中视频</button>
-    <button onclick="pushAll()" class="secondary">一键推送全部视频</button>
+    <button onclick="pushSelected()" class="secondary">手动推送选中</button>
+    <button onclick="pushAll()" class="secondary">一键推送全部</button>
     <button onclick="deleteSelected()" class="danger">删除选中</button>
     <button onclick="openEditModal()">编辑选中</button>
     <button onclick="viewHistory()">查看历史</button>
-    <button onclick="loadVideos()">手动刷新列表</button>
+    <button onclick="loadVideos()">刷新列表</button>
     <table>
       <thead>
         <tr>
           <th><input type="checkbox" id="selectAll" onchange="toggleAll(this)"></th>
-          <th>BV号</th><th>标题</th><th>UP主</th><th>分组</th><th>已推送小时</th><th>预警</th>
+          <th>BV号</th><th>标题</th><th>UP主</th><th>分组</th>
+          <th>播放量</th><th>在线人数</th><th>开始时间</th>
+          <th>已推送</th><th>进度</th><th>上次推送</th><th>预警</th>
         </tr>
       </thead>
       <tbody id="video-tbody"></tbody>
@@ -59,16 +83,16 @@
   </div>
 
   <div class="section">
-    <h2>🚩 共青团搬运监控（达标 80000 自动推送） <span class="auto-refresh-hint">(每10分钟自动刷新)</span></h2>
+    <h2>🚩 共青团搬运监控（达标 80000 自动推送） <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
     <button onclick="openGqtAddModal()">添加共青团视频</button>
-    <button onclick="pushGqtSelected()" class="secondary">手动推送选中视频</button>
-    <button onclick="refreshGqtStatus()" class="secondary">手动刷新状态</button>
+    <button onclick="pushGqtSelected()" class="secondary">手动推送选中</button>
+    <button onclick="refreshGqtStatus()" class="secondary">手动刷新播放量</button>
     <button onclick="deleteGqtSelected()" class="danger">删除选中</button>
     <table>
       <thead>
         <tr>
           <th><input type="checkbox" id="selectAllGqt" onchange="toggleAllGqt(this)"></th>
-          <th>BV号</th><th>标题</th><th>当前播放量</th><th>状态</th>
+          <th>BV号</th><th>标题</th><th>UP主</th><th>当前播放量</th><th>状态</th><th>加入时间</th>
         </tr>
       </thead>
       <tbody id="gqt-video-tbody"></tbody>
@@ -94,6 +118,22 @@
         <tr><td>周维度涨粉</td><td id="fd-wnews">-</td><td id="fd-wmil">-</td><td id="fd-wdiff">-</td></tr>
       </table>
     </div>
+  </div>
+
+  <div class="section log-section">
+    <h2>📋 操作日志 <span class="auto-refresh-hint">(每30秒自动刷新)</span></h2>
+    <button onclick="loadLogs()">刷新日志</button>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:160px">时间</th><th style="width:100px">类型</th>
+          <th style="width:80px">级别</th><th>详情</th>
+        </tr>
+      </thead>
+      <tbody id="log-tbody">
+        <tr><td colspan="4" style="text-align:center;color:#999;">加载中...</td></tr>
+      </tbody>
+    </table>
   </div>
 
   <!-- 进度条覆盖层 -->
@@ -164,18 +204,25 @@
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // ========== 工具函数 ==========
-    // 生成 "YYYY-MM-DD HH:MM" 格式的时间字符串（不含T和时区）
     function formatLocalDateTime(date) {
       const d = date || new Date();
       const pad = n => String(n).padStart(2, '0');
       return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
-    // 格式化播放量
     function formatView(n) {
       if (!n) return '0';
       if (n >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, '') + 'w';
       return n.toString();
+    }
+
+    function formatTime(isoStr) {
+      if (!isoStr) return '<span style="color:#ccc">-</span>';
+      try {
+        const d = new Date(isoStr);
+        const pad = n => String(n).padStart(2, '0');
+        return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } catch { return isoStr; }
     }
 
     // ========== 进度条逻辑 ==========
@@ -230,7 +277,7 @@
           updateProgress(step.percent, step.main, step.sub);
           if (data.status === 'done' || data.status === 'error') {
             clearInterval(pollingTimer);
-            setTimeout(() => { hideProgress(); loadVideos(); loadGqtVideos(); }, 2500);
+            setTimeout(() => { hideProgress(); loadVideos(); loadGqtVideos(); loadLogs(); }, 2500);
           }
         } catch (e) {
           updateProgress(0, '轮询异常', e.toString());
@@ -247,17 +294,30 @@
         if (error) { console.error(error); return; }
         const filtered = (data || []).filter(v => v.category !== 'gqt');
         const tbody = document.getElementById('video-tbody');
-        tbody.innerHTML = filtered.map(v => `
-          <tr>
-            <td><input type="checkbox" value="${v.id}" class="video-check"></td>
-            <td>${v.bvid}</td>
-            <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
-            <td>${v.up_name || ''}</td>
-            <td>${v.group_name || ''}</td>
-            <td>${v.current_hour ?? 0}h</td>
-            <td>${v.alert_enabled ? '是' : '否'}</td>
-          </tr>
-        `).join('');
+        tbody.innerHTML = filtered.map(v => {
+          const hour = v.current_hour ?? 0;
+          const progress = Math.min(hour / 48 * 100, 100);
+          const isComplete = hour > 48;
+          return `
+            <tr ${isComplete ? 'style="opacity:0.5"' : ''}>
+              <td><input type="checkbox" value="${v.id}" class="video-check"></td>
+              <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
+              <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
+              <td>${v.up_name || '-'}</td>
+              <td>${v.group_name || '-'}</td>
+              <td class="view-num">${formatView(v.view)}</td>
+              <td class="online-num">${v.online_total || '-'}</td>
+              <td class="time-text">${v.start_time || '-'}</td>
+              <td><strong>${hour}h</strong></td>
+              <td class="progress-cell">
+                <span class="progress-cell-bar"><span class="progress-cell-fill" style="width:${progress}%"></span></span>
+                <span class="progress-cell-text">${hour}/48</span>
+              </td>
+              <td class="time-text">${formatTime(v.last_push_time)}</td>
+              <td>${v.alert_enabled ? '<span class="badge badge-info">是</span>' : '否'}</td>
+            </tr>
+          `;
+        }).join('');
       } catch(e) { console.error(e); }
     }
     function getSelectedIds() {
@@ -271,32 +331,39 @@
       const groupName = document.getElementById('groupName').value.trim() || `web_${formatLocalDateTime().slice(0,10)}`;
       const alertOnly = document.getElementById('alertOnlyAdd').checked;
       if (!bvText) return alert('请输入BV号');
-
-      // 修复：确保时间格式为 "YYYY-MM-DD HH:MM"（空格分隔，不是T）
-      if (!startTime) {
-        startTime = formatLocalDateTime();
-      }
-
-      const bvs = bvText.split(',').map(b => b.trim()).filter(b => b.startsWith('BV'));
+      if (!startTime) startTime = formatLocalDateTime();
+      // 支持多种分隔符：逗号、空格、换行
+      const bvs = bvText.split(/[,，\s\n]+/).map(b => b.trim()).filter(b => b.startsWith('BV'));
+      if (bvs.length === 0) return alert('未找到有效的BV号（需以BV开头）');
       const entries = bvs.map(bv => ({
         bvid: bv,
         start_time: startTime,
+        cid: null,
         monitored_hours: monitoredHours,
         current_hour: monitoredHours,
+        monitor_hours: 48,
         group_name: groupName,
         alert_only: alertOnly,
-        category: ''
+        category: null,
+        notify_interval: 1.0,
+        window_start: 0,
+        window_end: 24,
+        alert_enabled: false,
+        alert_online_threshold: 0,
+        alert_milestone: null,
+        alert_interval_minutes: 15,
+        view: 0,
+        title: '',
+        up_name: '',
+        last_push_time: null
       }));
-
       const { data: newVideos, error } = await supabase.from('videos').insert(entries).select();
       if (error) { alert('添加失败：' + error.message); return; }
-      if (newVideos) {
-        // 插入 new_video 请求，后台补全 CID 和元数据（不推送，首次推送在 start_time+1h）
+      if (newVideos && newVideos.length > 0) {
         await supabase.from('push_requests').insert(newVideos.map(v => ({ action: 'new_video', video_id: v.id, status: 'pending' })));
       }
-      alert('添加成功！后台正在获取视频信息，首次推送将在开始时间+1小时后自动执行');
-      closeModal('addModal');
-      loadVideos();
+      alert(`成功添加 ${bvs.length} 个视频！后台正在获取视频信息，首次推送将在开始时间+1小时后自动执行`);
+      closeModal('addModal'); loadVideos(); loadLogs();
     }
 
     async function pushSelected() {
@@ -308,28 +375,26 @@
         const events = ids.map(video_id => ({ action: 'push', video_id, status: 'pending' }));
         const { data, error } = await supabase.from('push_requests').insert(events).select();
         if (error) { alert('推送请求提交失败：' + error.message); return; }
-        if (data && data.length > 0) {
-          showProgress('手动推送进度');
-          pollPushStatus(data[0].id);
-        } else alert('请求已提交，但未获取到ID');
-      } finally {
-        window.isPushing = false;
-      }
+        if (data && data.length > 0) { showProgress('手动推送进度'); pollPushStatus(data[0].id); }
+        else alert('请求已提交，但未获取到ID');
+      } finally { window.isPushing = false; }
     }
 
     async function pushAll() {
       if (window.isPushing) return;
-      const { data: videos } = await supabase.from('videos').select('id').neq('alert_only', true).neq('category', 'gqt');
-      if (!videos || videos.length === 0) return alert('没有可推送的视频');
+      // 查询所有非共青团视频，客户端过滤掉仅预警的
+      const { data: videos, error: qErr } = await supabase.from('videos').select('id,alert_only,category').neq('category', 'gqt');
+      if (qErr) return alert('查询失败：' + qErr.message);
+      const filtered = (videos || []).filter(v => !v.alert_only);
+      if (filtered.length === 0) return alert('没有可推送的视频');
       window.isPushing = true;
       try {
-        const events = videos.map(v => ({ action: 'push', video_id: v.id, status: 'pending' }));
-        const { error } = await supabase.from('push_requests').insert(events);
-        if (error) alert('推送请求提交失败');
-        else alert(`已提交 ${videos.length} 个视频，后台将逐个推送`);
-      } finally {
-        window.isPushing = false;
-      }
+        const events = filtered.map(v => ({ action: 'push', video_id: v.id, status: 'pending' }));
+        const { data, error } = await supabase.from('push_requests').insert(events).select();
+        if (error) alert('推送请求提交失败：' + error.message);
+        else if (data && data.length > 0) { showProgress('一键推送进度'); pollPushStatus(data[0].id); }
+        else alert(`已提交 ${filtered.length} 个视频，后台将逐个推送`);
+      } finally { window.isPushing = false; }
     }
 
     async function deleteSelected() {
@@ -337,8 +402,7 @@
       if (!ids.length) return alert('请选中视频');
       if (!confirm(`确定删除 ${ids.length} 个视频？`)) return;
       const { error } = await supabase.from('videos').delete().in('id', ids);
-      if (error) alert('删除失败');
-      else loadVideos();
+      if (error) alert('删除失败'); else { loadVideos(); loadLogs(); }
     }
 
     let editingId = null;
@@ -348,11 +412,10 @@
       editingId = ids[0];
       const { data, error } = await supabase.from('videos').select('*').eq('id', editingId).single();
       if (error || !data) { alert('获取视频信息失败'); return; }
-
       document.getElementById('editCid').value = data.cid || '';
       document.getElementById('editStartTime').value = data.start_time || '';
       document.getElementById('editCurrentHour').value = data.current_hour ?? 0;
-      document.getElementById('editMonitorHours').value = data.monitor_hours || 49;
+      document.getElementById('editMonitorHours').value = data.monitor_hours || 48;
       document.getElementById('editNotifyInterval').value = data.notify_interval || 1;
       document.getElementById('editGroupName').value = data.group_name || '';
       document.getElementById('editWinStart').value = data.window_start || 0;
@@ -371,7 +434,7 @@
         cid: document.getElementById('editCid').value,
         start_time: document.getElementById('editStartTime').value,
         current_hour: parseInt(document.getElementById('editCurrentHour').value) || 0,
-        monitor_hours: parseInt(document.getElementById('editMonitorHours').value) || 49,
+        monitor_hours: parseInt(document.getElementById('editMonitorHours').value) || 48,
         notify_interval: parseFloat(document.getElementById('editNotifyInterval').value) || 1,
         group_name: document.getElementById('editGroupName').value,
         window_start: parseInt(document.getElementById('editWinStart').value) || 0,
@@ -384,9 +447,7 @@
       };
       const { error } = await supabase.from('videos').update(updated).eq('id', editingId);
       if (error) { alert('更新失败：' + error.message); return; }
-      alert('已更新');
-      closeModal('editModal');
-      loadVideos();
+      alert('已更新'); closeModal('editModal'); loadVideos();
     }
 
     async function viewHistory() {
@@ -410,21 +471,22 @@
           const isReached = v.view >= 80000;
           const isAlertDisabled = !v.alert_enabled;
           let statusText = '监控中';
+          let badgeClass = 'badge-pending';
           let rowClass = '';
           if (isReached && isAlertDisabled) {
-            statusText = '✅ 已达标';
-            rowClass = 'done';
+            statusText = '✅ 已达标'; badgeClass = 'badge-done'; rowClass = 'done';
           } else if (isReached) {
-            statusText = '🔔 达标推送中';
-            rowClass = 'warn';
+            statusText = '🔔 达标推送中'; badgeClass = 'badge-error'; rowClass = 'warn';
           }
           return `
             <tr class="${rowClass}">
               <td><input type="checkbox" value="${v.id}" class="gqt-check"></td>
-              <td>${v.bvid}</td>
+              <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
               <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
-              <td>${formatView(v.view)}</td>
-              <td>${statusText}</td>
+              <td>${v.up_name || '-'}</td>
+              <td class="view-num">${formatView(v.view)}</td>
+              <td><span class="badge ${badgeClass}">${statusText}</span></td>
+              <td class="time-text">${formatTime(v.created_at)}</td>
             </tr>
           `;
         }).join('');
@@ -433,26 +495,26 @@
 
     async function addGqtVideo() {
       const bv = document.getElementById('gqtBvInput').value.trim();
-      if (!bv || !bv.startsWith('BV')) return alert('请输入正确的BV号');
-      // 修复：使用正确的时间格式
+      if (!bv || !bv.startsWith('BV')) return alert('请输入正确的BV号（以BV开头）');
       const nowStr = formatLocalDateTime();
       const entry = {
-        bvid: bv, category: 'gqt',
+        bvid: bv, category: 'gqt', cid: null,
         alert_enabled: true, alert_milestone: 80000,
         alert_interval_minutes: 30, alert_only: true,
-        start_time: nowStr,
-        monitored_hours: 0, current_hour: 0,
+        start_time: nowStr, monitored_hours: 0, current_hour: 0,
+        monitor_hours: 48,
         group_name: '共青团搬运', notify_interval: 1.0,
-        window_start: 0, window_end: 24, view: 0
+        window_start: 0, window_end: 24, view: 0,
+        title: '', up_name: '', last_push_time: null,
+        alert_online_threshold: 0
       };
       const { data, error } = await supabase.from('videos').insert([entry]).select();
       if (error) { alert('添加失败：' + error.message); return; }
-      if (data) {
+      if (data && data.length > 0) {
         await supabase.from('push_requests').insert([{ action: 'new_video', video_id: data[0].id, status: 'pending' }]);
       }
       alert('共青团视频已添加，后台将自动补全CID并开始监控');
-      closeModal('gqtAddModal');
-      loadGqtVideos();
+      closeModal('gqtAddModal'); loadGqtVideos(); loadLogs();
     }
 
     async function pushGqtSelected() {
@@ -461,19 +523,13 @@
       const events = ids.map(video_id => ({ action: 'push', video_id, status: 'pending' }));
       const { data, error } = await supabase.from('push_requests').insert(events).select();
       if (error) { alert('推送请求提交失败：' + error.message); return; }
-      if (data && data.length > 0) {
-        showProgress('共青团手动推送进度');
-        pollPushStatus(data[0].id);
-      }
+      if (data && data.length > 0) { showProgress('共青团手动推送进度'); pollPushStatus(data[0].id); }
     }
 
     async function refreshGqtStatus() {
       const { error } = await supabase.from('push_requests').insert([{ action: 'gqt_refresh', video_id: 0, status: 'pending' }]);
       if (error) alert('刷新请求失败：' + error.message);
-      else {
-        alert('手动刷新已发送，稍后将更新播放量');
-        setTimeout(loadGqtVideos, 5000);
-      }
+      else { alert('手动刷新已发送，稍后将更新播放量'); setTimeout(loadGqtVideos, 5000); }
     }
 
     async function deleteGqtSelected() {
@@ -481,8 +537,7 @@
       if (!ids.length) return alert('请勾选视频');
       if (!confirm(`确定删除选中的 ${ids.length} 个共青团视频？`)) return;
       const { error } = await supabase.from('videos').delete().in('id', ids);
-      if (error) alert('删除失败');
-      else loadGqtVideos();
+      if (error) alert('删除失败'); else { loadGqtVideos(); loadLogs(); }
     }
 
     // ========== 粉丝监控 ==========
@@ -498,13 +553,10 @@
           if (fm.monday_base_military) document.getElementById('mondayMilitary').value = fm.monday_base_military;
           if (fm.webhook_url) document.getElementById('webhookUrl').value = fm.webhook_url;
           document.getElementById('fansEnabled').checked = fm.enabled || false;
-
-          // 显示最近粉丝数据（如果有基准数据）
           if (fm.daily_base_news || fm.monday_base_news) {
             document.getElementById('fans-display').style.display = 'block';
             document.getElementById('fd-news').innerText = '-';
             document.getElementById('fd-military').innerText = '-';
-            // 基准数据展示
             if (fm.daily_base_news) {
               document.getElementById('fd-dnews').innerText = `基准: ${fm.daily_base_news}`;
               document.getElementById('fd-dmil').innerText = `基准: ${fm.daily_base_military || 0}`;
@@ -543,6 +595,56 @@
       else alert('推送请求已发送，后台将立即执行粉丝数据推送');
     }
 
+    // ========== 操作日志 ==========
+    const ACTION_MAP = {
+      'push': '📤 推送', 'new_video': '🎬 新视频', 'gqt_refresh': '🔄 共青团刷新', 'fans_push': '📊 粉丝推送',
+      'scheduled_push': '⏰ 定时推送', 'gqt_check': '🚩 共青团检查', 'gqt_scan': '🔍 共青团扫描',
+      'gqt_alert': '🔔 达标提醒', 'push_result': '📋 推送结果'
+    };
+    async function loadLogs() {
+      const tbody = document.getElementById('log-tbody');
+      try {
+        // 优先尝试读取 monitor_logs 表（Python脚本写入的详细日志）
+        const { data: logData, error: logError } = await supabase.from('monitor_logs')
+          .select('*').order('created_at', { ascending: false }).limit(50);
+        if (!logError && logData && logData.length > 0) {
+          tbody.innerHTML = logData.map(r => {
+            const levelClass = r.level === 'ERROR' ? 'log-level-ERROR' : r.level === 'WARNING' ? 'log-level-WARNING' : 'log-level-INFO';
+            return `<tr>
+              <td class="time-text">${formatTime(r.created_at)}</td>
+              <td>${ACTION_MAP[r.action] || r.action || '-'}</td>
+              <td class="${levelClass}">${r.level || 'INFO'}</td>
+              <td>${r.message || ''}</td>
+            </tr>`;
+          }).join('');
+          return;
+        }
+      } catch(e) { /* 表可能不存在，降级到push_requests */ }
+
+      // 降级方案：从 push_requests 读取
+      try {
+        const { data, error } = await supabase.from('push_requests')
+          .select('*').order('created_at', { ascending: false }).limit(30);
+        if (error) { tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#999;">暂无日志数据</td></tr>`; return; }
+        const statusMap = {
+          'pending': '<span class="badge badge-pending">等待中</span>',
+          'processing': '<span class="badge badge-processing">处理中</span>',
+          'fetching_cid': '<span class="badge badge-processing">获取CID</span>',
+          'pushing': '<span class="badge badge-processing">推送中</span>',
+          'done': '<span class="badge badge-done">✅ 完成</span>',
+          'error': '<span class="badge badge-error">❌ 失败</span>'
+        };
+        tbody.innerHTML = (data || []).map(r => `<tr>
+          <td class="time-text">${formatTime(r.created_at)}</td>
+          <td>${ACTION_MAP[r.action] || r.action || '-'}</td>
+          <td>${statusMap[r.status] || r.status}</td>
+          <td>视频ID: ${r.video_id || '-'}</td>
+        </tr>`).join('') || `<tr><td colspan="4" style="text-align:center;color:#999;">暂无日志数据</td></tr>`;
+      } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#999;">日志加载失败</td></tr>`;
+      }
+    }
+
     // ========== 弹窗/工具 ==========
     function openAddModal() { document.getElementById('addModal').style.display = 'block'; }
     function openGqtAddModal() { document.getElementById('gqtAddModal').style.display = 'block'; }
@@ -568,15 +670,19 @@
     window.closeModal = closeModal;
     window.saveFansSettings = saveFansSettings;
     window.triggerFansPush = triggerFansPush;
+    window.loadLogs = loadLogs;
+    window.loadFansSettings = loadFansSettings;
 
-    // ========== 自动刷新：10分钟 ==========
-    setInterval(loadVideos, 600000);
-    setInterval(loadGqtVideos, 600000);
+    // ========== 自动刷新 ==========
+    setInterval(loadVideos, 300000);   // 5分钟
+    setInterval(loadGqtVideos, 300000); // 5分钟
+    setInterval(loadLogs, 30000);       // 30秒
 
     // ========== 页面初始化 ==========
     loadVideos();
     loadGqtVideos();
     loadFansSettings();
+    loadLogs();
   </script>
 </body>
 </html>
