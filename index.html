@@ -136,7 +136,6 @@
     </table>
   </div>
 
-  <!-- 进度条覆盖层 -->
   <div id="progress-overlay">
     <div class="progress-container">
       <h2 id="progress-title">推送进度</h2>
@@ -196,12 +195,12 @@
     </div>
   </div>
 
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
+  <!-- 使用 UMD 版本的 Supabase JS SDK，普通 script 标签中所有函数自动全局，onclick 无需 window 暴露 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
     const SUPABASE_URL = 'https://erzjcvsbrkmukswkqfss.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g';
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // ========== 工具函数 ==========
     function formatLocalDateTime(date) {
@@ -292,7 +291,7 @@
     async function loadVideos() {
       try {
         const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
-        if (error) { console.error(error); return; }
+        if (error) { console.error('loadVideos error:', error); return; }
         const filtered = (data || []).filter(v => v.category !== 'gqt');
         const tbody = document.getElementById('video-tbody');
         tbody.innerHTML = filtered.map(v => {
@@ -319,7 +318,7 @@
             </tr>
           `;
         }).join('');
-      } catch(e) { console.error(e); }
+      } catch(e) { console.error('loadVideos exception:', e); }
     }
     function getSelectedIds() {
       return [...document.querySelectorAll('.video-check:checked')].map(cb => parseInt(cb.value));
@@ -414,6 +413,7 @@
     }
 
     let editingId = null;
+    let editingOriginalStartTime = null;  // 记录原始 start_time，用于检测是否被修改
     async function openEditModal() {
       const ids = getSelectedIds();
       if (ids.length !== 1) return alert('请选中一个视频');
@@ -422,6 +422,7 @@
       if (error || !data) { alert('获取视频信息失败'); return; }
       document.getElementById('editCid').value = data.cid || '';
       document.getElementById('editStartTime').value = data.start_time || '';
+      editingOriginalStartTime = data.start_time || '';  // 保存原始值
       document.getElementById('editCurrentHour').value = data.current_hour ?? 0;
       document.getElementById('editMonitorHours').value = data.monitor_hours || 48;
       document.getElementById('editNotifyInterval').value = data.notify_interval || 1;
@@ -438,9 +439,10 @@
 
     async function saveEdit() {
       if (!editingId) return;
+      const newStartTime = document.getElementById('editStartTime').value;
       const updated = {
         cid: document.getElementById('editCid').value,
-        start_time: document.getElementById('editStartTime').value,
+        start_time: newStartTime,
         current_hour: parseInt(document.getElementById('editCurrentHour').value) || 0,
         monitor_hours: parseInt(document.getElementById('editMonitorHours').value) || 48,
         notify_interval: parseFloat(document.getElementById('editNotifyInterval').value) || 1,
@@ -453,6 +455,11 @@
         alert_interval_minutes: parseInt(document.getElementById('editInterval').value) || 15,
         alert_only: document.getElementById('editAlertOnly').checked,
       };
+      // 如果 start_time 被修改了，重置 current_hour 为 0，让监控从新的开始时间重新计算
+      if (editingOriginalStartTime && newStartTime && editingOriginalStartTime.trim() !== newStartTime.trim()) {
+        updated.current_hour = 0;
+        if (!confirm(`检测到开始时间已修改：\n  旧：${editingOriginalStartTime}\n  新：${newStartTime}\n\n将自动重置已推送小时为 0，监控将按新的开始时间重新开始。确认保存？`)) return;
+      }
       const { error } = await supabase.from('videos').update(updated).eq('id', editingId);
       if (error) { alert('更新失败：' + error.message); return; }
       alert('已更新'); closeModal('editModal'); loadVideos();
@@ -660,30 +667,6 @@
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     function toggleAll(cb) { document.querySelectorAll('.video-check').forEach(c => c.checked = cb.checked); }
     function toggleAllGqt(cb) { document.querySelectorAll('.gqt-check').forEach(c => c.checked = cb.checked); }
-
-    // ========== 暴露全局函数 ==========
-    window.loadVideos = loadVideos;
-    window.addVideos = addVideos;
-    window.pushSelected = pushSelected;
-    window.pushAll = pushAll;
-    window.deleteSelected = deleteSelected;
-    window.openEditModal = openEditModal;
-    window.saveEdit = saveEdit;
-    window.viewHistory = viewHistory;
-    window.openAddModal = openAddModal;
-    window.toggleAll = toggleAll;
-    window.loadGqtVideos = loadGqtVideos;
-    window.addGqtVideo = addGqtVideo;
-    window.pushGqtSelected = pushGqtSelected;
-    window.refreshGqtStatus = refreshGqtStatus;
-    window.deleteGqtSelected = deleteGqtSelected;
-    window.openGqtAddModal = openGqtAddModal;
-    window.toggleAllGqt = toggleAllGqt;
-    window.closeModal = closeModal;
-    window.saveFansSettings = saveFansSettings;
-    window.triggerFansPush = triggerFansPush;
-    window.loadLogs = loadLogs;
-    window.loadFansSettings = loadFansSettings;
 
     // ========== 自动刷新 ==========
     setInterval(loadVideos, 300000);   // 5分钟
