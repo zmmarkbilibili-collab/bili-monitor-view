@@ -250,7 +250,8 @@
       'fetching_cid': { percent: 35, main: '正在获取视频 CID...', sub: '通过B站API获取视频标识符' },
       'pushing': { percent: 65, main: '正在获取最新播放量并推送...', sub: '查询B站接口，发送企业微信消息' },
       'done': { percent: 100, main: '✅ 操作完成！', sub: '' },
-      'error': { percent: 0, main: '❌ 操作失败', sub: '请查看日志或检查视频信息' }
+      'error': { percent: 0, main: '❌ 操作失败', sub: '请查看日志或检查视频信息' },
+      'cancelled': { percent: 0, main: '已取消', sub: '该请求已被新请求取代' }
     };
     async function pollPushStatus(requestId) {
       let attempts = 0;
@@ -275,7 +276,7 @@
           if (!data) { updateProgress(5, '等待后台开始处理...', ''); return; }
           const step = STATUS_STEPS[data.status] || STATUS_STEPS['pending'];
           updateProgress(step.percent, step.main, step.sub);
-          if (data.status === 'done' || data.status === 'error') {
+          if (data.status === 'done' || data.status === 'error' || data.status === 'cancelled') {
             clearInterval(pollingTimer);
             setTimeout(() => { hideProgress(); loadVideos(); loadGqtVideos(); loadLogs(); }, 2500);
           }
@@ -372,6 +373,9 @@
       if (!ids.length) return alert('请勾选视频');
       window.isPushing = true;
       try {
+        // 先取消这些视频的旧待处理请求，避免重复推送
+        await supabase.from('push_requests').update({ status: 'cancelled' })
+          .eq('status', 'pending').in('video_id', ids);
         const events = ids.map(video_id => ({ action: 'push', video_id, status: 'pending' }));
         const { data, error } = await supabase.from('push_requests').insert(events).select();
         if (error) { alert('推送请求提交失败：' + error.message); return; }
@@ -387,8 +391,12 @@
       if (qErr) return alert('查询失败：' + qErr.message);
       const filtered = (videos || []).filter(v => !v.alert_only);
       if (filtered.length === 0) return alert('没有可推送的视频');
+      if (!confirm(`确定要推送全部 ${filtered.length} 个视频吗？\n（此操作会推送所有非共青团、非仅预警的视频）`)) return;
       window.isPushing = true;
       try {
+        // 先取消所有旧的待处理推送请求，避免和新请求混在一起导致重复推送
+        await supabase.from('push_requests').update({ status: 'cancelled' })
+          .eq('status', 'pending').eq('action', 'push');
         const events = filtered.map(v => ({ action: 'push', video_id: v.id, status: 'pending' }));
         const { data, error } = await supabase.from('push_requests').insert(events).select();
         if (error) alert('推送请求提交失败：' + error.message);
@@ -632,7 +640,8 @@
           'fetching_cid': '<span class="badge badge-processing">获取CID</span>',
           'pushing': '<span class="badge badge-processing">推送中</span>',
           'done': '<span class="badge badge-done">✅ 完成</span>',
-          'error': '<span class="badge badge-error">❌ 失败</span>'
+          'error': '<span class="badge badge-error">❌ 失败</span>',
+          'cancelled': '<span class="badge badge-pending">已取消</span>'
         };
         tbody.innerHTML = (data || []).map(r => `<tr>
           <td class="time-text">${formatTime(r.created_at)}</td>
