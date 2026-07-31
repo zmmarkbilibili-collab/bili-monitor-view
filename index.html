@@ -52,6 +52,8 @@
     .view-num { color: #e83e8c; font-weight: bold; }
     .online-num { color: #007bff; }
     .time-text { color: #888; font-size: 12px; }
+    .group-header td { background: #e3f2fd !important; font-weight: bold; font-size: 14px; color: #1565c0; padding: 8px 12px; border-top: 2px solid #2196F3; }
+    .group-header .group-count { font-weight: normal; font-size: 12px; color: #666; margin-left: 8px; }
   </style>
 </head>
 <body>
@@ -289,28 +291,46 @@
         if (error) { console.error('loadVideos error:', error); return; }
         const filtered = (data || []).filter(v => v.category !== 'gqt');
         const tbody = document.getElementById('video-tbody');
-        tbody.innerHTML = filtered.map(v => {
-          const hour = v.current_hour ?? 0;
-          const progress = Math.min(hour / 48 * 100, 100);
-          const isComplete = hour > 48;
-          return `<tr ${isComplete ? 'style="opacity:0.5"' : ''}>
-            <td><input type="checkbox" value="${v.id}" class="video-check"></td>
-            <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
-            <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
-            <td>${v.up_name || '-'}</td>
-            <td>${v.group_name || '-'}</td>
-            <td class="view-num">${formatView(v.view)}</td>
-            <td class="online-num">${v.online_total || '-'}</td>
-            <td class="time-text">${v.start_time || '-'}</td>
-            <td><strong>${hour}h</strong></td>
-            <td class="progress-cell">
-              <span class="progress-cell-bar"><span class="progress-cell-fill" style="width:${progress}%"></span></span>
-              <span class="progress-cell-text">${hour}/48</span>
-            </td>
-            <td class="time-text">${formatTime(v.last_push_time)}</td>
-            <td>${v.alert_enabled ? '<span class="badge badge-info">是</span>' : '否'}</td>
-          </tr>`;
-        }).join('');
+
+        // 按 group_name 分组
+        const groups = {};
+        const groupOrder = [];
+        filtered.forEach(v => {
+          const gname = v.group_name || '未分组';
+          if (!groups[gname]) { groups[gname] = []; groupOrder.push(gname); }
+          groups[gname].push(v);
+        });
+
+        let html = '';
+        groupOrder.forEach(gname => {
+          const vids = groups[gname];
+          // 分组标题行
+          html += `<tr class="group-header"><td colspan="12">📁 ${gname} <span class="group-count">(${vids.length} 个视频)</span></td></tr>`;
+          // 该组下的视频行
+          vids.forEach(v => {
+            const hour = v.current_hour ?? 0;
+            const progress = Math.min(hour / 48 * 100, 100);
+            const isComplete = hour > 48;
+            html += `<tr ${isComplete ? 'style="opacity:0.5"' : ''}>
+              <td><input type="checkbox" value="${v.id}" class="video-check"></td>
+              <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
+              <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
+              <td>${v.up_name || '-'}</td>
+              <td>${v.group_name || '-'}</td>
+              <td class="view-num">${formatView(v.view)}</td>
+              <td class="online-num">${v.online_total || '-'}</td>
+              <td class="time-text">${v.start_time || '-'}</td>
+              <td><strong>${hour}h</strong></td>
+              <td class="progress-cell">
+                <span class="progress-cell-bar"><span class="progress-cell-fill" style="width:${progress}%"></span></span>
+                <span class="progress-cell-text">${hour}/48</span>
+              </td>
+              <td class="time-text">${formatTime(v.last_push_time)}</td>
+              <td>${v.alert_enabled ? '<span class="badge badge-info">是</span>' : '否'}</td>
+            </tr>`;
+          });
+        });
+        tbody.innerHTML = html || '<tr><td colspan="12" style="text-align:center;color:#999;">暂无视频</td></tr>';
       } catch(e) { console.error('loadVideos exception:', e); }
     }
     function getSelectedIds() {
