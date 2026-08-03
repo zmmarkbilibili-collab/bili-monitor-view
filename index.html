@@ -54,6 +54,7 @@
     .time-text { color: #888; font-size: 12px; }
     .group-header td { background: #e3f2fd !important; font-weight: bold; font-size: 14px; color: #1565c0; padding: 8px 12px; border-top: 2px solid #2196F3; }
     .group-header .group-count { font-weight: normal; font-size: 12px; color: #666; margin-left: 8px; }
+    .toolbar { position: sticky; top: 0; z-index: 10; background: white; padding: 8px 0; margin-bottom: 5px; }
   </style>
 </head>
 <body>
@@ -61,6 +62,7 @@
 
   <div class="section">
     <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
+    <div class="toolbar">
     <button id="btn-add">批量添加 BV</button>
     <button id="btn-push-sel" class="secondary">手动推送选中</button>
     <button id="btn-push-all" class="secondary">一键推送全部</button>
@@ -68,6 +70,7 @@
     <button id="btn-edit">编辑选中</button>
     <button id="btn-history">查看历史</button>
     <button id="btn-refresh">刷新列表</button>
+    </div>
     <table>
       <thead>
         <tr>
@@ -83,10 +86,12 @@
 
   <div class="section">
     <h2>🚩 共青团搬运监控（达标 80000 自动推送） <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
+    <div class="toolbar">
     <button id="btn-gqt-add">添加共青团视频</button>
     <button id="btn-gqt-push" class="secondary">手动推送选中</button>
     <button id="btn-gqt-refresh" class="secondary">手动刷新播放量</button>
     <button id="btn-gqt-del" class="danger">删除选中</button>
+    </div>
     <table>
       <thead>
         <tr>
@@ -573,7 +578,7 @@
       const { data, error } = await supabase.from('history').select('*').eq('video_id', ids[0]).order('hour', { ascending: true });
       if (error) { alert('加载失败'); return; }
       if (!data || data.length === 0) { alert('暂无历史'); return; }
-      const text = data.map(r => `${r.hour}h  播放:${r.view}  在看:${r.online_total}`).join('\n');
+      const text = data.map(r => `${r.hour}h  播放:${formatView(r.view)}  在看:${r.online_total}`).join('\n');
       document.getElementById('historyText').value = text;
       document.getElementById('historyModal').style.display = 'block';
     }
