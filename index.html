@@ -74,7 +74,7 @@
           <th><input type="checkbox" id="selectAll"></th>
           <th>BV号</th><th>标题</th><th>UP主</th><th>分组</th>
           <th>播放量</th><th>在线人数</th><th>开始时间</th>
-          <th>已推送</th><th>进度</th><th>上次推送</th><th>预警</th>
+          <th>已推送</th><th>进度</th><th>上次推送</th><th>预警</th><th>推送</th>
         </tr>
       </thead>
       <tbody id="video-tbody"></tbody>
@@ -178,6 +178,14 @@
       <div class="form-row"><label>里程碑(万):</label><input id="editMilestone" type="number" step="0.1"></div>
       <div class="form-row"><label>检查间隔(分):</label><input id="editInterval" type="number"></div>
       <div class="form-row"><label>仅预警:</label><input type="checkbox" id="editAlertOnly"></div>
+      <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
+      <div class="form-row"><label>推送开关:</label><input type="checkbox" id="editPushEnabled" checked> <span style="color:#888;font-size:12px">关闭后仅更新看板数据，不推送企微</span></div>
+      <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
+      <h4 style="margin:0 0 10px;color:#333">📊 播放量差距预警</h4>
+      <div class="form-row"><label>启用差距预警:</label><input type="checkbox" id="editGapAlertEnabled"></div>
+      <div class="form-row"><label>对比目标BV号:</label><input id="editGapTargetBvid" list="bvList" placeholder="输入或选择BV号"></div>
+      <datalist id="bvList"></datalist>
+      <div class="form-row"><label>差距阈值(播放量):</label><input id="editGapThreshold" type="number" placeholder="差距在此值以内时提醒"></div>
       <button id="btn-submit-edit">保存</button>
       <button id="btn-cancel-edit" class="danger">取消</button>
     </div>
@@ -305,7 +313,7 @@
         groupOrder.forEach(gname => {
           const vids = groups[gname];
           // 分组标题行
-          html += `<tr class="group-header"><td colspan="12">📁 ${gname} <span class="group-count">(${vids.length} 个视频)</span></td></tr>`;
+          html += `<tr class="group-header"><td colspan="13">📁 ${gname} <span class="group-count">(${vids.length} 个视频)</span></td></tr>`;
           // 该组下的视频行
           vids.forEach(v => {
             const hour = v.current_hour ?? 0;
@@ -327,10 +335,11 @@
               </td>
               <td class="time-text">${formatTime(v.last_push_time)}</td>
               <td>${v.alert_enabled ? '<span class="badge badge-info">是</span>' : '否'}</td>
+              <td>${v.push_enabled === false ? '<span style="color:#f44336">关</span>' : '<span style="color:#4CAF50">开</span>'}</td>
             </tr>`;
           });
         });
-        tbody.innerHTML = html || '<tr><td colspan="12" style="text-align:center;color:#999;">暂无视频</td></tr>';
+        tbody.innerHTML = html || '<tr><td colspan="13" style="text-align:center;color:#999;">暂无视频</td></tr>';
       } catch(e) { console.error('loadVideos exception:', e); }
     }
     function getSelectedIds() {
@@ -353,7 +362,8 @@
         monitor_hours: 48, group_name: groupName, alert_only: alertOnly,
         category: null, notify_interval: 1.0, window_start: 0, window_end: 24,
         alert_enabled: false, alert_online_threshold: 0, alert_milestone: null,
-        alert_interval_minutes: 15, view: 0, title: '', up_name: '', last_push_time: null
+        alert_interval_minutes: 15, view: 0, title: '', up_name: '', last_push_time: null,
+        push_enabled: true, gap_alert_enabled: false, gap_alert_target_bvid: null, gap_alert_threshold: 0
       }));
       const { data: newVideos, error } = await supabase.from('videos').insert(entries).select();
       if (error) { alert('添加失败：' + error.message); return; }
@@ -428,6 +438,18 @@
       document.getElementById('editMilestone').value = (data.alert_milestone || 0) / 10000;
       document.getElementById('editInterval').value = data.alert_interval_minutes || 15;
       document.getElementById('editAlertOnly').checked = data.alert_only || false;
+      // 推送开关
+      document.getElementById('editPushEnabled').checked = data.push_enabled !== false;
+      // 播放量差距预警
+      document.getElementById('editGapAlertEnabled').checked = data.gap_alert_enabled || false;
+      document.getElementById('editGapTargetBvid').value = data.gap_alert_target_bvid || '';
+      document.getElementById('editGapThreshold').value = data.gap_alert_threshold || '';
+      // 填充 BV 下拉列表（当前监控的所有视频）
+      try {
+        const { data: allVids } = await supabase.from('videos').select('bvid,title').neq('category', 'gqt');
+        const dl = document.getElementById('bvList');
+        dl.innerHTML = (allVids || []).map(v => `<option value="${v.bvid}">${v.bvid} - ${v.title || ''}</option>`).join('');
+      } catch(e) {}
       document.getElementById('editModal').style.display = 'block';
     }
 
@@ -448,6 +470,10 @@
         alert_milestone: Math.floor(parseFloat(document.getElementById('editMilestone').value) * 10000) || null,
         alert_interval_minutes: parseInt(document.getElementById('editInterval').value) || 15,
         alert_only: document.getElementById('editAlertOnly').checked,
+        push_enabled: document.getElementById('editPushEnabled').checked,
+        gap_alert_enabled: document.getElementById('editGapAlertEnabled').checked,
+        gap_alert_target_bvid: document.getElementById('editGapTargetBvid').value.trim() || null,
+        gap_alert_threshold: parseInt(document.getElementById('editGapThreshold').value) || 0,
       };
       // 开始时间被修改 → 重置 current_hour = 0，监控按新开始时间重新开始
       if (editingOriginalStartTime && newStartTime && editingOriginalStartTime.trim() !== newStartTime.trim()) {
