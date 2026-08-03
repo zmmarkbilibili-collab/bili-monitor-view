@@ -202,6 +202,17 @@
     </div>
   </div>
 
+  <div id="historyModal" class="modal">
+    <div class="modal-content">
+      <h3>历史监控数据</h3>
+      <div style="margin-bottom:10px;">
+        <button id="btn-copy-history">一键复制</button>
+        <button id="btn-cancel-history" class="danger">关闭</button>
+      </div>
+      <textarea id="historyText" readonly style="width:100%;height:400px;font-family:monospace;font-size:13px;padding:8px;border:1px solid #ddd;border-radius:4px;resize:vertical;white-space:pre;"></textarea>
+    </div>
+  </div>
+
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
@@ -342,6 +353,77 @@
         tbody.innerHTML = html || '<tr><td colspan="13" style="text-align:center;color:#999;">暂无视频</td></tr>';
       } catch(e) { console.error('loadVideos exception:', e); }
     }
+
+    let isRefreshing = false;
+    async function refreshListWithStats() {
+      if (isRefreshing) return;
+      isRefreshing = true;
+
+      // 1. 播放量、在线人数格子先显示"加载中…"
+      document.querySelectorAll('#video-tbody .view-num').forEach(td => {
+        td.innerHTML = '<span style="color:#999">加载中…</span>';
+      });
+      document.querySelectorAll('#video-tbody .online-num').forEach(td => {
+        td.innerHTML = '<span style="color:#999">…</span>';
+      });
+
+      // 2. 按钮禁用 + 改文字
+      const btn = document.getElementById('btn-refresh');
+      const oldText = btn.innerText;
+      btn.innerText = '刷新中…';
+      btn.disabled = true;
+
+      try {
+        // 3. 提交刷新请求，由后台Python去B站取数据写库
+        const { data, error } = await supabase.from('push_requests').insert([{
+          action: 'refresh_stats', video_id: 0, status: 'pending'
+        }]).select();
+
+        if (error) {
+          alert('刷新请求失败：' + error.message);
+          btn.innerText = oldText;
+          btn.disabled = false;
+          isRefreshing = false;
+          return;
+        }
+
+        if (data && data.length > 0) {
+          const reqId = data[0].id;
+          let attempts = 0;
+          const maxAttempts = 30; // 最多等60秒
+
+          const poll = setInterval(async () => {
+            attempts++;
+            if (attempts >= maxAttempts) {
+              clearInterval(poll);
+              btn.innerText = oldText;
+              btn.disabled = false;
+              isRefreshing = false;
+              loadVideos();
+              return;
+            }
+            try {
+              const { data: reqData } = await supabase.from('push_requests')
+                .select('status').eq('id', reqId).single();
+              if (reqData && (reqData.status === 'done' || reqData.status === 'error')) {
+                clearInterval(poll);
+                btn.innerText = oldText;
+                btn.disabled = false;
+                isRefreshing = false;
+                loadVideos();
+                loadLogs();
+              }
+            } catch(e) {}
+          }, 2000);
+        }
+      } catch(e) {
+        btn.innerText = oldText;
+        btn.disabled = false;
+        isRefreshing = false;
+        alert('刷新异常：' + e.toString());
+      }
+    }
+
     function getSelectedIds() {
       return [...document.querySelectorAll('.video-check:checked')].map(cb => parseInt(cb.value));
     }
@@ -491,7 +573,9 @@
       const { data, error } = await supabase.from('history').select('*').eq('video_id', ids[0]).order('hour', { ascending: true });
       if (error) { alert('加载失败'); return; }
       if (!data || data.length === 0) { alert('暂无历史'); return; }
-      alert(data.map(r => `${r.hour}h  播放:${r.view}  在看:${r.online_total}`).join('\n'));
+      const text = data.map(r => `${r.hour}h  播放:${r.view}  在看:${r.online_total}`).join('\n');
+      document.getElementById('historyText').value = text;
+      document.getElementById('historyModal').style.display = 'block';
     }
 
     // ========== 共青团 ==========
@@ -671,7 +755,14 @@
     document.getElementById('btn-submit-edit').addEventListener('click', saveEdit);
     document.getElementById('btn-cancel-edit').addEventListener('click', () => closeModal('editModal'));
     document.getElementById('btn-history').addEventListener('click', viewHistory);
-    document.getElementById('btn-refresh').addEventListener('click', loadVideos);
+    document.getElementById('btn-cancel-history').addEventListener('click', () => closeModal('historyModal'));
+    document.getElementById('btn-copy-history').addEventListener('click', () => {
+      const ta = document.getElementById('historyText');
+      ta.select();
+      try { document.execCommand('copy'); alert('已复制到剪贴板'); }
+      catch(e) { alert('复制失败，请手动选中复制'); }
+    });
+    document.getElementById('btn-refresh').addEventListener('click', refreshListWithStats);
     document.getElementById('selectAll').addEventListener('change', function() {
       document.querySelectorAll('.video-check').forEach(c => c.checked = this.checked);
     });
