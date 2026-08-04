@@ -15,6 +15,7 @@
     button:hover { background: #45a049; }
     button.danger { background: #f44336; }
     button.danger:hover { background: #d32f2f; }
+    button.log-del-btn { padding: 2px 8px; font-size: 12px; }
     button.secondary { background: #2196F3; }
     button.secondary:hover { background: #1976D2; }
     .form-row { margin-bottom: 10px; }
@@ -138,11 +139,12 @@
   <div class="section log-section">
     <h2>📋 操作日志 <span class="auto-refresh-hint">(每30秒自动刷新)</span></h2>
     <button id="btn-refresh-log">刷新日志</button>
+    <button id="btn-clear-log" class="danger">清空日志</button>
     <table>
       <thead>
         <tr>
           <th style="width:160px">时间</th><th style="width:100px">类型</th>
-          <th style="width:80px">级别</th><th>详情</th>
+          <th style="width:80px">级别</th><th>详情</th><th style="width:90px">操作</th>
         </tr>
       </thead>
       <tbody id="log-tbody">
@@ -953,10 +955,11 @@
         if (!logError && logData && logData.length > 0) {
           tbody.innerHTML = logData.map(r => {
             const levelClass = r.level === 'ERROR' ? 'log-level-ERROR' : r.level === 'WARNING' ? 'log-level-WARNING' : 'log-level-INFO';
-            return `<tr><td class="time-text">${formatTime(r.created_at)}</td>
+            return `<tr data-id="${r.id}" data-table="monitor_logs"><td class="time-text">${formatTime(r.created_at)}</td>
               <td>${ACTION_MAP[r.action] || r.action || '-'}</td>
               <td class="${levelClass}">${r.level || 'INFO'}</td>
-              <td>${r.message || ''}</td></tr>`;
+              <td>${r.message || ''}</td>
+              <td><button class="log-del-btn danger" data-del>删除</button></td></tr>`;
           }).join('');
           return;
         }
@@ -964,7 +967,7 @@
       try {
         const { data, error } = await supabase.from('push_requests')
           .select('*').order('created_at', { ascending: false }).limit(30);
-        if (error) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">暂无日志数据</td></tr>'; return; }
+        if (error) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无日志数据</td></tr>'; return; }
         const statusMap = {
           'pending': '<span class="badge badge-pending">等待中</span>',
           'processing': '<span class="badge badge-processing">处理中</span>',
@@ -974,12 +977,29 @@
           'error': '<span class="badge badge-error">❌ 失败</span>',
           'cancelled': '<span class="badge badge-pending">已取消</span>'
         };
-        tbody.innerHTML = (data || []).map(r => `<tr>
+        tbody.innerHTML = (data || []).map(r => `<tr data-id="${r.id}" data-table="push_requests">
           <td class="time-text">${formatTime(r.created_at)}</td>
           <td>${ACTION_MAP[r.action] || r.action || '-'}</td>
           <td>${statusMap[r.status] || r.status}</td>
-          <td>视频ID: ${r.video_id || '-'}</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:#999;">暂无日志数据</td></tr>';
-      } catch(e) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">日志加载失败</td></tr>'; }
+          <td>视频ID: ${r.video_id || '-'}</td>
+          <td><button class="log-del-btn danger" data-del>删除</button></td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:#999;">暂无日志数据</td></tr>';
+      } catch(e) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">日志加载失败</td></tr>'; }
+
+    async function deleteLog(id, table) {
+      try {
+        const { error } = await supabase.from(table).delete().eq('id', id);
+        if (error) { alert('删除失败：' + error.message); return false; }
+        return true;
+      } catch (e) { alert('删除失败：' + e.message); return false; }
+    }
+
+    async function clearLogs() {
+      if (!confirm('确定清空全部操作日志？此操作不可恢复。')) return;
+      const { error } = await supabase.from('monitor_logs').delete().not('id', 'is', null);
+      if (error) { alert('清空失败：' + error.message); return; }
+      loadLogs();
+    }
+
     }
 
     // ========== 历史稿件查询 ==========
@@ -1188,6 +1208,16 @@
     document.getElementById('btn-save-fans').addEventListener('click', saveFansSettings);
     document.getElementById('btn-push-fans').addEventListener('click', triggerFansPush);
     document.getElementById('btn-refresh-log').addEventListener('click', loadLogs);
+    document.getElementById('btn-clear-log').addEventListener('click', clearLogs);
+    document.getElementById('log-tbody').addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-del]');
+      if (!btn) return;
+      const tr = btn.closest('tr');
+      if (!confirm('确定删除这条日志？')) return;
+      btn.disabled = true;
+      const ok = await deleteLog(tr.dataset.id, tr.dataset.table);
+      if (ok) loadLogs(); else btn.disabled = false;
+    });
     document.getElementById('btn-switch-machine').addEventListener('click', switchActiveMachine);
     // 历史稿件查询
     document.getElementById('btn-mh-search').addEventListener('click', loadManuscriptHistory);
