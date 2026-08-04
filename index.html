@@ -842,8 +842,11 @@
     let editingGroupName = null;
     async function openGroupEdit(groupName) {
       editingGroupName = groupName;
+      console.log('openGroupEdit, groupName:', groupName);
       const { data, error } = await supabase.from('videos').select('*').eq('group_name', groupName).neq('category', 'gqt');
-      if (error || !data || data.length === 0) { alert('获取组数据失败'); return; }
+      console.log('openGroupEdit result:', { data, error });
+      if (error) { alert('获取组数据失败：' + error.message); return; }
+      if (!data || data.length === 0) { alert('获取组数据失败：未找到组 "' + groupName + '" 的视频'); return; }
       
       const first = data[0];
       document.getElementById('grpGroupName').value = groupName;
@@ -872,7 +875,8 @@
     async function saveGroupEdit() {
       if (!editingGroupName) return;
       const { data: vids, error } = await supabase.from('videos').select('id,start_time').eq('group_name', editingGroupName).neq('category', 'gqt');
-      if (error || !vids) { alert('获取组数据失败'); return; }
+      if (error) { alert('获取组数据失败：' + error.message); return; }
+      if (!vids || vids.length === 0) { alert('获取组数据失败：未找到视频'); return; }
       
       const newStartTime = document.getElementById('grpStartTime').value;
       const updated = {
