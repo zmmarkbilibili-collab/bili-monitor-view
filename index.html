@@ -54,6 +54,10 @@
     .time-text { color: #888; font-size: 12px; }
     .group-header td { background: #e3f2fd !important; font-weight: bold; font-size: 14px; color: #1565c0; padding: 8px 12px; border-top: 2px solid #2196F3; }
     .group-header .group-count { font-weight: normal; font-size: 12px; color: #666; margin-left: 8px; }
+    tr.highlighted > td { background: #fff3cd !important; }
+    tr.highlighted > td:first-child { border-left: 4px solid #ff9800; }
+    .hl-btn { border:1px solid #ddd; background:#fafafa; border-radius:4px; padding:2px 6px; cursor:pointer; font-size:12px; }
+    .hl-btn.on { background:#ff9800; color:#fff; border-color:#ff9800; }
     .toolbar { position: sticky; top: 0; z-index: 10; background: white; padding: 8px 0; margin-bottom: 5px; }
   </style>
 </head>
@@ -84,7 +88,7 @@
           <th><input type="checkbox" id="selectAll"></th>
           <th>BV号</th><th>标题</th><th>UP主</th><th>分组</th>
           <th>播放量</th><th>在线人数</th><th>开始时间</th>
-          <th>已推送</th><th>进度</th><th>上次推送</th><th>预警</th><th>推送</th>
+          <th>已推送</th><th>进度</th><th>上次推送</th><th>预警</th><th>推送</th><th>突出</th>
         </tr>
       </thead>
       <tbody id="video-tbody"></tbody>
@@ -335,14 +339,22 @@
         let html = '';
         groupOrder.forEach(gname => {
           const vids = groups[gname];
+          // 组内排序：被高亮的固定第一行，其余按播放量降序
+          vids.sort((a, b) => {
+            const ha = a.highlight ? 1 : 0, hb = b.highlight ? 1 : 0;
+            if (ha !== hb) return hb - ha;
+            return (b.view || 0) - (a.view || 0);
+          });
           // 分组标题行
-          html += `<tr class="group-header"><td colspan="13">📁 ${gname} <span class="group-count">(${vids.length} 个视频)</span></td></tr>`;
+          html += `<tr class="group-header"><td colspan="14">📁 ${gname} <span class="group-count">(${vids.length} 个视频)</span></td></tr>`;
           // 该组下的视频行
           vids.forEach(v => {
             const hour = v.current_hour ?? 0;
             const progress = Math.min(hour / 48 * 100, 100);
             const isComplete = hour > 48;
-            html += `<tr ${isComplete ? 'style="opacity:0.5"' : ''}>
+            const hlClass = v.highlight ? ' class="highlighted"' : '';
+            const hlBtn = `<button class="hl-btn ${v.highlight ? 'on' : ''}" data-id="${v.id}" data-hl="${v.highlight ? 1 : 0}">${v.highlight ? '★ 已突出' : '☆ 突出'}</button>`;
+            html += `<tr${hlClass}${isComplete ? ' style="opacity:0.5"' : ''}>
               <td><input type="checkbox" value="${v.id}" class="video-check"></td>
               <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
               <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
@@ -359,11 +371,21 @@
               <td class="time-text">${formatTime(v.last_push_time)}</td>
               <td>${v.alert_enabled ? '<span class="badge badge-info">是</span>' : '否'}</td>
               <td>${v.push_enabled === false ? '<span style="color:#f44336">关</span>' : '<span style="color:#4CAF50">开</span>'}</td>
+              <td>${hlBtn}</td>
             </tr>`;
           });
         });
-        tbody.innerHTML = html || '<tr><td colspan="13" style="text-align:center;color:#999;">暂无视频</td></tr>';
+        tbody.innerHTML = html || '<tr><td colspan="14" style="text-align:center;color:#999;">暂无视频</td></tr>';
       } catch(e) { console.error('loadVideos exception:', e); }
+    }
+
+    async function toggleHighlight(id, current) {
+      const newVal = !current;
+      try {
+        const { error } = await supabase.from('videos').update({ highlight: newVal }).eq('id', id);
+        if (error) { alert('更新突出状态失败：' + error.message); return; }
+        loadVideos();
+      } catch(e) { alert('更新突出状态异常：' + e.toString()); }
     }
 
     let isRefreshing = false;
@@ -828,39 +850,15 @@
       catch(e) { alert('复制失败，请手动选中复制'); }
     });
     document.getElementById('btn-refresh').addEventListener('click', refreshListWithStats);
+    document.getElementById('video-tbody').addEventListener('click', (e) => {
+      const btn = e.target.closest('.hl-btn');
+      if (!btn) return;
+      const id = parseInt(btn.dataset.id);
+      const cur = btn.dataset.hl === '1';
+      toggleHighlight(id, cur);
+    });
     document.getElementById('selectAll').addEventListener('change', function() {
       document.querySelectorAll('.video-check').forEach(c => c.checked = this.checked);
     });
 
-    document.getElementById('btn-gqt-add').addEventListener('click', () => { document.getElementById('gqtAddModal').style.display = 'block'; });
-    document.getElementById('btn-submit-gqt').addEventListener('click', addGqtVideo);
-    document.getElementById('btn-cancel-gqt').addEventListener('click', () => closeModal('gqtAddModal'));
-    document.getElementById('btn-gqt-push').addEventListener('click', pushGqtSelected);
-    document.getElementById('btn-gqt-refresh').addEventListener('click', refreshGqtStatus);
-    document.getElementById('btn-gqt-del').addEventListener('click', deleteGqtSelected);
-    document.getElementById('selectAllGqt').addEventListener('change', function() {
-      document.querySelectorAll('.gqt-check').forEach(c => c.checked = this.checked);
-    });
-
-    document.getElementById('btn-save-fans').addEventListener('click', saveFansSettings);
-    document.getElementById('btn-push-fans').addEventListener('click', triggerFansPush);
-    document.getElementById('btn-refresh-log').addEventListener('click', loadLogs);
-    document.getElementById('btn-switch-machine').addEventListener('click', switchActiveMachine);
-
-    // ========== 自动刷新 ==========
-    setInterval(loadVideos, 300000);
-    setInterval(loadGqtVideos, 300000);
-    setInterval(loadLogs, 30000);
-    setInterval(loadActiveMachine, 30000); // 每30秒刷新机器状态
-
-    // ========== 初始化 ==========
-    loadVideos();
-    loadGqtVideos();
-    loadFansSettings();
-    loadLogs();
-    loadActiveMachine();
-
-    console.log('[B站监控] 页面初始化完成，所有按钮已绑定');
-  </script>
-</body>
-</html>
+    document.getElementById('btn-gqt-add').addEventListener('clic
