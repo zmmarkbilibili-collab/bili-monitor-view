@@ -164,7 +164,7 @@
       <h3>添加 BV</h3>
       <p>多个 BV 用英文逗号分隔，CID 和标题会自动获取</p>
       <div class="form-row"><label>BV号:</label><input id="bvInput" placeholder="BVxxx, BVyyy"></div>
-      <div class="form-row"><label>开始时间:</label><input id="startTime" placeholder="如 2026-07-29 09:56"></div>
+      <div class="form-row"><label>开始时间:</label><input id="startTime" placeholder="如 2026-07-29 09:56" style="width:180px;display:inline-block;"> <button id="btn-now-time" style="padding:5px 12px;">此刻</button></div>
       <div class="form-row"><label>已监控小时:</label><input id="monitoredHours" type="number" value="0"></div>
       <div class="form-row"><label>组名:</label><input id="groupName" placeholder="留空自动生成"></div>
       <div class="form-row"><label>仅预警:</label><input type="checkbox" id="alertOnlyAdd"></div>
@@ -200,6 +200,35 @@
       <div class="form-row"><label>差距阈值(播放量):</label><input id="editGapThreshold" type="number" placeholder="差距在此值以内时提醒"></div>
       <button id="btn-submit-edit">保存</button>
       <button id="btn-cancel-edit" class="danger">取消</button>
+    </div>
+  </div>
+
+  <!-- 编辑整组弹窗 -->
+  <div id="groupEditModal" class="modal">
+    <div class="modal-content">
+      <h3>编辑整组</h3>
+      <p style="color:#888;font-size:13px;">设置将应用到该组下所有视频</p>
+      <div class="form-row"><label>组名:</label><input id="grpGroupName" readonly style="background:#f0f0f0;"></div>
+      <div class="form-row"><label>开始时间:</label><input id="grpStartTime" style="width:180px;display:inline-block;"> <button id="btn-grp-now" style="padding:5px 12px;">此刻</button></div>
+      <div class="form-row"><label>总监控时长:</label><input id="grpMonitorHours" type="number"></div>
+      <div class="form-row"><label>推送频率(小时):</label><input id="grpNotifyInterval" type="number" step="0.5"></div>
+      <div class="form-row"><label>窗口开始:</label><input id="grpWinStart" type="number"></div>
+      <div class="form-row"><label>窗口结束:</label><input id="grpWinEnd" type="number"></div>
+      <div class="form-row"><label>启用预警:</label><input type="checkbox" id="grpAlertEnabled"></div>
+      <div class="form-row"><label>在线阈值:</label><input id="grpOnlineTh" type="number"></div>
+      <div class="form-row"><label>里程碑(万):</label><input id="grpMilestone" type="number" step="0.1"></div>
+      <div class="form-row"><label>检查间隔(分):</label><input id="grpInterval" type="number"></div>
+      <div class="form-row"><label>仅预警:</label><input type="checkbox" id="grpAlertOnly"></div>
+      <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
+      <div class="form-row"><label>推送开关:</label><input type="checkbox" id="grpPushEnabled"> <span style="color:#888;font-size:12px">关闭后仅更新看板数据，不推送企微</span></div>
+      <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
+      <h4 style="margin:0 0 10px;color:#333">📊 播放量差距预警（组内）</h4>
+      <p style="color:#888;font-size:12px;margin:0 0 10px;">选择参考视频（应高于组内其他视频），当其他视频与参考视频差距在阈值内时推送预警</p>
+      <div class="form-row"><label>启用差距预警:</label><input type="checkbox" id="grpGapAlertEnabled"></div>
+      <div class="form-row"><label>参考视频:</label><select id="grpGapRefBvid" style="width:300px;"></select></div>
+      <div class="form-row"><label>差距阈值(播放量):</label><input id="grpGapThreshold" type="number" placeholder="差距在此值以内时提醒"></div>
+      <button id="btn-submit-grp-edit">保存</button>
+      <button id="btn-cancel-grp-edit" class="danger">取消</button>
     </div>
   </div>
 
@@ -336,7 +365,7 @@
         groupOrder.forEach(gname => {
           const vids = groups[gname];
           // 分组标题行
-          html += `<tr class="group-header"><td colspan="13">📁 ${gname} <span class="group-count">(${vids.length} 个视频)</span></td></tr>`;
+          html += `<tr class="group-header"><td colspan="13">📁 ${gname} <span class="group-count">(${vids.length} 个视频)</span> <button class="group-edit-btn" data-group="${gname}" style="float:right;padding:3px 12px;font-size:12px;">编辑整组</button></td></tr>`;
           // 该组下的视频行
           vids.forEach(v => {
             const hour = v.current_hour ?? 0;
@@ -457,7 +486,7 @@
         category: null, notify_interval: 1.0, window_start: 0, window_end: 24,
         alert_enabled: false, alert_online_threshold: 0, alert_milestone: null,
         alert_interval_minutes: 15, view: 0, title: '', up_name: '', last_push_time: null,
-        push_enabled: true, gap_alert_enabled: false, gap_alert_target_bvid: null, gap_alert_threshold: 0
+        push_enabled: false, gap_alert_enabled: false, gap_alert_target_bvid: null, gap_alert_threshold: 0
       }));
       const { data: newVideos, error } = await supabase.from('videos').insert(entries).select();
       if (error) { alert('添加失败：' + error.message); return; }
@@ -809,6 +838,78 @@
     // ========== 弹窗 ==========
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
+    // ========== 组编辑 ==========
+    let editingGroupName = null;
+    async function openGroupEdit(groupName) {
+      editingGroupName = groupName;
+      const { data, error } = await supabase.from('videos').select('*').eq('group_name', groupName).neq('category', 'gqt');
+      if (error || !data || data.length === 0) { alert('获取组数据失败'); return; }
+      
+      const first = data[0];
+      document.getElementById('grpGroupName').value = groupName;
+      document.getElementById('grpStartTime').value = first.start_time || '';
+      document.getElementById('grpMonitorHours').value = first.monitor_hours || 48;
+      document.getElementById('grpNotifyInterval').value = first.notify_interval || 1;
+      document.getElementById('grpWinStart').value = first.window_start || 0;
+      document.getElementById('grpWinEnd').value = first.window_end || 24;
+      document.getElementById('grpAlertEnabled').checked = first.alert_enabled || false;
+      document.getElementById('grpOnlineTh').value = first.alert_online_threshold || 0;
+      document.getElementById('grpMilestone').value = (first.alert_milestone || 0) / 10000;
+      document.getElementById('grpInterval').value = first.alert_interval_minutes || 15;
+      document.getElementById('grpAlertOnly').checked = first.alert_only || false;
+      document.getElementById('grpPushEnabled').checked = first.push_enabled !== false;
+      document.getElementById('grpGapAlertEnabled').checked = first.gap_alert_enabled || false;
+      document.getElementById('grpGapThreshold').value = first.gap_alert_threshold || '';
+      
+      // 填充参考视频下拉列表（组内所有视频）
+      const refSelect = document.getElementById('grpGapRefBvid');
+      refSelect.innerHTML = '<option value="">-- 选择参考视频 --</option>' + 
+        data.map(v => `<option value="${v.bvid}" ${v.bvid === first.gap_alert_target_bvid ? 'selected' : ''}>${v.bvid} - ${v.title || '获取中...'}</option>`).join('');
+      
+      document.getElementById('groupEditModal').style.display = 'block';
+    }
+
+    async function saveGroupEdit() {
+      if (!editingGroupName) return;
+      const { data: vids, error } = await supabase.from('videos').select('id,start_time').eq('group_name', editingGroupName).neq('category', 'gqt');
+      if (error || !vids) { alert('获取组数据失败'); return; }
+      
+      const newStartTime = document.getElementById('grpStartTime').value;
+      const updated = {
+        start_time: newStartTime,
+        monitor_hours: parseInt(document.getElementById('grpMonitorHours').value) || 48,
+        notify_interval: parseFloat(document.getElementById('grpNotifyInterval').value) || 1,
+        window_start: parseInt(document.getElementById('grpWinStart').value) || 0,
+        window_end: parseInt(document.getElementById('grpWinEnd').value) || 24,
+        alert_enabled: document.getElementById('grpAlertEnabled').checked,
+        alert_online_threshold: parseInt(document.getElementById('grpOnlineTh').value) || 0,
+        alert_milestone: Math.floor(parseFloat(document.getElementById('grpMilestone').value) * 10000) || null,
+        alert_interval_minutes: parseInt(document.getElementById('grpInterval').value) || 15,
+        alert_only: document.getElementById('grpAlertOnly').checked,
+        push_enabled: document.getElementById('grpPushEnabled').checked,
+        gap_alert_enabled: document.getElementById('grpGapAlertEnabled').checked,
+        gap_alert_target_bvid: document.getElementById('grpGapRefBvid').value || null,
+        gap_alert_threshold: parseInt(document.getElementById('grpGapThreshold').value) || 0,
+      };
+      
+      // 检查开始时间是否变化 → 重置 current_hour
+      let resetHour = false;
+      for (const v of vids) {
+        if (v.start_time && v.start_time.trim() !== newStartTime.trim()) { resetHour = true; break; }
+      }
+      if (resetHour) {
+        if (!confirm('检测到开始时间已修改，将重置组内所有视频的已推送小时为0。确认保存？')) return;
+        updated.current_hour = 0;
+      }
+      
+      const ids = vids.map(v => v.id);
+      const { error: updateError } = await supabase.from('videos').update(updated).in('id', ids);
+      if (updateError) { alert('更新失败：' + updateError.message); return; }
+      alert(`已更新 ${ids.length} 个视频`);
+      closeModal('groupEditModal');
+      loadVideos();
+    }
+
     // ========== 事件绑定（addEventListener，不依赖 onclick 全局作用域）==========
     document.getElementById('btn-add').addEventListener('click', () => { document.getElementById('addModal').style.display = 'block'; });
     document.getElementById('btn-submit-add').addEventListener('click', addVideos);
@@ -828,6 +929,22 @@
       catch(e) { alert('复制失败，请手动选中复制'); }
     });
     document.getElementById('btn-refresh').addEventListener('click', refreshListWithStats);
+    // "此刻"按钮 - 批量添加弹窗
+    document.getElementById('btn-now-time').addEventListener('click', () => {
+      document.getElementById('startTime').value = formatLocalDateTime();
+    });
+    // "此刻"按钮 - 组编辑弹窗
+    document.getElementById('btn-grp-now').addEventListener('click', () => {
+      document.getElementById('grpStartTime').value = formatLocalDateTime();
+    });
+    // 组编辑 - 事件委托（按钮是动态生成的）
+    document.getElementById('video-tbody').addEventListener('click', function(e) {
+      if (e.target.classList.contains('group-edit-btn')) {
+        openGroupEdit(e.target.getAttribute('data-group'));
+      }
+    });
+    document.getElementById('btn-submit-grp-edit').addEventListener('click', saveGroupEdit);
+    document.getElementById('btn-cancel-grp-edit').addEventListener('click', () => closeModal('groupEditModal'));
     document.getElementById('selectAll').addEventListener('change', function() {
       document.querySelectorAll('.video-check').forEach(c => c.checked = this.checked);
     });
