@@ -1,1746 +1,1224 @@
-import sys, os, subprocess
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>B站监控管理面板</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; background: white; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+    th { background: #4CAF50; color: white; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    .warn { background-color: #ffe0e0; font-weight: bold; }
+    .done { background-color: #e0ffe0; }
+    button { margin: 2px; padding: 6px 14px; cursor: pointer; border: none; border-radius: 4px; background: #4CAF50; color: white; font-size: 13px; }
+    button:hover { background: #45a049; }
+    button.danger { background: #f44336; }
+    button.danger:hover { background: #d32f2f; }
+    button.secondary { background: #2196F3; }
+    button.secondary:hover { background: #1976D2; }
+    .form-row { margin-bottom: 10px; }
+    label { display: inline-block; width: 130px; }
+    input, select { width: 220px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; }
+    .modal-content { background: white; margin: 5% auto; padding: 20px; width: 600px; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
+    .section { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; background: white; border-radius: 8px; }
+    .section h2 { margin-top: 0; }
+    #progress-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 1000; text-align: center; padding-top: 100px; }
+    .progress-container { width: 50%; margin: auto; }
+    .progress-bar { width: 100%; background: #f0f0f0; border-radius: 8px; overflow: hidden; }
+    .progress-fill { width: 0%; height: 30px; background: #4CAF50; text-align: center; line-height: 30px; color: white; transition: width 0.3s; }
+    .step-text { margin: 15px 0; font-size: 18px; }
+    .sub-step { font-size: 14px; color: #666; margin: 5px 0; }
+    .auto-refresh-hint { color: gray; font-size: 0.9em; margin-left: 10px; }
+    .fans-display { background: #e8f5e9; padding: 10px; border-radius: 4px; margin-top: 10px; }
+    .fans-display table { margin-bottom: 0; }
+    .badge { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold; white-space: nowrap; }
+    .badge-success { background: #4CAF50; color: white; }
+    .badge-error { background: #f44336; color: white; }
+    .badge-pending { background: #FF9800; color: white; }
+    .badge-processing { background: #2196F3; color: white; }
+    .badge-done { background: #4CAF50; color: white; }
+    .badge-info { background: #00BCD4; color: white; }
+    .log-section { max-height: 400px; overflow-y: auto; }
+    .log-section table { font-size: 12px; }
+    .log-level-INFO { color: #2196F3; }
+    .log-level-ERROR { color: #f44336; font-weight: bold; }
+    .log-level-WARNING { color: #FF9800; }
+    .progress-cell { width: 80px; }
+    .progress-cell-bar { background: #e0e0e0; border-radius: 4px; height: 16px; overflow: hidden; display: inline-block; width: 60px; vertical-align: middle; }
+    .progress-cell-fill { height: 100%; background: #4CAF50; }
+    .progress-cell-text { font-size: 11px; margin-left: 4px; }
+    .view-num { color: #e83e8c; font-weight: bold; }
+    .online-num { color: #007bff; }
+    .time-text { color: #888; font-size: 12px; }
+    .group-header td { background: #e3f2fd !important; font-weight: bold; font-size: 14px; color: #1565c0; padding: 8px 12px; border-top: 2px solid #2196F3; }
+    .group-header .group-count { font-weight: normal; font-size: 12px; color: #666; margin-left: 8px; }
+    tr.highlighted > td { background: #fff3cd !important; }
+    tr.highlighted > td:first-child { border-left: 4px solid #ff9800; }
+    .hl-btn { padding:2px 8px; font-size:12px; border:1px solid #ff9800; background:#fff; color:#ff9800; border-radius:4px; cursor:pointer; white-space:nowrap; }
+    .hl-btn.on { background:#ff9800; color:#fff; }
+    .toolbar { position: sticky; top: 0; z-index: 10; background: white; padding: 8px 0; margin-bottom: 5px; }
+  </style>
+</head>
+<body>
+  <h1>B站视频监控管理</h1>
 
-if sys.executable.endswith("python.exe") and not sys.argv[1:]:
-    try:
-        subprocess.Popen(
-            [sys.executable.replace("python.exe", "pythonw.exe")] + sys.argv,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        )
-    except:
-        pass
-    sys.exit()
+  <div class="section" style="padding:10px 15px;">
+    <label style="width:auto;margin-right:10px;font-weight:bold;">🖥️ 活跃机器:</label>
+    <select id="activeMachineSelect" style="width:200px;display:inline-block;"></select>
+    <button id="btn-switch-machine" style="margin-left:8px;">切换</button>
+    <span id="machineStatus" style="margin-left:10px;color:#888;font-size:13px;"></span>
+  </div>
 
-import json, re, time, threading, requests, logging, ctypes, atexit, traceback
-import json, re, time, threading, requests, logging, ctypes, atexit, traceback, socket
-import http.server, urllib.parse
-from datetime import datetime, timezone, timedelta
-from collections import defaultdict
-import schedule
-import tkinter as tk
-from tkinter import simpledialog, messagebox, scrolledtext, ttk
-import pystray
-from PIL import Image, ImageDraw
-from logging.handlers import TimedRotatingFileHandler
+  <div class="section">
+    <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
+    <div class="toolbar">
+    <button id="btn-add">批量添加 BV</button>
+    <button id="btn-push-sel" class="secondary">手动推送选中</button>
+    <button id="btn-push-all" class="secondary">一键推送全部</button>
+    <button id="btn-del-sel" class="danger">删除选中</button>
+    <button id="btn-edit">编辑选中</button>
+    <button id="btn-history">查看历史</button>
+    <button id="btn-refresh">刷新列表</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="selectAll"></th>
+          <th>BV号</th><th>标题</th><th>UP主</th><th>分组</th>
+          <th>播放量</th><th>在线人数</th><th>开始时间</th>
+          <th>已推送</th><th>进度</th><th>上次推送</th><th>预警</th><th>推送</th><th>突出</th>
+        </tr>
+      </thead>
+      <tbody id="video-tbody"></tbody>
+    </table>
+  </div>
 
-# ===================== 配置 =====================
-SUPABASE_URL = "https://erzjcvsbrkmukswkqfss.supabase.co"
-SUPABASE_KEY = "sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g"
-REST_URL = f"{SUPABASE_URL}/rest/v1"
-HEADERS_DB = {
-    "apikey": SUPABASE_KEY,
-    "Authorization": f"Bearer {SUPABASE_KEY}",
-    "Content-Type": "application/json",
-    "Prefer": "return=representation"
-}
+  <div class="section">
+    <h2>🚩 共青团搬运监控（达标 80000 自动推送） <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
+    <div class="toolbar">
+    <button id="btn-gqt-add">添加共青团视频</button>
+    <button id="btn-gqt-push" class="secondary">手动推送选中</button>
+    <button id="btn-gqt-refresh" class="secondary">手动刷新播放量</button>
+    <button id="btn-gqt-del" class="danger">删除选中</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="selectAllGqt"></th>
+          <th>BV号</th><th>标题</th><th>UP主</th><th>当前播放量</th><th>状态</th><th>加入时间</th>
+        </tr>
+      </thead>
+      <tbody id="gqt-video-tbody"></tbody>
+    </table>
+  </div>
 
-GQT_UID = "20165629"
-GQT_KEYWORDS = ["人民日报", "央视新闻", "新华社"]
-GQT_KEYWORDS = ["@人民日报", "@央视新闻", "@新华社","人民日报", "央视新闻", "新华社"]
-SPACE_API = "https://api.bilibili.com/x/space/arc/search"
-DEFAULT_WEBHOOK = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=f351987d-23ff-421f-ab5b-e50563090b4f"
+  <div class="section">
+    <h2>📊 粉丝监控设置</h2>
+    <div class="form-row"><label>新闻UID:</label><input id="newsUid" value="456664753"></div>
+    <div class="form-row"><label>军事UID:</label><input id="militaryUid" value="46470268"></div>
+    <div class="form-row"><label>周一基准新闻:</label><input id="mondayNews" type="number" placeholder="自动记录，可手动覆盖"></div>
+    <div class="form-row"><label>周一基准军事:</label><input id="mondayMilitary" type="number" placeholder="自动记录，可手动覆盖"></div>
+    <div class="form-row"><label>Webhook URL:</label><input id="webhookUrl" placeholder="留空使用默认"></div>
+    <div class="form-row"><label>启用监控:</label><input type="checkbox" id="fansEnabled"></div>
+    <button id="btn-save-fans">保存设置</button>
+    <button id="btn-push-fans" class="secondary">立即推送粉丝数据</button>
+    <div id="fans-display" class="fans-display" style="display:none;">
+      <h3>最近一次粉丝数据</h3>
+      <table>
+        <tr><th>项目</th><th>央视新闻</th><th>央视军事</th><th>差值</th></tr>
+        <tr><td>实时粉丝</td><td id="fd-news">-</td><td id="fd-military">-</td><td id="fd-diff">-</td></tr>
+        <tr><td>日维度涨粉</td><td id="fd-dnews">-</td><td id="fd-dmil">-</td><td id="fd-ddiff">-</td></tr>
+        <tr><td>周维度涨粉</td><td id="fd-wnews">-</td><td id="fd-wmil">-</td><td id="fd-wdiff">-</td></tr>
+      </table>
+    </div>
+  </div>
 
-# ---------- 数据库操作 ----------
-# ---------- 机器编号控制 ----------
-MACHINE_ID = "马克会变成马斯克"# 自动用电脑名作为编号，也可手动改成 PC-01 等
-am_i_active = True  # 本机是否是活跃机器
-tray_icon = None  # 系统托盘图标引用（用于动态更新标题）
+  <div class="section log-section">
+    <h2>📋 操作日志 <span class="auto-refresh-hint">(每30秒自动刷新)</span></h2>
+    <button id="btn-refresh-log">刷新日志</button>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:160px">时间</th><th style="width:100px">类型</th>
+          <th style="width:80px">级别</th><th>详情</th>
+        </tr>
+      </thead>
+      <tbody id="log-tbody">
+        <tr><td colspan="4" style="text-align:center;color:#999;">加载中...</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-# 共青团黑名单文件路径
-GQT_BLACKLIST_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gqt_blacklist.json")
+  <div class="section">
+    <h2>🗂️ 历史稿件 <span class="auto-refresh-hint">(含已删除 · 数据来自云端历史库；本地 manuscript_history.json 镜像由监控脚本导出)</span></h2>
+    <div class="toolbar" style="position:static;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <input id="mhSearch" placeholder="搜索 BV号/标题/UP/组名" style="width:240px;display:inline-block;">
+      <select id="mhStatus" style="width:160px;display:inline-block;">
+        <option value="">全部状态</option>
+        <option value="active">在监控中</option>
+        <option value="removed">已删除</option>
+      </select>
+      <select id="mhMachine" style="width:180px;display:inline-block;">
+        <option value="">全部电脑</option>
+      </select>
+      <button id="btn-mh-search">查询</button>
+      <button id="btn-mh-refresh" class="secondary">刷新</button>
+      <button id="btn-mh-sync">🔄 立即同步历史</button>
+      <span id="mhSyncStatus" style="color:#4CAF50;font-size:13px;margin-left:4px;"></span>
+      <span id="mhCount" style="color:#888;font-size:13px;margin-left:8px;"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:120px">BV号</th>
+          <th>标题</th>
+          <th style="width:120px">UP主</th>
+          <th style="width:120px">组名</th>
+          <th style="width:90px">类型</th>
+          <th style="width:90px">状态</th>
+          <th style="width:120px">电脑</th>
+          <th style="width:150px">加入时间</th>
+          <th style="width:150px">删除时间</th>
+        </tr>
+      </thead>
+      <tbody id="mh-tbody">
+        <tr><td colspan="9" style="text-align:center;color:#999;">加载中...</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-# ---------- 单实例锁 ----------
-def check_single_instance():
-    lock_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "monitor.lock")
-    pid = os.getpid()
-    if os.path.exists(lock_file):
-        try:
-            with open(lock_file, "r") as f:
-                old_pid = f.read().strip()
-        except Exception:
-            pass
-    with open(lock_file, "w") as f:
-        f.write(str(pid))
-    atexit.register(lambda: os.path.exists(lock_file) and os.remove(lock_file))
+  <div id="progress-overlay">
+    <div class="progress-container">
+      <h2 id="progress-title">推送进度</h2>
+      <div class="progress-bar">
+        <div id="progress-fill" class="progress-fill" style="width: 0%;">0%</div>
+      </div>
+      <p id="step-text" class="step-text">准备中...</p>
+      <p id="sub-step-text" class="sub-step"></p>
+    </div>
+  </div>
 
-# ---------- 活跃机器检查 ----------
-def register_machine():
-    """注册本机到 app_config 表的 registered_machines 列表"""
-    try:
-        res = supabase_get("app_config", {"key": "eq.registered_machines"})
-        if res and res[0].get("value"):
-            machines = json.loads(res[0]["value"])
-            if MACHINE_ID not in machines:
-                machines.append(MACHINE_ID)
-                supabase_patch("app_config", {"value": json.dumps(machines)}, "key=eq.registered_machines")
-        else:
-            supabase_post("app_config", {"key": "registered_machines", "value": json.dumps([MACHINE_ID])})
-    except Exception as e:
-        log.error(f"注册机器失败: {e}")
+  <!-- 添加普通视频弹窗 -->
+  <div id="addModal" class="modal">
+    <div class="modal-content">
+      <h3>添加 BV</h3>
+      <p>多个 BV 用英文逗号分隔，CID 和标题会自动获取</p>
+      <div class="form-row"><label>BV号:</label><input id="bvInput" placeholder="BVxxx, BVyyy"></div>
+      <div class="form-row"><label>开始时间:</label><input id="startTime" placeholder="如 2026-07-29 09:56" style="width:180px;display:inline-block;"> <button id="btn-now-time" style="padding:5px 12px;">此刻</button></div>
+      <div class="form-row"><label>已监控小时:</label><input id="monitoredHours" type="number" value="0"></div>
+      <div class="form-row"><label>组名:</label><input id="groupName" placeholder="留空自动生成"></div>
+      <div class="form-row"><label>仅预警:</label><input type="checkbox" id="alertOnlyAdd"></div>
+      <button id="btn-submit-add">提交</button>
+      <button id="btn-cancel-add" class="danger">取消</button>
+    </div>
+  </div>
 
-def check_active():
-    """检查本机是否是活跃机器"""
-    global am_i_active
-    try:
-        res = supabase_get("app_config", {"key": "eq.active_machine"})
-        if not res or not res[0].get("value"):
-            # 没有设置活跃机器，本机自动成为活跃
-            if res:
-                supabase_patch("app_config", {"value": MACHINE_ID}, "key=eq.active_machine")
-            else:
-                supabase_post("app_config", {"key": "active_machine", "value": MACHINE_ID})
-            log.info(f"无活跃机器设置，本机({MACHINE_ID})自动成为活跃机器")
-            am_i_active = True
-            return True
-        if res[0].get("value") == MACHINE_ID:
-            am_i_active = True
-            return True
-        am_i_active = False
-        return False
-    except:
-        return True  # 查询失败时不退出
+  <!-- 编辑视频弹窗 -->
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <h3>编辑视频</h3>
+      <div class="form-row"><label>CID:</label><input id="editCid"></div>
+      <div class="form-row"><label>开始时间:</label><input id="editStartTime"></div>
+      <div class="form-row"><label>已推送小时:</label><input id="editCurrentHour" type="number"></div>
+      <div class="form-row"><label>总监控时长:</label><input id="editMonitorHours" type="number"></div>
+      <div class="form-row"><label>推送频率(小时):</label><input id="editNotifyInterval" type="number" step="0.5"></div>
+      <div class="form-row"><label>组名:</label><input id="editGroupName"></div>
+      <div class="form-row"><label>窗口开始:</label><input id="editWinStart" type="number"></div>
+      <div class="form-row"><label>窗口结束:</label><input id="editWinEnd" type="number"></div>
+      <div class="form-row"><label>启用预警:</label><input type="checkbox" id="editAlertEnabled"></div>
+      <div class="form-row"><label>在线阈值:</label><input id="editOnlineTh" type="number"></div>
+      <div class="form-row"><label>里程碑(万):</label><input id="editMilestone" type="number" step="0.1"></div>
+      <div class="form-row"><label>检查间隔(分):</label><input id="editInterval" type="number"></div>
+      <div class="form-row"><label>仅预警:</label><input type="checkbox" id="editAlertOnly"></div>
+      <div class="form-row"><label>突出显示:</label><input type="checkbox" id="editHighlight"> <span style="color:#888;font-size:12px">在看板中高亮该行，便于从一组中分辨</span></div>
+      <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
+      <div class="form-row"><label>推送开关:</label><input type="checkbox" id="editPushEnabled" checked> <span style="color:#888;font-size:12px">关闭后仅更新看板数据，不推送企微</span></div>
+      <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
+      <h4 style="margin:0 0 10px;color:#333">📊 播放量差距预警</h4>
+      <div class="form-row"><label>启用差距预警:</label><input type="checkbox" id="editGapAlertEnabled"></div>
+      <div class="form-row"><label>对比目标BV号:</label><input id="editGapTargetBvid" list="bvList" placeholder="输入或选择BV号"></div>
+      <datalist id="bvList"></datalist>
+      <div class="form-row"><label>差距阈值(播放量):</label><input id="editGapThreshold" type="number" placeholder="差距在此值以内时提醒"></div>
+      <button id="btn-submit-edit">保存</button>
+      <button id="btn-cancel-edit" class="danger">取消</button>
+    </div>
+  </div>
 
-def active_check_loop():
-    """后台线程：每30秒检查是否还是活跃机器。
-    非活跃机器不退出，而是进入待机模式（不执行任务但持续检查），
-    这样网页切换回来时能自动恢复运行。"""
-    global am_i_active, tray_icon
-    while True:
-        time.sleep(30)
-        old_active = am_i_active
-        new_active = check_active()
-        if old_active != new_active:
-            if new_active:
-                log.info(f"✅ 本机({MACHINE_ID})已成为活跃机器，开始执行任务")
-                write_log_to_db("INFO", "machine_switch", f"机器 {MACHINE_ID} 已激活，开始运行")
-            else:
-                log.info(f"⏸️ 本机({MACHINE_ID})已被设为非活跃，进入待机模式（等待网页切换）")
-                write_log_to_db("INFO", "machine_switch", f"机器 {MACHINE_ID} 进入待机模式")
-            # 更新托盘标题
-            if tray_icon:
-                try:
-                    tray_icon.title = f"B站视频监控 ({'运行中' if am_i_active else '待机中'}: {MACHINE_ID})"
-                except:
-                    pass
+  <!-- 编辑整组弹窗 -->
+  <div id="groupEditModal" class="modal">
+    <div class="modal-content">
+      <h3>编辑整组</h3>
+      <p style="color:#888;font-size:13px;">设置将应用到该组下所有视频</p>
+      <div class="form-row"><label>组名:</label><input id="grpGroupName" readonly style="background:#f0f0f0;"></div>
+      <div class="form-row"><label>开始时间:</label><input id="grpStartTime" style="width:180px;display:inline-block;"> <button id="btn-grp-now" style="padding:5px 12px;">此刻</button></div>
+      <div class="form-row"><label>总监控时长:</label><input id="grpMonitorHours" type="number"></div>
+      <div class="form-row"><label>推送频率(小时):</label><input id="grpNotifyInterval" type="number" step="0.5"></div>
+      <div class="form-row"><label>窗口开始:</label><input id="grpWinStart" type="number"></div>
+      <div class="form-row"><label>窗口结束:</label><input id="grpWinEnd" type="number"></div>
+      <div class="form-row"><label>启用预警:</label><input type="checkbox" id="grpAlertEnabled"></div>
+      <div class="form-row"><label>在线阈值:</label><input id="grpOnlineTh" type="number"></div>
+      <div class="form-row"><label>里程碑(万):</label><input id="grpMilestone" type="number" step="0.1"></div>
+      <div class="form-row"><label>检查间隔(分):</label><input id="grpInterval" type="number"></div>
+      <div class="form-row"><label>仅预警:</label><input type="checkbox" id="grpAlertOnly"></div>
+      <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
+      <div class="form-row"><label>推送开关:</label><input type="checkbox" id="grpPushEnabled"> <span style="color:#888;font-size:12px">关闭后仅更新看板数据，不推送企微</span></div>
+      <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
+      <h4 style="margin:0 0 10px;color:#333">📊 播放量差距预警（组内）</h4>
+      <p style="color:#888;font-size:12px;margin:0 0 10px;">选择参考视频（应高于组内其他视频），当其他视频与参考视频差距在阈值内时推送预警</p>
+      <div class="form-row"><label>启用差距预警:</label><input type="checkbox" id="grpGapAlertEnabled"></div>
+      <div class="form-row"><label>参考视频:</label><select id="grpGapRefBvid" style="width:300px;"></select></div>
+      <div class="form-row"><label>差距阈值(播放量):</label><input id="grpGapThreshold" type="number" placeholder="差距在此值以内时提醒"></div>
+      <button id="btn-submit-grp-edit">保存</button>
+      <button id="btn-cancel-grp-edit" class="danger">取消</button>
+    </div>
+  </div>
 
-# ===================== 日志 =====================
-_log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "日志")
-if not os.path.exists(_log_dir):
-    os.makedirs(_log_dir)
-log_file = os.path.join(_log_dir, "monitor.log")
-if not os.path.exists(log_file):
-    open(log_file, 'a').close()
+  <!-- 添加共青团视频弹窗 -->
+  <div id="gqtAddModal" class="modal">
+    <div class="modal-content">
+      <h3>添加共青团搬运视频</h3>
+      <p>自动设置预警阈值为 80000，每 30 分钟检查一次</p>
+      <div class="form-row"><label>BV号:</label><input id="gqtBvInput" placeholder="BVxxx"></div>
+      <button id="btn-submit-gqt">提交</button>
+      <button id="btn-cancel-gqt" class="danger">取消</button>
+    </div>
+  </div>
 
-file_handler = TimedRotatingFileHandler(log_file, when="midnight", interval=1, backupCount=7, encoding="utf-8")
-root = None
+  <div id="historyModal" class="modal">
+    <div class="modal-content">
+      <h3>历史监控数据</h3>
+      <div style="margin-bottom:10px;">
+        <button id="btn-copy-history">一键复制</button>
+        <button id="btn-cancel-history" class="danger">关闭</button>
+      </div>
+      <textarea id="historyText" readonly style="width:100%;height:400px;font-family:monospace;font-size:13px;padding:8px;border:1px solid #ddd;border-radius:4px;resize:vertical;white-space:pre;"></textarea>
+    </div>
+  </div>
 
-# ===================== 数据库操作封装 =====================
-def supabase_get(table, params=None):
-    url = f"{REST_URL}/{table}"
-    headers = HEADERS_DB.copy()
-    if params:
-        query = "&".join([f"{k}={v}" for k, v in params.items()])
-        url += f"?{query}"
-    r = requests.get(url, headers=headers, timeout=15)
-    r.raise_for_status()
-    return r.json()
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-def supabase_post(table, data):
-    r = requests.post(f"{REST_URL}/{table}", json=data, headers=HEADERS_DB, timeout=15)
-    r.raise_for_status()
-    return r.json()
+    const SUPABASE_URL = 'https://erzjcvsbrkmukswkqfss.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-def supabase_patch(table, data, condition):
-    url = f"{REST_URL}/{table}?{condition}"
-    r = requests.patch(url, json=data, headers=HEADERS_DB, timeout=15)
-    r.raise_for_status()
-    return r.json()
-    clean_data = {}
-    for k, v in data.items():
-        if v is not None and v != "":
-            clean_data[k] = v
-    if not clean_data:
-        return
-    try:
-        r = requests.patch(url, json=clean_data, headers=HEADERS_DB, timeout=15)
-        r.raise_for_status()
-    except Exception as e:
-        log.error(f"PATCH 失败: {e}")
-        try:
-            log.error(f"发送的数据: {clean_data}")
-            log.error(f"响应内容: {r.text[:500]}")
-        except:
-            pass
-        raise
+    // ========== 工具函数 ==========
+    function formatLocalDateTime(date) {
+      const d = date || new Date();
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    function formatView(n) {
+      if (!n) return '0';
+      if (n >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, '') + 'w';
+      return n.toString();
+    }
+    function formatTime(isoStr) {
+      if (!isoStr) return '<span style="color:#ccc">-</span>';
+      try {
+        const d = new Date(isoStr);
+        const pad = n => String(n).padStart(2, '0');
+        return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } catch { return isoStr; }
+    }
 
-def supabase_delete(table, condition):
-    url = f"{REST_URL}/{table}?{condition}"
-    r = requests.delete(url, headers=HEADERS_DB, timeout=15)
-    pid = os.getpid()
-    if os.path.exists(lock_file):
-        try:
-            with open(lock_file, "r") as f:
-                old_pid = int(f.read().strip())
-            if os.name == "nt":
-                handle = ctypes.windll.kernel32.OpenProcess(0x0400, False, old_pid)
-                if handle:
-                    ctypes.windll.kernel32.CloseHandle(handle)
-                    root = tk.Tk()
-                    root.withdraw()
-                    messagebox.showerror("提示", "后台监控已在运行，请勿重复启动。")
-                    root.destroy()
-                    sys.exit(0)
-        except:
-            pass
-    with open(lock_file, "w") as f:
-        f.write(str(pid))
-    atexit.register(lambda: os.path.exists(lock_file) and os.remove(lock_file))
-def supabase_upsert(table, data, on_conflict="bvid"):
-    """按主键/唯一约束 upsert（冲突时覆盖更新）。"""
-    headers = HEADERS_DB.copy()
-    headers["Prefer"] = "resolution=merge-duplicates, return=representation"
-    url = f"{REST_URL}/{table}?on_conflict={on_conflict}"
-    r = requests.post(url, json=data, headers=headers, timeout=15)
-    r.raise_for_status()
-    return r.json()
+    // ========== 进度条 ==========
+    let pollingTimer = null;
+    function showProgress(title) {
+      document.getElementById('progress-overlay').style.display = 'block';
+      document.getElementById('progress-title').innerText = title || '推送进度';
+      updateProgress(0, '正在提交请求...', '');
+    }
+    function updateProgress(percent, mainText, subText) {
+      const fill = document.getElementById('progress-fill');
+      fill.style.width = percent + '%';
+      fill.innerText = percent + '%';
+      document.getElementById('step-text').innerText = mainText;
+      document.getElementById('sub-step-text').innerText = subText || '';
+    }
+    function hideProgress() {
+      document.getElementById('progress-overlay').style.display = 'none';
+      if (pollingTimer) clearInterval(pollingTimer);
+      pollingTimer = null;
+    }
+    const STATUS_STEPS = {
+      'pending': { percent: 5, main: '请求已提交，等待后台处理...', sub: '' },
+      'processing': { percent: 15, main: '后台已收到请求，开始处理...', sub: '正在读取视频信息' },
+      'fetching_cid': { percent: 35, main: '正在获取视频 CID...', sub: '通过B站API获取视频标识符' },
+      'pushing': { percent: 65, main: '正在获取最新播放量并推送...', sub: '查询B站接口，发送企业微信消息' },
+      'done': { percent: 100, main: '✅ 操作完成！', sub: '' },
+      'error': { percent: 0, main: '❌ 操作失败', sub: '请查看日志或检查视频信息' },
+      'cancelled': { percent: 0, main: '已取消', sub: '该请求已被新请求取代' }
+    };
+    async function pollPushStatus(requestId) {
+      let attempts = 0;
+      const maxAttempts = 45;
+      updateProgress(5, '已提交请求，等待后台开始处理...', '');
+      pollingTimer = setInterval(async () => {
+        attempts++;
+        if (attempts >= maxAttempts) {
+          updateProgress(0, '⏰ 操作超时，请稍后重试', '后台可能未响应');
+          clearInterval(pollingTimer);
+          setTimeout(hideProgress, 3000);
+          return;
+        }
+        try {
+          const { data, error } = await supabase.from('push_requests').select('status').eq('id', requestId).single();
+          if (error) {
+            updateProgress(0, '查询状态失败', error.message);
+            clearInterval(pollingTimer);
+            setTimeout(hideProgress, 2000);
+            return;
+          }
+          if (!data) { updateProgress(5, '等待后台开始处理...', ''); return; }
+          const step = STATUS_STEPS[data.status] || STATUS_STEPS['pending'];
+          updateProgress(step.percent, step.main, step.sub);
+          if (data.status === 'done' || data.status === 'error' || data.status === 'cancelled') {
+            clearInterval(pollingTimer);
+            setTimeout(() => { hideProgress(); loadVideos(); loadGqtVideos(); loadLogs(); }, 2500);
+          }
+        } catch (e) {
+          updateProgress(0, '轮询异常', e.toString());
+          clearInterval(pollingTimer);
+          setTimeout(hideProgress, 2000);
+        }
+      }, 2000);
+    }
 
-# ---------- 日志 ----------
-log_dir = "日志"
-if not os.path.exists(log_dir):
-file_handler = TimedRotatingFileHandler(log_file, when="midnight", interval=1, backupCount=7, encoding="utf-8")
-file_handler.suffix = "%Y-%m-%d"
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+    // ========== 普通视频 ==========
+    async function loadVideos() {
+      try {
+        const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
+        if (error) { console.error('loadVideos error:', error); return; }
+        const filtered = (data || []).filter(v => v.category !== 'gqt');
+        const tbody = document.getElementById('video-tbody');
 
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+        // 按 group_name 分组
+        const groups = {};
+        const groupOrder = [];
+        filtered.forEach(v => {
+          const gname = v.group_name || '未分组';
+          if (!groups[gname]) { groups[gname] = []; groupOrder.push(gname); }
+          groups[gname].push(v);
+        });
 
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.basicConfig(level=logging.DEBUG, handlers=[file_handler, console_handler])
-log = logging.getLogger(__name__)
+        let html = '';
+        groupOrder.forEach(gname => {
+          const vids = groups[gname];
+          // 组内排序：① 被高亮的稿件固定排到本组第一个；② 其余按播放量降序
+          vids.sort((a, b) => {
+            const ah = a.highlight ? 1 : 0, bh = b.highlight ? 1 : 0;
+            if (ah !== bh) return bh - ah;                       // 高亮排最前
+            return (Number(b.view) || 0) - (Number(a.view) || 0); // 播放量降序
+          });
+          // 分组标题行
+          html += `<tr class="group-header"><td colspan="14">📁 ${gname} <span class="group-count">(${vids.length} 个视频)</span> <button class="group-edit-btn" data-group="${gname}" style="float:right;padding:3px 12px;font-size:12px;">编辑整组</button></td></tr>`;
+          // 该组下的视频行
+          vids.forEach(v => {
+            const hour = v.current_hour ?? 0;
+            const progress = Math.min(hour / 48 * 100, 100);
+            const isComplete = hour > 48;
+            const hlClass = v.highlight ? ' highlighted' : '';
+            html += `<tr class="${hlClass.trim()}" ${isComplete ? 'style="opacity:0.5"' : ''}>
+              <td><input type="checkbox" value="${v.id}" class="video-check"></td>
+              <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
+              <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
+              <td>${v.up_name || '-'}</td>
+              <td>${v.group_name || '-'}</td>
+              <td class="view-num">${formatView(v.view)}</td>
+              <td class="online-num">${v.online_total || '-'}</td>
+              <td class="time-text">${v.start_time || '-'}</td>
+              <td><strong>${hour}h</strong></td>
+              <td class="progress-cell">
+                <span class="progress-cell-bar"><span class="progress-cell-fill" style="width:${progress}%"></span></span>
+                <span class="progress-cell-text">${hour}/48</span>
+              </td>
+              <td class="time-text">${formatTime(v.last_push_time)}</td>
+              <td>${v.alert_enabled ? '<span class="badge badge-info">是</span>' : '否'}</td>
+              <td>${v.push_enabled === false ? '<span style="color:#f44336">关</span>' : '<span style="color:#4CAF50">开</span>'}</td>
+              <td><button class="hl-btn ${v.highlight ? 'on' : ''}" data-id="${v.id}" data-hl="${v.highlight ? 1 : 0}">${v.highlight ? '★ 已突出' : '☆ 突出'}</button></td>
+            </tr>`;
+          });
+        });
+        tbody.innerHTML = html || '<tr><td colspan="14" style="text-align:center;color:#999;">暂无视频</td></tr>';
+      } catch(e) { console.error('loadVideos exception:', e); }
+    }
 
-CST = timezone(timedelta(hours=8))
-VIEW_API = "https://api.bilibili.com/x/web-interface/view"
-ONLINE_API = "https://api.bilibili.com/x/player/online/total"
-FANS_API = "https://api.bilibili.com/x/relation/stat"
-HEADERS_BILI = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Referer": "https://space.bilibili.com/",
-    "Origin": "https://space.bilibili.com",
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-}
-root = None
+    // ========== 突出显示开关（直接在列表里点，便于"选择某稿件突出"）==========
+    async function toggleHighlight(id, current) {
+      try {
+        const { error } = await supabase.from('videos').update({ highlight: !current }).eq('id', id);
+        if (error) { alert('突出设置失败：' + error.message); return; }
+        loadVideos(); // 刷新列表，立即看到高亮效果
+      } catch (e) { alert('突出设置失败：' + e.message); }
+    }
 
-# ===================== 数据库操作封装 =====================
-def load_config():
-    try:
-        videos = supabase_get("videos", {"select": "*"})
-    except Exception as e:
-        log.error(f"加载视频列表失败: {e}")
-        videos = []
-    try:
-        fans = supabase_get("fans_monitor", {"select": "*", "limit": "1"})
-        fans = fans[0] if fans else {}
-    except Exception as e:
-        log.error(f"加载粉丝监控配置失败: {e}")
-        fans = {}
-    return {"videos": videos, "fans_monitor": fans}
+    let isRefreshing = false;
+    async function refreshListWithStats() {
+      if (isRefreshing) return;
+      isRefreshing = true;
 
-def add_video_to_db(entry):
-    try:
-        res = supabase_post("videos", entry)
-        return res[0] if res else None
-    except Exception as e:
-        log.error(f"添加视频失败: {e}")
-        return None
+      // 1. 播放量、在线人数格子先显示"加载中…"
+      document.querySelectorAll('#video-tbody .view-num').forEach(td => {
+        td.innerHTML = '<span style="color:#999">加载中…</span>';
+      });
+      document.querySelectorAll('#video-tbody .online-num').forEach(td => {
+        td.innerHTML = '<span style="color:#999">…</span>';
+      });
 
-def update_video_in_db(video_id, updated_fields):
-    try:
-        supabase_patch("videos", updated_fields, f"id=eq.{video_id}")
-    except Exception as e:
-        log.error(f"更新视频 {video_id} 失败: {e}")
+      // 2. 按钮禁用 + 改文字
+      const btn = document.getElementById('btn-refresh');
+      const oldText = btn.innerText;
+      btn.innerText = '刷新中…';
+      btn.disabled = true;
 
-    try:
-        v_res = supabase_get("videos", {"select": "id", "bvid": f"eq.{bvid}"})
-        if not v_res: return
-        video_id = v_res[0]['id']
-        try:
-            supabase_delete("history", f"video_id=eq.{video_id}&hour=eq.{hour_label}")
-        except:
-            pass
-        supabase_post("history", {
-            'video_id': video_id, 'hour': hour_label,
-            'view': view, 'online_total': str(online)
-            'video_id': video_id,
-            'hour': int(hour_label),
-            'view': int(view),
-            'online_total': str(online)
-        })
-    except Exception as e:
-        log.error(f"记录历史失败: {e}")
+      try {
+        // 3. 提交刷新请求，由后台Python去B站取数据写库
+        const { data, error } = await supabase.from('push_requests').insert([{
+          action: 'refresh_stats', video_id: 0, status: 'pending'
+        }]).select();
 
-def get_video_history(video_id, limit=None):
-    """获取视频历史小时数据，按 hour 去重（保留播放量最高的记录），返回升序列表。
-    limit: 只返回最近 N 条（按 hour 取最大的 N 条）"""
-    try:
-        res = supabase_get("history", {
-            "select": "hour,view,online_total",
-            "video_id": f"eq.{video_id}",
-            "order": "hour.asc"
-        })
-        if not res:
-            return []
-        hour_map = {}
-        for h in res:
-            hour_val = int(h.get("hour", 0))
-            view_val = int(h.get("view", 0))
-            online_val = h.get("online_total", "0")
-            # 去重：同一个 hour 保留播放量最高的记录（防止旧数据导致播放量倒退）
-            if hour_val not in hour_map or view_val > hour_map[hour_val]["view"]:
-                hour_map[hour_val] = {
-                    "hour": hour_val,
-                    "view": view_val,
-                    "online": online_val
-                }
-        result = sorted(hour_map.values(), key=lambda x: x["hour"])
-        if limit:
-            result = result[-limit:]
-        return result
-    except Exception as e:
-        log.error(f"获取历史数据失败: {e}")
-        return []
+        if (error) {
+          alert('刷新请求失败：' + error.message);
+          btn.innerText = oldText;
+          btn.disabled = false;
+          isRefreshing = false;
+          return;
+        }
 
-# ===================== 历史稿件（含已删除）=====================
-def sync_manuscript_history():
-    """把本机监控的稿件历史同步到 manuscript_history 表（按机器打标签），并导出本机本地 JSON 文件。
-    无论是否活跃机器都会运行（由常驻线程调用），保证每台电脑的本地文件和历史都被记录。"""
-    try:
-        now_iso = datetime.now(CST).isoformat()
-        # 读取当前在库视频（videos 表各机器共享），补全标题/UP/组名，并标记为 active（带本机 machine_id）
-        try:
-            active = supabase_get("videos", {"select": "bvid,title,up_name,group_name,category"})
-        except Exception as e:
-            log.warning(f"读取在库视频失败(补全标题跳过): {e}")
-            active = []
-        active_bvids = set()
-        for v in (active or []):
-            bv = v.get("bvid")
-            if not bv:
-                continue
-            active_bvids.add(bv)
-            patch = {
-                "bvid": bv,
-                "machine_id": MACHINE_ID,
-                "title": v.get("title") or "",
-                "up_name": v.get("up_name") or "",
-                "group_name": v.get("group_name") or "",
-                "category": v.get("category") or "",
-                "status": "active",
-                "last_seen_at": now_iso,
+        if (data && data.length > 0) {
+          const reqId = data[0].id;
+          let attempts = 0;
+          const maxAttempts = 30; // 最多等60秒
+
+          const poll = setInterval(async () => {
+            attempts++;
+            if (attempts >= maxAttempts) {
+              clearInterval(poll);
+              btn.innerText = oldText;
+              btn.disabled = false;
+              isRefreshing = false;
+              loadVideos();
+              return;
             }
-            try:
-                # 复合主键 (bvid, machine_id)，冲突时按本机行覆盖
-                supabase_upsert("manuscript_history", patch, on_conflict="bvid,machine_id")
-            except Exception as e:
-                log.warning(f"补全稿件 {bv} 历史失败: {e}")
-        # 在库视频里已不存在、但历史还是 active 的，标记为 removed（兜底）
-        # 注意：videos 表共享，某视频被删对所有机器都生效，故按 bvid 标记全部机器记录为 removed
-        try:
-            history = supabase_get("manuscript_history", {"select": "bvid,status"})
-            for h in (history or []):
-                if h.get("status") == "active" and h.get("bvid") not in active_bvids:
-                    try:
-                        supabase_patch("manuscript_history", {"status": "removed", "removed_at": now_iso}, f"bvid=eq.{h['bvid']}")
-                    except Exception:
-                        pass
-        except Exception as e:
-            log.warning(f"读取历史标记 removed 失败(忽略): {e}")
-        # 导出本地 JSON 文件（含全部机器的完整历史，保证每台电脑的本地文件都保存了每一个历史记录）
-        try:
-            all_hist = supabase_get("manuscript_history", {"select": "*", "order": "added_at.desc"}) or []
-            out = []
-            for h in all_hist:
-                out.append({
-                    "bvid": h.get("bvid"),
-                    "machine_id": h.get("machine_id") or "",
-                    "title": h.get("title") or "",
-                    "up_name": h.get("up_name") or "",
-                    "group_name": h.get("group_name") or "",
-                    "category": h.get("category") or "",
-                    "status": h.get("status") or "active",
-                    "added_at": h.get("added_at"),
-                    "removed_at": h.get("removed_at"),
-                    "last_seen_at": h.get("last_seen_at"),
-                })
-            local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "manuscript_history.json")
-            with open(local_path, "w", encoding="utf-8") as f:
-                json.dump(out, f, ensure_ascii=False, indent=2)
-            log.info(f"历史稿件已同步到本地: {local_path}（完整历史，共 {len(out)} 条）")
-        except Exception as e:
-            log.warning(f"写本地历史 JSON 失败(忽略): {e}")
-    except Exception as e:
-        log.error(f"同步历史稿件异常: {e}")
-    except Exception as e:
-        log.error(f"同步历史稿件失败: {e}")
-        traceback.print_exc()
-
-# ===================== 工具函数 =====================
-def fmt_num(n):
-    try: n = int(str(n).replace(",", ""))
-    except: return str(n)
-    if n >= 10000: return f"{n/10000:.1f}w".rstrip('0').rstrip('.')
-    return str(n)
-            return r.json()["data"].get("follower")
-    except: pass
-    return None
-
-def get_cid_from_api(bvid):
-    for attempt in range(3):
-def parse_start_time(start_str):
-    """灵活解析开始时间"""
-    if not start_str:
-        return None
-    s = start_str.strip()
-
-    # 1. 标准格式
-    for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H"]:
-        try:
-            r = requests.get(VIEW_API, params={"bvid": bvid}, headers=HEADERS_BILI, timeout=10)
-            if r.status_code == 200 and r.json().get("code") == 0:
-                cid = r.json()["data"].get("cid")
-                if cid:
-                    return str(cid)
-        except: pass
-        time.sleep(2)
-    return None
-            return datetime.strptime(s, fmt).replace(tzinfo=CST)
-        except:
-            pass
-
-def get_video_data(bvid, cid):
-    result = {}
-    try:
-        r = requests.get(VIEW_API, params={"bvid": bvid}, headers=HEADERS_BILI, timeout=10)
-        d = r.json()
-        if d.get("code") != 0: return {}
-        data = d["data"]
-        result["title"] = data["title"]
-        result["up_name"] = data["owner"]["name"]
-        result["view"] = data["stat"]["view"]
-        result["online_total"] = "0"
-        result["desc"] = data.get("desc", "")
-    except: return {}
-    try:
-        r = requests.get(ONLINE_API, params={"bvid": bvid, "cid": cid}, headers=HEADERS_BILI, timeout=10)
-        if r.json().get("code") == 0:
-            result["online_total"] = r.json()["data"].get("total", "0")
-    except: pass
-    return result
-    # 2. 2026-7-31-8:05 格式
-    m = re.match(r'(\d{4})-(\d{1,2})-(\d{1,2})-(\d{1,2}):(\d{2})', s)
-    if m:
-        y, mo, d, h, mi = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)), int(m.group(5))
-        return datetime(y, mo, d, h, mi, tzinfo=CST)
-
-def get_fans_count(uid):
-    if not uid or not str(uid).isdigit(): return None
-    # 3. 2026.7.31 8:05 格式
-    m = re.match(r'(\d{4})\.(\d{1,2})\.(\d{1,2})\s+(\d{1,2}):(\d{2})', s)
-    if m:
-        y, mo, d, h, mi = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)), int(m.group(5))
-        return datetime(y, mo, d, h, mi, tzinfo=CST)
-
-    # 4. 2026.7.31 2200 格式（缺少冒号）
-    m = re.match(r'(\d{4})\.(\d{1,2})\.(\d{1,2})\s+(\d{2})(\d{2})$', s)
-    if m:
-        y, mo, d, h, mi = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)), int(m.group(5))
-        return datetime(y, mo, d, h, mi, tzinfo=CST)
-
-    # 5. 只有时间
-    try:
-        r = requests.get(FANS_API, params={"vmid": uid}, headers=HEADERS_BILI, timeout=10)
-        if r.status_code == 200 and r.json().get("code") == 0:
-            return r.json()["data"].get("follower")
-    except: pass
-        today = datetime.now(CST)
-        t = datetime.strptime(s, "%H:%M")
-        return t.replace(year=today.year, month=today.month, day=today.day, tzinfo=CST)
-    except:
-        pass
-
-    return None
-
-def write_log_to_db(level, action, message, video_id=None):
-    try:
-        supabase_post("monitor_logs", {
-            "level": level,
-            "action": action,
-            "message": str(message)[:500],
-            "video_id": video_id,
-            "created_at": datetime.now(CST).isoformat()
-        })
-    except:
-        pass
-
-def send_wecom(content, webhook_url=None):
-    if not webhook_url:
-        webhook_url = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=bfc878f1-af04-4685-8e99-cb031548d7c6"
-        webhook_url = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=f351987d-23ff-421f-ab5b-e50563090b4f"
-        webhook_url = DEFAULT_WEBHOOK
-    payload = {"msgtype": "markdown", "markdown": {"content": content}}
-    msg_preview = content.replace('\n', ' ')[:80]
-    log.info(f"📤 开始推送 | webhook={webhook_url} | 消息长度={len(content)}字 | 预览: {msg_preview}")
-    try:
-        r = requests.post(webhook_url, json=payload, timeout=10)
-        resp = r.json()
-        if r.status_code == 200 and resp.get("errcode") == 0:
-            log.info(f"✅ 企微推送成功 | HTTP=200 errcode=0 | webhook={webhook_url}")
-            write_log_to_db("INFO", "push_result", f"✅ 推送成功 | {msg_preview}")
-            return True
-        else:
-            log.error(f"企微推送失败: {resp}")
-            errcode = resp.get("errcode", "?")
-            errmsg = resp.get("errmsg", "?")
-            log.error(f"❌ 企微推送失败 | HTTP={r.status_code} | errcode={errcode} errmsg={errmsg} | webhook={webhook_url}")
-            log.error(f"❌ 失败消息内容:\n{content[:500]}")
-            write_log_to_db("ERROR", "push_result", f"❌ 推送失败 errcode={errcode} errmsg={errmsg}")
-            return False
-    except Exception as e:
-        log.error(f"企微推送异常: {e}")
-        log.error(f"❌ 企微推送异常: {e} | webhook={webhook_url}")
-        log.error(f"❌ 异常消息内容:\n{content[:500]}")
-        write_log_to_db("ERROR", "push_result", f"❌ 推送异常: {e}")
-        return False
-
-# ===================== 消息构建 =====================
-def build_single_message(info, now=None):
-    else:
-        msg = f"📺 **[{title}]({link})**\nUP：{up}  |  BV：{bv}\n暂无历史数据\n"
-    msg += f"\n⏰ 更新时间：{now.strftime('%Y-%m-%d %H:%M')}"
-    return msg
-def build_push_message(infos, now=None):
-    """
-    构建推送消息，每个视频只显示最近3次不同的历史数据
-    """
-    if not now:
-        now = datetime.now(CST)
-
-def build_group_message(infos, now=None):
-    if not now: now = datetime.now(CST)
-    all_hours = [r['hour'] for info in infos for r in info['history']]
-    else:
-        msg += "暂无历史数据\n"
-        return msg
-    msg += "────────────────\n"
-    group_name = infos[0].get("group", "") or "未分组"
-    msg = f"监控组：{group_name}\n"
-
-    for info in infos:
-        msg += f"**[{info['title']}](https://www.bilibili.com/video/{info['bvid']})**\nUP：{info['up_name']}  |  BV：{info['bvid']}\n"
-        for rec in info['history'][-20:]:
-            msg += f"  {rec['hour']}h: {fmt_num(rec['view'])}  {rec['online_total']}\n"
-        link = f"https://www.bilibili.com/video/{info['bvid']}"
-        msg += "────────────────\n"
-        msg += f"**[{info['title']}]({link})**\n"
-        msg += f"UP：{info['up_name']}  |  BV：[{info['bvid']}]({link})\n"
-
-        hist = info.get("history_data", [])
-
-        # 严格去重：同一个 hour 只保留播放量最高的一条（防止旧数据导致倒退）
-        deduped = {}
-        for h in hist:
-            hr = h["hour"]
-            if hr not in deduped or h["view"] > deduped[hr]["view"]:
-                deduped[hr] = h
-
-        # 按 hour 排序，只取最近3个
-        sorted_hist = sorted(deduped.values(), key=lambda x: x["hour"])
-        recent = sorted_hist[-3:]
-
-        for h in recent:
-            msg += f"  {h['hour']}h: {fmt_num(h['view'])}  {h['online']}\n"
-
-    msg += "────────────────\n"
-    msg += f"\n⏰ 更新时间：{now.strftime('%Y-%m-%d %H:%M')}"
-    return msg
-
-def build_gqt_alert_message(bvid, title, view):
-    return (
-        f"## 🚩 共青团搬运达标提醒 🚩\n\n"
-        f"**标题：** {title}\n"
-        f"**BV号：** {bvid}\n\n"
-        f"**BV号：** {bvid}\n"
-        f"**链接：** https://www.bilibili.com/video/{bvid}\n\n"
-        f"# 播放量已达 <font color='warning'>80000</font> ！！！\n\n"
-        f"当前播放量：<font color='warning'>{view}</font>"
-    )
-
-def build_gqt_added_message(title, bvid):
-    return (
-        f"## ✅ 共青团视频自动加入监控\n\n"
-        f"**稿件标题：** {title}\n"
-        f"**BV号：** {bvid}\n"
-        f"**链接：** https://www.bilibili.com/video/{bvid}\n\n"
-        f"已自动开始监控，达标80000将自动提醒。"
-    )
-
-# ===================== 推送核心 =====================
-def push_video_info(entries, force=True, fetch_latest=True):
-    if not entries: return
-def push_video_info(entries):
-    """
-    推送视频信息到企业微信。
-    - hour 标签取自 entry 的 current_hour 字段
-    - 不自动修正 current_hour（由调用方负责递增）
-    - 消息格式：xh 播放量 在线人数
-    - push_enabled=false 的视频仅更新数据和记录历史，不推送企微
-    - 按 (group_name, start_time) 分组，同名不同 start_time 的组分别推送
-    """
-    if not entries:
-        return
-    now = datetime.now(CST)
-    video_infos = []
-    skipped_count = 0
-
-    for entry in entries:
-        bv = entry["bvid"]
-        cid = entry.get("cid")
-        if not cid:
-            cid = get_cid_from_api(bv)
-            if cid:
-                update_video_in_db(entry['id'], {'cid': cid})
-            else:
-                log.warning(f"[{bv}] CID 为空且无法获取，跳过推送")
-                continue
-
-        data = get_video_data(bv, cid)
-        if not data:
-            log.warning(f"[{bv}] 视频数据查询失败")
-            continue
-                    if elapsed > current_hour:
-                        current_hour = elapsed
-                except:
-                    pass
-
-        hour_label = entry.get("current_hour", 0)
-
-        # 更新数据库（包含 online_total，修复看板不更新在线人数）
-        update_video_in_db(entry['id'], {
-            "title": data.get("title", entry.get("title", bv)),
-            "up_name": data.get("up_name", entry.get("up_name", "未知")),
-            "view": data["view"],
-            "online_total": data["online_total"],
-            "last_push_time": now.isoformat()
-        })
-        hour_label = current_hour
-
-        # 记录历史
-        record_history(bv, data["view"], data["online_total"], hour_label)
-        history_res = supabase_get("history", {"select": "*", "video_id": f"eq.{entry['id']}", "order": "hour.asc"})
-        history_all = []
-        if history_res:
-            history_all = [{"hour": r['hour'], "view": r['view'], "online_total": r['online_total']} for r in history_res]
-        else:
-            history_all = [{"hour": hour_label, "view": data["view"], "online_total": data["online_total"]}]
-
-        # 推送开关：关闭则仅更新数据不推送
-        if entry.get("push_enabled", True) == False:
-            log.info(f"[{bv}] push_enabled=false, 仅更新数据不推送")
-            skipped_count += 1
-            time.sleep(2)
-            continue
-
-        # 获取最近3条历史数据
-        history_data = get_video_history(entry['id'], limit=3)
-
-        video_infos.append({
-            "bvid": bv, "title": data.get("title", entry.get("title", bv)),
-            "bvid": bv,
-            "title": data.get("title", entry.get("title", bv)),
-            "up_name": data.get("up_name", entry.get("up_name", "未知")),
-            "group": entry.get("group_name", ""),
-            "history": history_all
-            "start_time": entry.get("start_time", ""),
-            "hour": hour_label,
-            "online_total": data["online_total"],
-            "view": data["view"],
-            "history_data": history_data,
-        })
-        log.info(f"[{bv}] 数据获取成功: {hour_label}h 播放={fmt_num(data['view'])} 在看={data['online_total']}")
-        time.sleep(2)
-    if not video_infos: return
-    grouped = defaultdict(list)
-    for info in video_infos: grouped[info["group"] if info["group"] else ""].append(info)
-    except: webhook = None
-    for gname, infos in grouped.items():
-        if len(infos) == 1 and not gname:
-            msg = build_single_message(infos[0], now)
-
-    if not video_infos:
-        if skipped_count > 0:
-            log.info(f"本轮 {skipped_count} 个视频仅更新数据（推送已关闭），无视频需要推送")
-        else:
-            msg = build_group_message(infos, now)
-        send_wecom(msg, webhook)
-            log.warning("本轮无有效视频数据可推送")
-        return
-
-    # 按 (group_name, start_time) 分组，保持原始顺序
-    grouped = defaultdict(list)
-    group_order = []
-    for info in video_infos:
-        key = (info["group"], info["start_time"])
-        if key not in grouped:
-            group_order.append(key)
-        grouped[key].append(info)
-
-    for key in group_order:
-        infos = grouped[key]
-        group_name = key[0] or "未分组"
-        log.info(f"准备推送 (组={group_name}, 视频数={len(infos)})")
-        msg = build_push_message(infos, now)
-        send_wecom(msg)
-
-def try_complete_cid_for_video(video_id):
-    try:
-        v_res = supabase_get("videos", {"select": "*", "id": f"eq.{video_id}"})
-        if not v_res: return False
-        if not v_res:
-            log.error(f"补全CID失败：视频不存在 video_id={video_id}")
-            return False
-        v = v_res[0]
-        if v.get('cid'): return True
-        if v.get('cid'):
-            log.info(f"视频 {video_id} ({v['bvid']}) CID已存在: {v['cid']}")
-            return True
-        bvid = v['bvid']
-        log.info(f"开始补全CID: video_id={video_id} bvid={bvid}")
-        cid = get_cid_from_api(bvid)
-        if not cid: return False
-        if not cid:
-            log.error(f"获取CID失败: bvid={bvid}，B站API可能限流或视频不存在")
-            try:
-                r = requests.get(VIEW_API, params={"bvid": bvid}, headers=HEADERS_BILI, timeout=10)
-                d = r.json()
-                if d.get("code") == 0:
-                    update_video_in_db(video_id, {
-                        'title': d["data"]["title"],
-                        'up_name': d["data"]["owner"]["name"],
-                        'view': d["data"]["stat"]["view"]
-                    })
-                    log.info(f"标题已补全但CID仍缺失: {bvid}")
-            except:
-                pass
-            return False
-        data = get_video_data(bvid, cid)
-        if not data: return False
-        if not data:
-            log.error(f"获取视频数据失败: bvid={bvid} cid={cid}")
-            update_video_in_db(video_id, {'cid': cid})
-            return True
-        update_video_in_db(video_id, {
-            'cid': cid, 'title': data.get('title', ''), 'up_name': data.get('up_name', ''),
-            'cid': cid,
-            'title': data.get('title', ''),
-            'up_name': data.get('up_name', ''),
-            'view': data['view']
-        })
-        log.info(f"视频 {video_id} ({bvid}) CID补全成功: {cid} 标题={data.get('title','')[:30]}")
-        return True
-    except Exception as e:
-        log.error(f"补全CID异常: {e}")
-        traceback.print_exc()
-        return False
-
-# ---------- 共青团空间扫描 ----------
-# ===================== 共青团黑名单管理 =====================
-def load_gqt_blacklist():
-    """加载共青团黑名单（已达标的BV号）"""
-    if os.path.exists(GQT_BLACKLIST_FILE):
-        try:
-            with open(GQT_BLACKLIST_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                return set(data)
-        except Exception as e:
-            log.error(f"加载共青团黑名单失败: {e}")
-    return set()
-
-def save_gqt_blacklist(blacklist):
-    """保存共青团黑名单"""
-    try:
-        with open(GQT_BLACKLIST_FILE, 'w', encoding='utf-8') as f:
-            json.dump(list(blacklist), f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        log.error(f"保存共青团黑名单失败: {e}")
-
-def add_to_gqt_blacklist(bvid):
-    """将BV号加入黑名单"""
-    blacklist = load_gqt_blacklist()
-    blacklist.add(bvid)
-    save_gqt_blacklist(blacklist)
-    log.info(f"已将 {bvid} 加入共青团黑名单")
-
-def is_in_gqt_blacklist(bvid):
-    """检查BV号是否在黑名单中"""
-    blacklist = load_gqt_blacklist()
-    return bvid in blacklist
-
-# ===================== 共青团空间扫描 =====================
-def scan_gqt_space():
-    log.info("开始扫描共青团空间...")
-    try:
-        headers = HEADERS_BILI.copy()
+            try {
+              const { data: reqData } = await supabase.from('push_requests')
+                .select('status').eq('id', reqId).single();
+              if (reqData && (reqData.status === 'done' || reqData.status === 'error')) {
+                clearInterval(poll);
+                btn.innerText = oldText;
+                btn.disabled = false;
+                isRefreshing = false;
+                loadVideos();
+                loadLogs();
+              }
+            } catch(e) {}
+          }, 2000);
         }
-        r = requests.get(SPACE_API, params=params, headers=headers, timeout=15)
-        if r.status_code != 200 or r.json().get("code") != 0:
-            log.warning(f"获取共青团视频列表失败: {r.json()}")
-        r = requests.get(SPACE_API, params=params, headers=HEADERS_BILI, timeout=15)
-        resp_json = r.json()
-        if r.status_code != 200 or resp_json.get("code") != 0:
-            log.warning(f"获取共青团视频列表失败: code={resp_json.get('code')}, msg={resp_json.get('message', '')}")
-            return
-        vlist = r.json()["data"]["list"]["vlist"]
-        vlist = resp_json["data"]["list"]["vlist"]
-        now = datetime.now(CST)
-        added_count = 0
-        skipped_blacklist_count = 0
+      } catch(e) {
+        btn.innerText = oldText;
+        btn.disabled = false;
+        isRefreshing = false;
+        alert('刷新异常：' + e.toString());
+      }
+    }
 
-        for v in vlist:
-            created = v.get("created")
-            if not created:
-                continue
-            pubdate = datetime.fromtimestamp(created, tz=CST)
-            if (now - pubdate).total_seconds() > 48 * 3600:   # 只扫描最近48小时
-            if (now - pubdate).total_seconds() > 7 * 24 * 3600:
-                continue
-            bvid = v["bvid"]
-            title = v.get("title", "")
-            desc = v.get("description", "")
-            text = (title + " " + desc).lower()
-            if not any(kw in text for kw in GQT_KEYWORDS):
-                continue
+    function getSelectedIds() {
+      return [...document.querySelectorAll('.video-check:checked')].map(cb => parseInt(cb.value));
+    }
 
-            if is_in_gqt_blacklist(bvid):
-                log.info(f"共青团视频 {bvid} 已在黑名单中（曾达标被删除），跳过")
-                skipped_blacklist_count += 1
-                continue
+    // 网页直写中央历史表：保证即使当时没有任何电脑运行同步线程，加视频事件也不会丢失
+    // （对应“多台电脑随机开关机、有的长期不开”的场景；删除事件本来就是网页直写，这里补齐“新增”这一半）
+    async function recordHistoryOnAdd(list, opts = {}) {
+      try {
+        const nowIso = new Date().toISOString();
+        const mid = currentActiveMachine || '(网页)';
+        const rows = list.map(bv => ({
+          bvid: bv,
+          machine_id: mid,
+          title: '',
+          up_name: '',
+          group_name: opts.group_name || '',
+          category: opts.category || '',
+          status: 'active',
+          added_at: nowIso,
+          last_seen_at: nowIso
+        }));
+        const { error } = await supabase.from('manuscript_history').upsert(rows, { onConflict: 'bvid,machine_id' });
+        if (error) console.error('网页记录历史失败:', error);
+      } catch (e) { console.error('recordHistoryOnAdd error:', e); }
+    }
 
-            existing = supabase_get("videos", {"select": "id", "bvid": f"eq.{bvid}"})
-            if existing:
-                continue
-            cid = get_cid_from_api(bvid)
-            if not cid:
-                continue
-            data = get_video_data(bvid, cid)
-            if not data:
-                continue
-            entry = {
-                "bvid": bvid, "cid": cid,
-                "start_time": now.strftime("%Y-%m-%d %H:%M"),
-                "monitored_hours": 0, "monitor_hours": 0,
-                "current_hour": 0, "notify_interval": 1.0,
-                "last_push_time": None,
-                "group_name": "共青团搬运",
-                "title": title,
-                "up_name": data.get("up_name", ""),
-                "view": data["view"],
-                "window_start": 0, "window_end": 24,
-                "alert_enabled": True,
-                "alert_milestone": 80000,
-                "alert_interval_minutes": 30,
-                "alert_only": True,
-                "category": "gqt"
+    // 网页侧固定间隔把当前在监控的稿件同步进历史表（不依赖 Python 脚本）
+    async function syncAllToHistory() {
+      try {
+        const mid = currentActiveMachine || '(网页)';
+        const nowIso = new Date().toISOString();
+        const { data: vids, error } = await supabase
+          .from('videos')
+          .select('bvid, title, up_name, group_name, category');
+        if (error) { console.error('读取videos失败:', error); return; }
+        if (!vids || !vids.length) return;
+        // 保留已存在的 added_at（首次加入时间不被覆盖）
+        const { data: exist } = await supabase
+          .from('manuscript_history')
+          .select('bvid, added_at')
+          .eq('machine_id', mid);
+        const addedMap = new Map((exist || []).map(r => [r.bvid, r.added_at]));
+        const rows = vids.map(v => ({
+          bvid: v.bvid,
+          machine_id: mid,
+          title: v.title || '',
+          up_name: v.up_name || '',
+          group_name: v.group_name || '',
+          category: v.category || '',
+          status: 'active',
+          added_at: addedMap.get(v.bvid) || nowIso,
+          last_seen_at: nowIso
+        }));
+        const { error: e2 } = await supabase
+          .from('manuscript_history')
+          .upsert(rows, { onConflict: 'bvid,machine_id' });
+        const statusEl = document.getElementById('mhSyncStatus');
+        if (e2) {
+          console.error('同步历史失败:', e2);
+          if (statusEl) statusEl.textContent = '同步失败';
+        } else if (statusEl) {
+          statusEl.textContent = `已同步 ${rows.length} 条 (${new Date().toLocaleTimeString()})`;
+        }
+      } catch (e) { console.error('syncAllToHistory error:', e); }
+    }
+
+    async function addVideos() {
+      const bvText = document.getElementById('bvInput').value.trim();
+      let startTime = document.getElementById('startTime').value.trim();
+      const monitoredHours = parseInt(document.getElementById('monitoredHours').value) || 0;
+      const groupName = document.getElementById('groupName').value.trim() || `web_${formatLocalDateTime().slice(0,10)}`;
+      const alertOnly = document.getElementById('alertOnlyAdd').checked;
+      if (!bvText) return alert('请输入BV号');
+      if (!startTime) startTime = formatLocalDateTime();
+      const bvs = bvText.split(/[,，\s\n]+/).map(b => b.trim()).filter(b => b.startsWith('BV'));
+      if (bvs.length === 0) return alert('未找到有效的BV号（需以BV开头）');
+      const entries = bvs.map(bv => ({
+        bvid: bv, start_time: startTime, cid: null,
+        monitored_hours: monitoredHours, current_hour: monitoredHours,
+        monitor_hours: 48, group_name: groupName, alert_only: alertOnly,
+        category: null, notify_interval: 1.0, window_start: 0, window_end: 24,
+        alert_enabled: false, alert_online_threshold: 0, alert_milestone: null,
+        alert_interval_minutes: 15, view: 0, title: '', up_name: '', last_push_time: null,
+        push_enabled: false, gap_alert_enabled: false, gap_alert_target_bvid: null, gap_alert_threshold: 0
+      }));
+      const { data: newVideos, error } = await supabase.from('videos').insert(entries).select();
+      if (error) { alert('添加失败：' + error.message); return; }
+      if (newVideos && newVideos.length > 0) {
+        await supabase.from('push_requests').insert(newVideos.map(v => ({ action: 'new_video', video_id: v.id, status: 'pending' })));
+        // 网页直写中央历史（保证随机开关机场景下不丢新增事件），脚本同步线程后续会补全标题/UP
+        await recordHistoryOnAdd(bvs, { group_name: groupName });
+      }
+      alert(`成功添加 ${bvs.length} 个视频！后台正在获取视频信息，首次推送将在开始时间+1小时后自动执行`);
+      closeModal('addModal'); loadVideos(); loadLogs();
+    }
+
+    let isPushing = false;
+    let currentActiveMachine = '';  // 当前网页侧获知的活跃机器，用于给历史记录打标签
+    async function pushSelected() {
+      if (isPushing) return;
+      const ids = getSelectedIds();
+      if (!ids.length) return alert('请勾选视频');
+      isPushing = true;
+      try {
+        await supabase.from('push_requests').update({ status: 'cancelled' }).eq('status', 'pending').in('video_id', ids);
+        const events = ids.map(video_id => ({ action: 'push', video_id, status: 'pending' }));
+        const { data, error } = await supabase.from('push_requests').insert(events).select();
+        if (error) { alert('推送请求提交失败：' + error.message); return; }
+        if (data && data.length > 0) { showProgress('手动推送进度'); pollPushStatus(data[0].id); }
+        else alert('请求已提交，但未获取到ID');
+      } finally { isPushing = false; }
+    }
+
+    async function pushAll() {
+      if (isPushing) return;
+      const { data: videos, error: qErr } = await supabase.from('videos').select('id,alert_only,category').neq('category', 'gqt');
+      if (qErr) return alert('查询失败：' + qErr.message);
+      const filtered = (videos || []).filter(v => !v.alert_only);
+      if (filtered.length === 0) return alert('没有可推送的视频');
+      if (!confirm(`确定要推送全部 ${filtered.length} 个视频吗？\n（此操作会推送所有非共青团、非仅预警的视频）`)) return;
+      isPushing = true;
+      try {
+        await supabase.from('push_requests').update({ status: 'cancelled' }).eq('status', 'pending').eq('action', 'push');
+        const events = filtered.map(v => ({ action: 'push', video_id: v.id, status: 'pending' }));
+        const { data, error } = await supabase.from('push_requests').insert(events).select();
+        if (error) alert('推送请求提交失败：' + error.message);
+        else if (data && data.length > 0) { showProgress('一键推送进度'); pollPushStatus(data[0].id); }
+        else alert(`已提交 ${filtered.length} 个视频，后台将逐个推送`);
+      } finally { isPushing = false; }
+    }
+
+    async function deleteSelected() {
+      const ids = getSelectedIds();
+      if (!ids.length) return alert('请选中视频');
+      if (!confirm(`确定删除 ${ids.length} 个视频？`)) return;
+      // 删除前把历史稿件表中这些 bvid 标记为已删除（按 bvid 标记全部电脑的记录，因为 videos 表是共享的）
+      try {
+        const { data: toDel } = await supabase.from('videos').select('bvid,title,up_name,group_name,category').in('id', ids);
+        const bvids = (toDel || []).map(v => v.bvid).filter(Boolean);
+        if (bvids.length) {
+          await supabase.from('manuscript_history').update({ status: 'removed', removed_at: new Date().toISOString() }).in('bvid', bvids);
+        }
+      } catch (e) { console.error('删除前标记历史失败:', e); }
+      const { error } = await supabase.from('videos').delete().in('id', ids);
+      if (error) alert('删除失败'); else { loadVideos(); loadLogs(); }
+    }
+
+    let editingId = null;
+    let editingOriginalStartTime = null;
+    async function openEditModal() {
+      const ids = getSelectedIds();
+      if (ids.length !== 1) return alert('请选中一个视频');
+      editingId = ids[0];
+      const { data, error } = await supabase.from('videos').select('*').eq('id', editingId).single();
+      if (error || !data) { alert('获取视频信息失败'); return; }
+      document.getElementById('editCid').value = data.cid || '';
+      document.getElementById('editStartTime').value = data.start_time || '';
+      editingOriginalStartTime = data.start_time || '';
+      document.getElementById('editCurrentHour').value = data.current_hour ?? 0;
+      document.getElementById('editMonitorHours').value = data.monitor_hours || 48;
+      document.getElementById('editNotifyInterval').value = data.notify_interval || 1;
+      document.getElementById('editGroupName').value = data.group_name || '';
+      document.getElementById('editWinStart').value = data.window_start || 0;
+      document.getElementById('editWinEnd').value = data.window_end || 24;
+      document.getElementById('editAlertEnabled').checked = data.alert_enabled || false;
+      document.getElementById('editOnlineTh').value = data.alert_online_threshold || 0;
+      document.getElementById('editMilestone').value = (data.alert_milestone || 0) / 10000;
+      document.getElementById('editInterval').value = data.alert_interval_minutes || 15;
+      document.getElementById('editAlertOnly').checked = data.alert_only || false;
+      // 突出显示
+      document.getElementById('editHighlight').checked = data.highlight || false;
+      // 推送开关
+      document.getElementById('editPushEnabled').checked = data.push_enabled !== false;
+      // 播放量差距预警
+      document.getElementById('editGapAlertEnabled').checked = data.gap_alert_enabled || false;
+      document.getElementById('editGapTargetBvid').value = data.gap_alert_target_bvid || '';
+      document.getElementById('editGapThreshold').value = data.gap_alert_threshold || '';
+      // 填充 BV 下拉列表（当前监控的所有视频）
+      try {
+        const { data: allVids } = await supabase.from('videos').select('bvid,title').neq('category', 'gqt');
+        const dl = document.getElementById('bvList');
+        dl.innerHTML = (allVids || []).map(v => `<option value="${v.bvid}">${v.bvid} - ${v.title || ''}</option>`).join('');
+      } catch(e) {}
+      document.getElementById('editModal').style.display = 'block';
+    }
+
+    async function saveEdit() {
+      if (!editingId) return;
+      const newStartTime = document.getElementById('editStartTime').value;
+      const updated = {
+        cid: document.getElementById('editCid').value,
+        start_time: newStartTime,
+        current_hour: parseInt(document.getElementById('editCurrentHour').value) || 0,
+        monitor_hours: parseInt(document.getElementById('editMonitorHours').value) || 48,
+        notify_interval: parseFloat(document.getElementById('editNotifyInterval').value) || 1,
+        group_name: document.getElementById('editGroupName').value,
+        window_start: parseInt(document.getElementById('editWinStart').value) || 0,
+        window_end: parseInt(document.getElementById('editWinEnd').value) || 24,
+        alert_enabled: document.getElementById('editAlertEnabled').checked,
+        alert_online_threshold: parseInt(document.getElementById('editOnlineTh').value) || 0,
+        alert_milestone: Math.floor(parseFloat(document.getElementById('editMilestone').value) * 10000) || null,
+        alert_interval_minutes: parseInt(document.getElementById('editInterval').value) || 15,
+        alert_only: document.getElementById('editAlertOnly').checked,
+        highlight: document.getElementById('editHighlight').checked,
+        push_enabled: document.getElementById('editPushEnabled').checked,
+        gap_alert_enabled: document.getElementById('editGapAlertEnabled').checked,
+        gap_alert_target_bvid: document.getElementById('editGapTargetBvid').value.trim() || null,
+        gap_alert_threshold: parseInt(document.getElementById('editGapThreshold').value) || 0,
+      };
+      // 开始时间被修改 → 重置 current_hour = 0，监控按新开始时间重新开始
+      if (editingOriginalStartTime && newStartTime && editingOriginalStartTime.trim() !== newStartTime.trim()) {
+        updated.current_hour = 0;
+        if (!confirm(`检测到开始时间已修改：\n  旧：${editingOriginalStartTime}\n  新：${newStartTime}\n\n将自动重置已推送小时为 0，监控将按新的开始时间重新开始。确认保存？`)) return;
+      }
+      const { error } = await supabase.from('videos').update(updated).eq('id', editingId);
+      if (error) { alert('更新失败：' + error.message); return; }
+      alert('已更新'); closeModal('editModal'); loadVideos();
+    }
+
+    async function viewHistory() {
+      const ids = getSelectedIds();
+      if (ids.length !== 1) return alert('请选择一个视频');
+      const { data, error } = await supabase.from('history').select('*').eq('video_id', ids[0]).order('hour', { ascending: true });
+      if (error) { alert('加载失败'); return; }
+      if (!data || data.length === 0) { alert('暂无历史'); return; }
+      const text = data.map(r => `${r.hour}h  播放:${formatView(r.view)}  在看:${r.online_total}`).join('\n');
+      document.getElementById('historyText').value = text;
+      document.getElementById('historyModal').style.display = 'block';
+    }
+
+    // ========== 共青团 ==========
+    async function loadGqtVideos() {
+      try {
+        const { data, error } = await supabase.from('videos').select('*').eq('category', 'gqt').order('created_at', { ascending: false });
+        if (error) { console.error(error); return; }
+        const tbody = document.getElementById('gqt-video-tbody');
+        tbody.innerHTML = (data || []).map(v => {
+          const isReached = v.view >= 80000;
+          const isAlertDisabled = !v.alert_enabled;
+          let statusText = '监控中', badgeClass = 'badge-pending', rowClass = '';
+          if (isReached && isAlertDisabled) { statusText = '✅ 已达标'; badgeClass = 'badge-done'; rowClass = 'done'; }
+          else if (isReached) { statusText = '🔔 达标推送中'; badgeClass = 'badge-error'; rowClass = 'warn'; }
+          return `<tr class="${rowClass}">
+            <td><input type="checkbox" value="${v.id}" class="gqt-check"></td>
+            <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
+            <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
+            <td>${v.up_name || '-'}</td>
+            <td class="view-num">${formatView(v.view)}</td>
+            <td><span class="badge ${badgeClass}">${statusText}</span></td>
+            <td class="time-text">${formatTime(v.created_at)}</td>
+          </tr>`;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function addGqtVideo() {
+      const bv = document.getElementById('gqtBvInput').value.trim();
+      if (!bv || !bv.startsWith('BV')) return alert('请输入正确的BV号（以BV开头）');
+      const entry = {
+        bvid: bv, category: 'gqt', cid: null,
+        alert_enabled: true, alert_milestone: 80000,
+        alert_interval_minutes: 30, alert_only: true,
+        start_time: formatLocalDateTime(), monitored_hours: 0, current_hour: 0,
+        monitor_hours: 48, group_name: '共青团搬运', notify_interval: 1.0,
+        window_start: 0, window_end: 24, view: 0,
+        title: '', up_name: '', last_push_time: null, alert_online_threshold: 0
+      };
+      const { data, error } = await supabase.from('videos').insert([entry]).select();
+      if (error) { alert('添加失败：' + error.message); return; }
+      if (data && data.length > 0) {
+        await supabase.from('push_requests').insert([{ action: 'new_video', video_id: data[0].id, status: 'pending' }]);
+        // 网页直写中央历史（保证随机开关机场景下不丢新增事件）
+        await recordHistoryOnAdd([bv], { group_name: '共青团搬运', category: 'gqt' });
+      }
+      alert('共青团视频已添加，后台将自动补全CID并开始监控');
+      closeModal('gqtAddModal'); loadGqtVideos(); loadLogs();
+    }
+
+    async function pushGqtSelected() {
+      const ids = [...document.querySelectorAll('.gqt-check:checked')].map(cb => parseInt(cb.value));
+      if (!ids.length) return alert('请勾选视频');
+      const { data, error } = await supabase.from('push_requests').insert(ids.map(video_id => ({ action: 'push', video_id, status: 'pending' }))).select();
+      if (error) { alert('推送请求提交失败：' + error.message); return; }
+      if (data && data.length > 0) { showProgress('共青团手动推送进度'); pollPushStatus(data[0].id); }
+    }
+
+    async function refreshGqtStatus() {
+      const { error } = await supabase.from('push_requests').insert([{ action: 'gqt_refresh', video_id: 0, status: 'pending' }]);
+      if (error) alert('刷新请求失败：' + error.message);
+      else { alert('手动刷新已发送，稍后将更新播放量'); setTimeout(loadGqtVideos, 5000); }
+    }
+
+    async function deleteGqtSelected() {
+      const ids = [...document.querySelectorAll('.gqt-check:checked')].map(cb => parseInt(cb.value));
+      if (!ids.length) return alert('请勾选视频');
+      if (!confirm(`确定删除选中的 ${ids.length} 个共青团视频？`)) return;
+      // 删除前把历史稿件表中这些 bvid 标记为已删除（按 bvid 标记全部电脑的记录，因为 videos 表是共享的）
+      try {
+        const { data: toDel } = await supabase.from('videos').select('bvid').in('id', ids);
+        const bvids = (toDel || []).map(v => v.bvid).filter(Boolean);
+        if (bvids.length) {
+          await supabase.from('manuscript_history').update({ status: 'removed', removed_at: new Date().toISOString() }).in('bvid', bvids);
+        }
+      } catch (e) { console.error('删除前标记历史失败:', e); }
+      const { error } = await supabase.from('videos').delete().in('id', ids);
+      if (error) alert('删除失败'); else { loadGqtVideos(); loadLogs(); }
+    }
+
+    // ========== 活跃机器控制 ==========
+    async function loadActiveMachine() {
+      try {
+        // 并行读取活跃机器和已注册机器列表
+        const [{ data: activeData }, { data: regData }] = await Promise.all([
+          supabase.from('app_config').select('value').eq('key', 'active_machine').single(),
+          supabase.from('app_config').select('value').eq('key', 'registered_machines').single()
+        ]);
+        
+        const activeMachine = activeData?.value || '';
+        currentActiveMachine = activeMachine;
+        let machines = [];
+        try { machines = JSON.parse(regData?.value || '[]'); } catch(e) {}
+        if (!machines.length) machines = activeMachine ? [activeMachine] : [];
+        
+        const select = document.getElementById('activeMachineSelect');
+        select.innerHTML = machines.map(m => `<option value="${m}" ${m === activeMachine ? 'selected' : ''}>${m}</option>`).join('');
+        
+        const status = document.getElementById('machineStatus');
+        if (activeMachine) {
+          status.innerHTML = `当前活跃: <span style="color:#4CAF50;font-weight:bold;">${activeMachine}</span>`;
+        } else {
+          status.innerHTML = '<span style="color:#f44336;">未设置活跃机器</span>';
+        }
+      } catch(e) { console.error('loadActiveMachine error:', e); }
+    }
+
+    async function switchActiveMachine() {
+      const select = document.getElementById('activeMachineSelect');
+      const newMachine = select.value;
+      if (!newMachine) return alert('请选择机器');
+      
+      // 更新 app_config 表
+      const { error } = await supabase.from('app_config')
+        .update({ value: newMachine, updated_at: new Date().toISOString() })
+        .eq('key', 'active_machine');
+      
+      if (error) {
+        // 可能是行不存在，尝试 insert
+        const { error: err2 } = await supabase.from('app_config')
+          .upsert({ key: 'active_machine', value: newMachine, updated_at: new Date().toISOString() });
+        if (err2) { alert('切换失败: ' + err2.message); return; }
+      }
+      
+      // 提交一个 push_request 通知（可选，用于记录日志）
+      await supabase.from('push_requests').insert([{
+        action: 'switch_machine', video_id: 0, status: 'pending'
+      }]);
+      
+      alert(`已切换活跃机器为: ${newMachine}\n\n新机器将在30秒内激活，旧机器进入待机模式。`);
+      loadActiveMachine();
+      loadLogs();
+    }
+
+    // ========== 粉丝监控 ==========
+    async function loadFansSettings() {
+      try {
+        const { data, error } = await supabase.from('fans_monitor').select('*').limit(1);
+        if (error) { console.error('加载粉丝设置失败:', error); return; }
+        if (data && data.length > 0) {
+          const fm = data[0];
+          if (fm.cctv_news_uid) document.getElementById('newsUid').value = fm.cctv_news_uid;
+          if (fm.cctv_military_uid) document.getElementById('militaryUid').value = fm.cctv_military_uid;
+          if (fm.monday_base_news) document.getElementById('mondayNews').value = fm.monday_base_news;
+          if (fm.monday_base_military) document.getElementById('mondayMilitary').value = fm.monday_base_military;
+          if (fm.webhook_url) document.getElementById('webhookUrl').value = fm.webhook_url;
+          document.getElementById('fansEnabled').checked = fm.enabled || false;
+          if (fm.daily_base_news || fm.monday_base_news) {
+            document.getElementById('fans-display').style.display = 'block';
+            document.getElementById('fd-news').innerText = '-';
+            document.getElementById('fd-military').innerText = '-';
+            if (fm.daily_base_news) {
+              document.getElementById('fd-dnews').innerText = `基准: ${fm.daily_base_news}`;
+              document.getElementById('fd-dmil').innerText = `基准: ${fm.daily_base_military || 0}`;
             }
-            add_video_to_db(entry)
-            msg = build_gqt_added_message(title, bvid)
-            send_wecom(msg)
-            log.info(f"自动添加共青团视频: {bvid}")
-            log.info(f"自动添加共青团视频: {bvid} - {title}")
-            write_log_to_db("INFO", "gqt_scan", f"✅ 自动加入监控: {title} ({bvid})")
-            added_count += 1
-            time.sleep(2)
-        log.info(f"共青团扫描完成，本次添加 {added_count} 个视频")
-
-        try:
-            existing_gqt = supabase_get("videos", {"select": "bvid,alert_enabled", "category": "eq.gqt"})
-            if existing_gqt:
-                for gqt_video in existing_gqt:
-                    if not gqt_video.get("alert_enabled", True):
-                        add_to_gqt_blacklist(gqt_video["bvid"])
-        except Exception as e:
-            log.error(f"同步黑名单时出错: {e}")
-
-        log.info(f"共青团扫描完成，本次添加 {added_count} 个视频，跳过黑名单 {skipped_blacklist_count} 个")
-    except Exception as e:
-        log.error(f"共青团空间扫描异常: {e}")
-
-# ---------- 共青团达标检查 ----------
-# ===================== 共青团达标检查 =====================
-def gqt_alert_check():
-    try:
-        res = supabase_get("videos", {"select": "*", "category": "eq.gqt", "alert_enabled": "eq.true"})
-        if not res: return
-        if not res:
-            return
-        for v in res:
-            bvid = v['bvid']; cid = v.get('cid')
-            bvid = v['bvid']
-            cid = v.get('cid')
-            if not cid:
-                if not try_complete_cid_for_video(v['id']): continue
-                if not try_complete_cid_for_video(v['id']):
-                    continue
-                v['cid'] = supabase_get("videos", {"select": "cid", "id": f"eq.{v['id']}"})[0]['cid']
-                cid = v['cid']
-            data = get_video_data(bvid, cid)
-            if not data: continue
-            if not data:
-                continue
-            current_view = data['view']
-            update_video_in_db(v['id'], {
-                'view': current_view,
-                'title': data.get('title', v.get('title',''))
-                'title': data.get('title', v.get('title', ''))
-            })
-            if 80000 <= current_view < 82000:
-                msg = build_gqt_alert_message(bvid, data.get('title', v.get('title','')), current_view)
-            log.info(f"共青团检查: {bvid} 播放量={current_view}")
-            write_log_to_db("INFO", "gqt_check", f"共青团检查 BV={bvid} 播放={current_view}", v['id'])
-            if current_view >= 80000:
-                msg = build_gqt_alert_message(bvid, data.get('title', v.get('title', '')), current_view)
-                send_wecom(msg)
-                update_video_in_db(v['id'], {'alert_enabled': False})
-            elif current_view >= 82000:
-                update_video_in_db(v['id'], {'alert_enabled': False})
-                add_to_gqt_blacklist(bvid)
-                log.info(f"共青团视频 {bvid} 达标80000，已推送并加入黑名单")
-                write_log_to_db("INFO", "gqt_alert", f"🚩 共青团达标 BV={bvid} 播放={current_view}", v['id'])
-            time.sleep(1)
-    except Exception as e:
-        log.error(f"共青团监控检查异常: {e}")
-
-# ---------- 事件处理 ----------
-# ===================== 事件处理（网页触发） =====================
-def process_push_requests():
-    try:
-        log.info("检查 push_requests 表...")
-        res = supabase_get("push_requests", {
-        })
-        if not res:
-            log.info("没有待处理事件")
-            return
-
-        now = datetime.now(CST)
-        expire_time = now - timedelta(minutes=10)
-
-        push_reqs = []
-        push_req_ids = set()
-        for req in res:
-            if req.get('action') != 'push':
-                continue
-            created = req.get('created_at')
-            if not created: continue
-            if not created:
-                continue
-            try:
-                created_dt = datetime.fromisoformat(created.replace('Z', '+00:00')).astimezone(CST)
-            except: continue
-            except:
-                continue
-            if created_dt < expire_time:
-                supabase_patch("push_requests", {"status": "error"}, f"id=eq.{req['id']}")
-                continue
-            push_reqs.append(req)
-            push_req_ids.add(req['id'])
-
-            action = req['action']; video_id = req['video_id']
-        if push_reqs:
-            for req in push_reqs:
-                supabase_patch("push_requests", {"status": "processing"}, f"id=eq.{req['id']}")
-
-            videos_to_push = []
-            failed_req_ids = set()
-            req_map = {}
-            for req in push_reqs:
-                vid = req['video_id']
-                req_map[vid] = req['id']
-                v_res = supabase_get("videos", {"select": "*", "id": f"eq.{vid}"})
-                if not v_res:
-                    supabase_patch("push_requests", {"status": "error"}, f"id=eq.{req['id']}")
-                    write_log_to_db("ERROR", "push", f"视频不存在 video_id={vid}", vid)
-                    failed_req_ids.add(req['id'])
-                    continue
-                video = v_res[0]
-                if not video.get('cid'):
-                    cid = get_cid_from_api(video['bvid'])
-                    if cid:
-                        update_video_in_db(vid, {'cid': cid})
-                        video['cid'] = cid
-                    else:
-                        supabase_patch("push_requests", {"status": "error"}, f"id=eq.{req['id']}")
-                        write_log_to_db("ERROR", "push", f"CID获取失败 BV={video['bvid']}", vid)
-                        failed_req_ids.add(req['id'])
-                        continue
-                videos_to_push.append(video)
-
-            if videos_to_push:
-                grouped = defaultdict(list)
-                for v in videos_to_push:
-                    grouped[v.get('group_name', '')].append(v)
-
-                for gname, group_videos in grouped.items():
-                    log.info(f"批量推送 (组={gname or '无分组'}, 视频数={len(group_videos)})")
-                    write_log_to_db("INFO", "push", f"批量推送 组={gname or '无分组'} {len(group_videos)}个视频")
-                    for v in group_videos:
-                        rid = req_map.get(v['id'])
-                        if rid and rid not in failed_req_ids:
-                            supabase_patch("push_requests", {"status": "pushing"}, f"id=eq.{rid}")
-                    push_video_info(group_videos)
-
-            for v in videos_to_push:
-                req_id = req_map.get(v['id'])
-                if req_id and req_id not in failed_req_ids:
-                    supabase_patch("push_requests", {"status": "done"}, f"id=eq.{req_id}")
-                    write_log_to_db("INFO", "push", f"推送完成 BV={v['bvid']}", v['id'])
-
-        for req in res:
-            if req['id'] in push_req_ids:
-                continue
-
-            created = req.get('created_at')
-            if not created:
-                continue
-            try:
-                created_dt = datetime.fromisoformat(created.replace('Z', '+00:00')).astimezone(CST)
-            except:
-                continue
-            if created_dt < expire_time:
-                supabase_patch("push_requests", {"status": "error"}, f"id=eq.{req['id']}")
-                continue
-
-            action = req['action']
-            video_id = req['video_id']
-            log.info(f"处理事件: action={action}, video_id={video_id}")
-
-            supabase_patch("push_requests", {"status": "processing"}, f"id=eq.{req['id']}")
-            try:
-                if action == 'fans_push':
-                    fans_monitor_check(force=True)
-                    supabase_patch("push_requests", {"status": "done"}, f"id=eq.{req['id']}")
-                    continue
-
-                if action == 'gqt_refresh':
-                    gqt_alert_check()
-                    supabase_patch("push_requests", {"status": "done"}, f"id=eq.{req['id']}")
-                    continue
-                            supabase_patch("push_requests", {"status": "error"}, f"id=eq.{req['id']}")
-                            continue
-                    supabase_patch("push_requests", {"status": "pushing"}, f"id=eq.{req['id']}")
-                    push_video_info([video], force=True, fetch_latest=True)
-
-                if action == 'refresh_stats':
-                    refresh_video_stats()
-                    supabase_patch("push_requests", {"status": "done"}, f"id=eq.{req['id']}")
-                    write_log_to_db("INFO", "refresh_stats", "手动刷新播放量完成")
-                    continue
-                # new_video
-                supabase_patch("push_requests", {"status": "fetching_cid"}, f"id=eq.{req['id']}")
-                success = try_complete_cid_for_video(video_id)
-                    v_res = supabase_get("videos", {"select": "*", "id": f"eq.{video_id}"})
-                    if v_res and v_res[0].get('cid'):
-                        supabase_patch("push_requests", {"status": "pushing"}, f"id=eq.{req['id']}")
-                        push_video_info([v_res[0]], force=True, fetch_latest=True)
-
-                if action == 'switch_machine':
-                    # 网页切换活跃机器，不需要Python处理，只是标记done
-                    supabase_patch("push_requests", {"status": "done"}, f"id=eq.{req['id']}")
-                    continue
-
-                if action == 'new_video':
-                    supabase_patch("push_requests", {"status": "fetching_cid"}, f"id=eq.{req['id']}")
-                    success = try_complete_cid_for_video(video_id)
-                    if success:
-                        supabase_patch("push_requests", {"status": "done"}, f"id=eq.{req['id']}")
-                        log.info(f"视频 {video_id} CID补全成功")
-                        write_log_to_db("INFO", "new_video", f"视频添加成功，CID已补全 video_id={video_id}", video_id)
-                    else:
-                        supabase_patch("push_requests", {"status": "error"}, f"id=eq.{req['id']}")
-                else:
-                    supabase_patch("push_requests", {"status": "error"}, f"id=eq.{req['id']}")
-                        log.warning(f"视频 {video_id} CID补全失败")
-                        write_log_to_db("ERROR", "new_video", f"CID补全失败 video_id={video_id}", video_id)
-                    continue
-
-                log.warning(f"未知操作类型: {action}")
-                supabase_patch("push_requests", {"status": "error"}, f"id=eq.{req['id']}")
-                continue
-            except Exception as e:
-                log.error(f"事件处理失败: {e}")
-                supabase_patch("push_requests", {"status": "error"}, f"id=eq.{req['id']}")
-                traceback.print_exc()
-                try:
-                    supabase_patch("push_requests", {"status": "error"}, f"id=eq.{req['id']}")
-                except:
-                    pass
-            time.sleep(1)
-    except Exception as e:
-        log.error(f"处理事件异常: {e}")
-
-def background_complete_cid():
-    try:
-        res = supabase_get("videos", {"select": "id,bvid", "cid": "is.null"})
-        for v in res:
-            try_complete_cid_for_video(v['id'])
-            time.sleep(2)
-    except Exception as e:
-        log.error(f"兜底补全异常: {e}")
-
-# 包括 select_videos, manual_push_gui, batch_add_gui, edit_video_gui, delete_single_video_gui,
-# delete_group_gui, view_history_gui, import_history_gui, fans_monitor_settings_gui, fans_monitor_check
-
-# ===================== 粉丝监控 =====================
-def _send_fans_report(fm, fans_news, fans_military, now):
-    """构建并发送粉丝监控播报"""
-    daily_news_base = fm.get("daily_base_news", 0) or 0
-    daily_military_base = fm.get("daily_base_military", 0) or 0
-    monday_news = fm.get("monday_base_news", 0) or 0
-    monday_military = fm.get("monday_base_military", 0) or 0
-
-    daily_news = fans_news - daily_news_base
-    daily_military = fans_military - daily_military_base
-    week_news = fans_news - monday_news if monday_news else 0
-    week_military = fans_military - monday_military if monday_military else 0
-    msg += "【周维度】（周一0点起）\n"
-    msg += f"央视新闻：涨粉{'+' if week_news >= 0 else ''}{week_news}\n"
-    msg += f"央视军事：涨粉{'+' if week_military >= 0 else ''}{week_military}\n"
-    msg += f"央视新闻-央视军事={'+' if week_news-week_military >= 0 else ''}{week_news-week_military}"
-    send_wecom(msg)  # 始终使用 DEFAULT_WEBHOOK
-    write_log_to_db("INFO", "fans_push", f"粉丝报告已推送 新闻={fans_news} 军事={fans_military}")
-
-def _save_fans_record(fm, update_data):
-    """保存粉丝基准数据到数据库"""
-    try:
-        if fm.get('id'):
-            supabase_patch("fans_monitor", update_data, f"id=eq.{fm['id']}")
-        else:
-            merged = {**fm, **update_data}
-            merged.pop('id', None)
-            res = supabase_post("fans_monitor", merged)
-            if res:
-                fm['id'] = res[0]['id']
-    except Exception as e:
-        log.error(f"保存粉丝基准失败: {e}")
-
-def fans_monitor_check(force=False):
-    """
-    粉丝监控：每天 8-24 点（含24点=0点）每小时推送一次。
-    - 0点：先推送前一天的报告，再记录新一天的基准
-    - 8-23点：用当天0点基准计算日维度，用周一0点基准计算周维度
-    """
-    cfg = load_config()
-    fm = cfg.get("fans_monitor", {})
-    if not fm.get("enabled", False) and not force: return
-    if not fm.get("enabled", False) and not force:
-        return
-
-    now = datetime.now(CST)
-    uid_news = fm.get("cctv_news_uid"); uid_military = fm.get("cctv_military_uid")
-    if not uid_news or not uid_military: return
-    fans_news = get_fans_count(uid_news); time.sleep(3)
-    hour = now.hour
-
-    if not force and hour not in [0, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]:
-        return
-
-    uid_news = fm.get("cctv_news_uid")
-    uid_military = fm.get("cctv_military_uid")
-    if not uid_news or not uid_military:
-        log.warning("粉丝监控UID未配置")
-        return
-
-    fans_news = get_fans_count(uid_news)
-    time.sleep(3)
-    fans_military = get_fans_count(uid_military)
-    if fans_news is None or fans_military is None:
-        log.warning("粉丝数据获取失败"); return
-        log.warning("粉丝数据获取失败")
-        return
-
-    today_str = now.strftime("%Y-%m-%d")
-    if fm.get("daily_base_date") != today_str and now.hour == 0:
-        fm["daily_base_news"] = fans_news
-        fm["daily_base_military"] = fans_military
-        fm["daily_base_date"] = today_str
-        supabase_patch("fans_monitor", {
-    monday_of_week = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
-
-    if hour == 0:
-        if fm.get("daily_base_date") and fm.get("daily_base_date") != today_str:
-            log.info(f"推送24点粉丝报告（基准日期: {fm.get('daily_base_date')}）")
-            _send_fans_report(fm, fans_news, fans_military, now)
-
-        update_data = {
-            "daily_base_news": fans_news,
-            "daily_base_military": fans_military,
-            "daily_base_date": today_str
-        }, f"id=eq.{fm['id']}")
-        supabase_patch("fans_monitor", {
-            "monday_base_news": fans_news,
-            "monday_base_military": fans_military
-        }, f"id=eq.{fm['id']}")
+            if (fm.monday_base_news) {
+              document.getElementById('fd-wnews').innerText = `基准: ${fm.monday_base_news}`;
+              document.getElementById('fd-wmil').innerText = `基准: ${fm.monday_base_military || 0}`;
+            }
+          }
         }
+      } catch(e) { console.error('加载粉丝设置异常:', e); }
+    }
 
-    daily_news_base = fm.get("daily_base_news", 0)
-    daily_military_base = fm.get("daily_base_military", 0)
-    monday_news = fm.get("monday_base_news", 0)
-    monday_military = fm.get("monday_base_military", 0)
-        if now.weekday() == 0:
-            update_data["monday_base_news"] = fans_news
-            update_data["monday_base_military"] = fans_military
-            update_data["monday_base_date"] = today_str
-            log.info("记录周一基准粉丝数据")
+    async function saveFansSettings() {
+      const fm = {
+        cctv_news_uid: document.getElementById('newsUid').value,
+        cctv_military_uid: document.getElementById('militaryUid').value,
+        monday_base_news: parseInt(document.getElementById('mondayNews').value) || 0,
+        monday_base_military: parseInt(document.getElementById('mondayMilitary').value) || 0,
+        webhook_url: document.getElementById('webhookUrl').value,
+        enabled: document.getElementById('fansEnabled').checked,
+      };
+      const { data: existing } = await supabase.from('fans_monitor').select('id').limit(1);
+      if (existing && existing.length > 0) await supabase.from('fans_monitor').update(fm).eq('id', existing[0].id);
+      else await supabase.from('fans_monitor').insert(fm);
+      alert('粉丝监控设置已保存');
+    }
 
-    daily_news = fans_news - daily_news_base
-    daily_military = fans_military - daily_military_base
-    week_news = fans_news - monday_news if monday_news else 0
-    week_military = fans_military - monday_military if monday_military else 0
+    async function triggerFansPush() {
+      await saveFansSettings();
+      const { error } = await supabase.from('push_requests').insert([{ action: 'fans_push', video_id: 0, status: 'pending' }]);
+      if (error) alert('请求失败');
+      else alert('推送请求已发送，后台将立即执行粉丝数据推送');
+    }
 
-    now_str = now.strftime("%Y-%m-%d %H:%M")
-    msg = "央视军事涨粉情况播报\n\n"
-    msg += f"时间：{now_str}\n\n"
-    msg += "【实时粉丝量】\n"
-    msg += f"央视新闻：{fans_news}\n"
-    msg += f"央视军事：{fans_military}\n\n"
-    msg += "【日维度】（今日0点起）\n"
-    msg += f"央视新闻：涨粉{'+' if daily_news >= 0 else ''}{daily_news}\n"
-    msg += f"央视军事：涨粉{'+' if daily_military >= 0 else ''}{daily_military}\n"
-    msg += f"央视新闻-央视军事={'+' if daily_news-daily_military >= 0 else ''}{daily_news-daily_military}\n\n"
-    msg += "【周维度】（周一0点起）\n"
-    msg += f"央视新闻：涨粉{'+' if week_news >= 0 else ''}{week_news}\n"
-    msg += f"央视军事：涨粉{'+' if week_military >= 0 else ''}{week_military}\n"
-    msg += f"央视新闻-央视军事={'+' if week_news-week_military >= 0 else ''}{week_news-week_military}"
-    send_wecom(msg, fm.get('webhook_url'))
-        _save_fans_record(fm, update_data)
-        fm.update(update_data)
-        log.info(f"已记录 {today_str} 的粉丝基准: 新闻={fans_news} 军事={fans_military}")
-        return
-
-    if fm.get("daily_base_date") != today_str:
-        log.info(f"今日基准未记录，补充记录: {today_str}")
-        update_data = {
-            "daily_base_news": fans_news,
-            "daily_base_military": fans_military,
-            "daily_base_date": today_str
+    // ========== 日志 ==========
+    const ACTION_MAP = {
+      'push': '📤 推送', 'new_video': '🎬 新视频', 'gqt_refresh': '🔄 共青团刷新', 'fans_push': '📊 粉丝推送',
+      'scheduled_push': '⏰ 定时推送', 'gqt_check': '🚩 共青团检查', 'gqt_scan': '🔍 共青团扫描',
+      'gqt_alert': '🔔 达标提醒', 'push_result': '📋 推送结果'
+    };
+    async function loadLogs() {
+      const tbody = document.getElementById('log-tbody');
+      try {
+        const { data: logData, error: logError } = await supabase.from('monitor_logs')
+          .select('*').order('created_at', { ascending: false }).limit(50);
+        if (!logError && logData && logData.length > 0) {
+          tbody.innerHTML = logData.map(r => {
+            const levelClass = r.level === 'ERROR' ? 'log-level-ERROR' : r.level === 'WARNING' ? 'log-level-WARNING' : 'log-level-INFO';
+            return `<tr><td class="time-text">${formatTime(r.created_at)}</td>
+              <td>${ACTION_MAP[r.action] || r.action || '-'}</td>
+              <td class="${levelClass}">${r.level || 'INFO'}</td>
+              <td>${r.message || ''}</td></tr>`;
+          }).join('');
+          return;
         }
-        _save_fans_record(fm, update_data)
-        fm.update(update_data)
+      } catch(e) {}
+      try {
+        const { data, error } = await supabase.from('push_requests')
+          .select('*').order('created_at', { ascending: false }).limit(30);
+        if (error) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">暂无日志数据</td></tr>'; return; }
+        const statusMap = {
+          'pending': '<span class="badge badge-pending">等待中</span>',
+          'processing': '<span class="badge badge-processing">处理中</span>',
+          'fetching_cid': '<span class="badge badge-processing">获取CID</span>',
+          'pushing': '<span class="badge badge-processing">推送中</span>',
+          'done': '<span class="badge badge-done">✅ 完成</span>',
+          'error': '<span class="badge badge-error">❌ 失败</span>',
+          'cancelled': '<span class="badge badge-pending">已取消</span>'
+        };
+        tbody.innerHTML = (data || []).map(r => `<tr>
+          <td class="time-text">${formatTime(r.created_at)}</td>
+          <td>${ACTION_MAP[r.action] || r.action || '-'}</td>
+          <td>${statusMap[r.status] || r.status}</td>
+          <td>视频ID: ${r.video_id || '-'}</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:#999;">暂无日志数据</td></tr>';
+      } catch(e) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">日志加载失败</td></tr>'; }
+    }
 
-    if fm.get("monday_base_date") != monday_of_week:
-        log.info(f"本周周一基准未记录，补充记录: {monday_of_week}")
-        update_data = {
-            "monday_base_news": fans_news,
-            "monday_base_military": fans_military,
-            "monday_base_date": monday_of_week
+    // ========== 历史稿件查询 ==========
+    async function loadManuscriptHistory() {
+      const tbody = document.getElementById('mh-tbody');
+      const kw = (document.getElementById('mhSearch').value || '').trim().toLowerCase();
+      const statusFilter = document.getElementById('mhStatus').value;
+      const machineFilter = document.getElementById('mhMachine').value;
+      try {
+        let q = supabase.from('manuscript_history').select('*').order('added_at', { ascending: false });
+        const { data, error } = await q;
+        if (error) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#f44336;">查询失败：' + error.message + '</td></tr>'; return; }
+        let list = data || [];
+        if (statusFilter) list = list.filter(r => (r.status || 'active') === statusFilter);
+        if (machineFilter) list = list.filter(r => (r.machine_id || '') === machineFilter);
+        if (kw) list = list.filter(r =>
+          (r.bvid || '').toLowerCase().includes(kw) ||
+          (r.title || '').toLowerCase().includes(kw) ||
+          (r.up_name || '').toLowerCase().includes(kw) ||
+          (r.group_name || '').toLowerCase().includes(kw)
+        );
+        // 刷新电脑下拉框（保留当前选择）
+        refreshMachineOptions(data || [], machineFilter);
+        document.getElementById('mhCount').textContent = `共 ${list.length} 条`;
+        if (list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#999;">暂无数据</td></tr>';
+          return;
         }
-        _save_fans_record(fm, update_data)
-        fm.update(update_data)
+        tbody.innerHTML = list.map(r => {
+          const st = r.status || 'active';
+          const stBadge = st === 'active'
+            ? '<span class="badge badge-done">在监控</span>'
+            : '<span class="badge badge-error">已删除</span>';
+          const cat = r.category === 'gqt' ? '共青团' : (r.category === 'normal' ? '普通' : (r.category || '-'));
+          const mid = r.machine_id || '（未标记）';
+          return `<tr>
+            <td><a href="https://www.bilibili.com/video/${r.bvid}" target="_blank" style="color:#2196F3">${r.bvid}</a></td>
+            <td>${r.title || '<span style="color:#999">-</span>'}</td>
+            <td>${r.up_name || '-'}</td>
+            <td>${r.group_name || '-'}</td>
+            <td>${cat}</td>
+            <td>${stBadge}</td>
+            <td>${mid}</td>
+            <td class="time-text">${formatTime(r.added_at)}</td>
+            <td class="time-text">${formatTime(r.removed_at)}</td>
+          </tr>`;
+        }).join('');
+      } catch(e) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#999;">加载失败</td></tr>';
+      }
+    }
 
-    log.info(f"推送{hour}点粉丝报告")
-    _send_fans_report(fm, fans_news, fans_military, now)
+    function refreshMachineOptions(rows, current) {
+      const sel = document.getElementById('mhMachine');
+      const set = new Set();
+      (rows || []).forEach(r => set.add(r.machine_id || ''));
+      const arr = [...set].sort();
+      let html = '<option value="">全部电脑</option>';
+      arr.forEach(m => {
+        const label = m === '' ? '（未标记）' : m;
+        html += `<option value="${m}">${label}</option>`;
+      });
+      sel.innerHTML = html;
+      sel.value = current || '';
+    }
 
-# ===================== 定时任务 =====================
-def hourly_monitor():
-    """
-    普通视频定时推送：
-    - 用户输入 start_time（如 9:56）
-    - 在 start_time + 1h（10:56）推送 "0h 播放量 在线人数"
-    - 在 start_time + 2h（11:56）推送 "1h 播放量 在线人数"
-    - ...持续推送48次（0h ~ 47h），共48次推送
-    - 推送后 current_hour 直接设为 elapsed，防止5分钟内重复推送
-    """
-    cfg = load_config()
-    now = datetime.now(CST)
-    to_push = []
+    // ========== 弹窗 ==========
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-    for v in cfg.get("videos", []):
-        if v.get("alert_only"): continue
-        if v.get("category") == 'gqt': continue
-        if v.get("alert_only"):
-            continue
-        if v.get("category") == 'gqt':
-            continue
+    // ========== 组编辑 ==========
+    let editingGroupName = null;
+    let allVideosCache = [];  // 缓存所有视频数据
+    async function openGroupEdit(groupName) {
+      editingGroupName = groupName;
+      console.log('openGroupEdit, groupName:', JSON.stringify(groupName));
+      // 获取所有视频，客户端过滤（和 loadVideos 逻辑一致，避免 Supabase .eq() 编码问题）
+      const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
+      console.log('openGroupEdit: total videos fetched:', data ? data.length : 0);
+      if (error) { alert('获取组数据失败：' + error.message); return; }
+      const groupData = (data || []).filter(v => v.category !== 'gqt' && (v.group_name || '未分组') === groupName);
+      console.log('openGroupEdit: groupData matched:', groupData.length, 'groupNames in data:', [...new Set((data||[]).map(v => JSON.stringify(v.group_name)))]);
+      if (groupData.length === 0) { alert('获取组数据失败：未找到组 "' + groupName + '" 的视频（共' + (data||[]).length + '条数据）'); return; }
+      allVideosCache = groupData;
+      
+      const first = groupData[0];
+      document.getElementById('grpGroupName').value = groupName;
+      document.getElementById('grpStartTime').value = first.start_time || '';
+      document.getElementById('grpMonitorHours').value = first.monitor_hours || 48;
+      document.getElementById('grpNotifyInterval').value = first.notify_interval || 1;
+      document.getElementById('grpWinStart').value = first.window_start || 0;
+      document.getElementById('grpWinEnd').value = first.window_end || 24;
+      document.getElementById('grpAlertEnabled').checked = first.alert_enabled || false;
+      document.getElementById('grpOnlineTh').value = first.alert_online_threshold || 0;
+      document.getElementById('grpMilestone').value = (first.alert_milestone || 0) / 10000;
+      document.getElementById('grpInterval').value = first.alert_interval_minutes || 15;
+      document.getElementById('grpAlertOnly').checked = first.alert_only || false;
+      document.getElementById('grpPushEnabled').checked = first.push_enabled !== false;
+      document.getElementById('grpGapAlertEnabled').checked = first.gap_alert_enabled || false;
+      document.getElementById('grpGapThreshold').value = first.gap_alert_threshold || '';
+      
+      // 填充参考视频下拉列表（组内所有视频）
+      const refSelect = document.getElementById('grpGapRefBvid');
+      refSelect.innerHTML = '<option value="">-- 选择参考视频 --</option>' + 
+        groupData.map(v => `<option value="${v.bvid}" ${v.bvid === first.gap_alert_target_bvid ? 'selected' : ''}>${v.bvid} - ${v.title || '获取中...'}</option>`).join('');
+      
+      document.getElementById('groupEditModal').style.display = 'block';
+    }
 
-        start_str = v.get("start_time")
-        if not start_str: continue
-        try:
-            start_dt = datetime.strptime(start_str, "%Y-%m-%d %H:%M").replace(tzinfo=CST)
-        except: continue
-        if not start_str:
-            continue
-        start_dt = parse_start_time(start_str)
-        if not start_dt:
-            log.warning(f"视频 {v.get('bvid','?')} start_time 格式错误: {start_str}")
-            continue
+    async function saveGroupEdit() {
+      if (!editingGroupName) return;
+      // 直接用缓存的数据，不再重新查询
+      const groupVids = allVideosCache;
+      if (!groupVids || groupVids.length === 0) { alert('获取组数据失败：未找到视频'); return; }
+      
+      const newStartTime = document.getElementById('grpStartTime').value;
+      const updated = {
+        start_time: newStartTime,
+        monitor_hours: parseInt(document.getElementById('grpMonitorHours').value) || 48,
+        notify_interval: parseFloat(document.getElementById('grpNotifyInterval').value) || 1,
+        window_start: parseInt(document.getElementById('grpWinStart').value) || 0,
+        window_end: parseInt(document.getElementById('grpWinEnd').value) || 24,
+        alert_enabled: document.getElementById('grpAlertEnabled').checked,
+        alert_online_threshold: parseInt(document.getElementById('grpOnlineTh').value) || 0,
+        alert_milestone: Math.floor(parseFloat(document.getElementById('grpMilestone').value) * 10000) || null,
+        alert_interval_minutes: parseInt(document.getElementById('grpInterval').value) || 15,
+        alert_only: document.getElementById('grpAlertOnly').checked,
+        push_enabled: document.getElementById('grpPushEnabled').checked,
+        gap_alert_enabled: document.getElementById('grpGapAlertEnabled').checked,
+        gap_alert_target_bvid: document.getElementById('grpGapRefBvid').value || null,
+        gap_alert_threshold: parseInt(document.getElementById('grpGapThreshold').value) || 0,
+      };
+      
+      // 检查开始时间是否变化 → 重置 current_hour
+      let resetHour = false;
+      for (const v of groupVids) {
+        if (v.start_time && v.start_time.trim() !== newStartTime.trim()) { resetHour = true; break; }
+      }
+      if (resetHour) {
+        if (!confirm('检测到开始时间已修改，将重置组内所有视频的已推送小时为0。确认保存？')) return;
+        updated.current_hour = 0;
+      }
+      
+      const ids = groupVids.map(v => v.id);
+      const { error: updateError } = await supabase.from('videos').update(updated).in('id', ids);
+      if (updateError) { alert('更新失败：' + updateError.message); return; }
+      alert(`已更新 ${ids.length} 个视频`);
+      closeModal('groupEditModal');
+      loadVideos();
+    }
 
-        elapsed = int((now - start_dt).total_seconds() // 3600)
-        if elapsed >= v.get("current_hour", 0) and v.get("current_hour", 0) < 49:
-            ws = v.get("window_start", 0); we = v.get("window_end", 24)
-            if not (ws <= now.hour < (we if we != 24 else 24)): continue
-            to_push.append(v)
-        current_hour = v.get("current_hour", 0)
+    // ========== 事件绑定（addEventListener，不依赖 onclick 全局作用域）==========
+    document.getElementById('btn-add').addEventListener('click', () => { document.getElementById('addModal').style.display = 'block'; });
+    document.getElementById('btn-submit-add').addEventListener('click', addVideos);
+    document.getElementById('btn-cancel-add').addEventListener('click', () => closeModal('addModal'));
+    document.getElementById('btn-push-sel').addEventListener('click', pushSelected);
+    document.getElementById('btn-push-all').addEventListener('click', pushAll);
+    document.getElementById('btn-del-sel').addEventListener('click', deleteSelected);
+    document.getElementById('btn-edit').addEventListener('click', openEditModal);
+    document.getElementById('btn-submit-edit').addEventListener('click', saveEdit);
+    document.getElementById('btn-cancel-edit').addEventListener('click', () => closeModal('editModal'));
+    document.getElementById('btn-history').addEventListener('click', viewHistory);
+    document.getElementById('btn-cancel-history').addEventListener('click', () => closeModal('historyModal'));
+    document.getElementById('btn-copy-history').addEventListener('click', () => {
+      const ta = document.getElementById('historyText');
+      ta.select();
+      try { document.execCommand('copy'); alert('已复制到剪贴板'); }
+      catch(e) { alert('复制失败，请手动选中复制'); }
+    });
+    document.getElementById('btn-refresh').addEventListener('click', refreshListWithStats);
+    // "此刻"按钮 - 批量添加弹窗
+    document.getElementById('btn-now-time').addEventListener('click', () => {
+      document.getElementById('startTime').value = formatLocalDateTime();
+    });
+    // "此刻"按钮 - 组编辑弹窗
+    document.getElementById('btn-grp-now').addEventListener('click', () => {
+      document.getElementById('grpStartTime').value = formatLocalDateTime();
+    });
+    // 组编辑 + 突出显示 - 事件委托（按钮是动态生成的）
+    document.getElementById('video-tbody').addEventListener('click', function(e) {
+      if (e.target.classList.contains('group-edit-btn')) {
+        openGroupEdit(e.target.getAttribute('data-group'));
+        return;
+      }
+      if (e.target.classList.contains('hl-btn')) {
+        const id = parseInt(e.target.getAttribute('data-id'));
+        const cur = e.target.getAttribute('data-hl') === '1';
+        toggleHighlight(id, cur);
+      }
+    });
+    document.getElementById('btn-submit-grp-edit').addEventListener('click', saveGroupEdit);
+    document.getElementById('btn-cancel-grp-edit').addEventListener('click', () => closeModal('groupEditModal'));
+    document.getElementById('selectAll').addEventListener('change', function() {
+      document.querySelectorAll('.video-check').forEach(c => c.checked = this.checked);
+    });
 
-        if elapsed > current_hour and current_hour < 48:
-            to_push.append((v, elapsed))
-            log.info(f"[{v['bvid']}] elapsed={elapsed}h > current_hour={current_hour}h，加入推送队列")
+    document.getElementById('btn-gqt-add').addEventListener('click', () => { document.getElementById('gqtAddModal').style.display = 'block'; });
+    document.getElementById('btn-submit-gqt').addEventListener('click', addGqtVideo);
+    document.getElementById('btn-cancel-gqt').addEventListener('click', () => closeModal('gqtAddModal'));
+    document.getElementById('btn-gqt-push').addEventListener('click', pushGqtSelected);
+    document.getElementById('btn-gqt-refresh').addEventListener('click', refreshGqtStatus);
+    document.getElementById('btn-gqt-del').addEventListener('click', deleteGqtSelected);
+    document.getElementById('selectAllGqt').addEventListener('change', function() {
+      document.querySelectorAll('.gqt-check').forEach(c => c.checked = this.checked);
+    });
 
-    if to_push:
-        push_video_info(to_push, force=True, fetch_latest=True)
-        for v in to_push:
-            new_hour = v.get("current_hour", 0) + 1
-            update_video_in_db(v["id"], {"current_hour": new_hour})
-        log.info(f"定时推送：{len(to_push)} 个视频待推送")
-        write_log_to_db("INFO", "scheduled_push", f"定时推送 {len(to_push)} 个视频")
-        push_video_info([item[0] for item in to_push])
-        for v, elapsed in to_push:
-            old_hour = v.get("current_hour", 0)
-            update_video_in_db(v["id"], {"current_hour": elapsed})
-            log.info(f"视频 {v['bvid']} current_hour {old_hour} -> {elapsed}")
-            write_log_to_db("INFO", "scheduled_push", f"BV={v['bvid']} hour {old_hour}->{elapsed}", v["id"])
-    else:
-        log.debug("定时检查：无视频需要推送")
+    document.getElementById('btn-save-fans').addEventListener('click', saveFansSettings);
+    document.getElementById('btn-push-fans').addEventListener('click', triggerFansPush);
+    document.getElementById('btn-refresh-log').addEventListener('click', loadLogs);
+    document.getElementById('btn-switch-machine').addEventListener('click', switchActiveMachine);
+    // 历史稿件查询
+    document.getElementById('btn-mh-search').addEventListener('click', loadManuscriptHistory);
+    document.getElementById('btn-mh-refresh').addEventListener('click', loadManuscriptHistory);
+    document.getElementById('btn-mh-sync').addEventListener('click', async () => {
+      document.getElementById('mhSyncStatus').textContent = '同步中...';
+      await syncAllToHistory();
+      await loadManuscriptHistory();
+    });
+    // 固定间隔（每 10 分钟）把当前在监控的稿件同步进历史表，不依赖 Python 脚本
+    setInterval(syncAllToHistory, 10 * 60 * 1000);
+    loadActiveMachine().then(() => syncAllToHistory());
+    document.getElementById('mhSearch').addEventListener('keydown', e => { if (e.key === 'Enter') loadManuscriptHistory(); });
+    document.getElementById('mhStatus').addEventListener('change', loadManuscriptHistory);
+    document.getElementById('mhMachine').addEventListener('change', loadManuscriptHistory);
 
-# 预警检查（在线人数/里程碑）
-last_alert_times = {}
-def alert_check():
-    cfg = load_config()
-    now = datetime.now(CST)
-        if v.get("category") == 'gqt': continue
-        if not v.get("alert_enabled", False): continue
-        bvid = v["bvid"]; cid = v.get("cid")
-        if not cid: continue
-        if v.get("category") == 'gqt':
-            continue
-        if not v.get("alert_enabled", False):
-            continue
-        bvid = v["bvid"]
-        cid = v.get("cid")
-        if not cid:
-            continue
-        interval = v.get("alert_interval_minutes", 15)
-        last_time = last_alert_times.get(bvid)
-        if last_time and (now - last_time).total_seconds() < interval * 60: continue
-        if last_time and (now - last_time).total_seconds() < interval * 60:
-            continue
-        data = get_video_data(bvid, cid)
-        if not data: continue
-        if not data:
-            continue
-        send_flag = False
-        online_th = v.get("alert_online_threshold", 0)
-        if online_th > 0 and int(data.get("online_total", 0)) > online_th:
-            msg = f"📺 **[{data.get('title', bvid)}](https://www.bilibili.com/video/{bvid})**\n在线人数 {data['online_total']}，超过阈值！"
-            send_wecom(msg); send_flag = True
-            send_wecom(msg)
-            send_flag = True
-        milestone = v.get("alert_milestone")
-        if milestone and milestone > 0 and data["view"] >= milestone:
-            msg = f"📺 **[{data.get('title', bvid)}](https://www.bilibili.com/video/{bvid})**\n播放量达到 {fmt_num(milestone)}"
-            send_wecom(msg); send_flag = True
-        if send_flag: last_alert_times[bvid] = now
-            send_wecom(msg)
-            send_flag = True
-        if send_flag:
-            last_alert_times[bvid] = now
-            log.info(f"[{bvid}] 预警触发")
+    // ========== 自动刷新 ==========
+    setInterval(loadVideos, 300000);
+    setInterval(loadGqtVideos, 300000);
+    setInterval(loadLogs, 30000);
+    setInterval(loadActiveMachine, 30000); // 每30秒刷新机器状态
 
-def clean_old_data():
-    try:
-        cutoff = (datetime.now(CST) - timedelta(days=7)).isoformat()
-        supabase_delete("history", f"recorded_at=lt.{cutoff.isoformat()}")
-        supabase_delete("history", f"recorded_at=lt.{cutoff}")
-        log.info("已清理7天前的历史数据")
-    except Exception as e: log.error(f"清理旧数据失败: {e}")
-    except Exception as e:
-        log.error(f"清理旧数据失败: {e}")
+    // ========== 初始化 ==========
+    loadVideos();
+    loadGqtVideos();
+    loadFansSettings();
+    loadLogs();
+    loadActiveMachine();
+    loadManuscriptHistory();
 
-def refresh_video_stats():
-    """定期刷新普通视频的播放量和在线人数到数据库（不推送，仅更新看板数据）"""
-    try:
-        cfg = load_config()
-        updated = 0
-        for v in cfg.get("videos", []):
-            if v.get("category") == 'gqt':
-                continue
-            if v.get("alert_only"):
-                continue
-            bvid = v.get("bvid")
-            cid = v.get("cid")
-            if not bvid or not cid:
-                continue
-            data = get_video_data(bvid, cid)
-            if not data:
-                continue
-            update_video_in_db(v['id'], {
-                "view": data["view"],
-                "online_total": data["online_total"],
-                "title": data.get("title", v.get("title", "")),
-                "up_name": data.get("up_name", v.get("up_name", ""))
-            })
-            updated += 1
-            time.sleep(1)
-        log.info(f"看板数据刷新完成，更新 {updated} 个视频")
-    except Exception as e:
-        log.error(f"看板数据刷新失败: {e}")
-
-def cleanup_duplicate_history():
-    """清理 history 表中同一 (video_id, hour) 的重复记录，保留播放量最高的那条"""
-    try:
-        res = supabase_get("history", {"select": "id,video_id,hour,view"})
-        if not res:
-            return
-        seen = {}
-        to_delete = []
-        for h in res:
-            vid = h.get("video_id")
-            hour = int(h.get("hour", 0))
-            view = int(h.get("view", 0))
-            key = (vid, hour)
-            if key in seen:
-                if view > seen[key]["view"]:
-                    to_delete.append(seen[key]["id"])
-                    seen[key] = {"id": h["id"], "view": view}
-                else:
-                    to_delete.append(h["id"])
-            else:
-                seen[key] = {"id": h["id"], "view": view}
-        if to_delete:
-            for did in to_delete:
-                try:
-                    supabase_delete("history", f"id=eq.{did}")
-                except:
-                    pass
-            log.info(f"清理重复历史记录: 删除 {len(to_delete)} 条")
-        else:
-            log.info("无重复历史记录需要清理")
-    except Exception as e:
-        log.error(f"清理重复历史记录失败: {e}")
-
-# 播放量差距预警（组内）
-last_gap_alert_times = {}
-_gap_alert_col_missing = False  # 字段不存在时只警告一次
-def gap_alert_check():
-    """检查组内播放量差距：参考视频应高于组内其他视频，
-    当其他视频与参考视频的差距在阈值内时推送预警。"""
-    global _gap_alert_col_missing
-    if _gap_alert_col_missing:
-        return
-    try:
-        res = supabase_get("videos", {
-            "select": "*",
-            "gap_alert_enabled": "eq.true"
-        })
-        if not res:
-            return
-
-        # 按组分组
-        groups = defaultdict(list)
-        for v in res:
-            if v.get("category") == 'gqt':
-                continue
-            gname = v.get("group_name", "") or "未分组"
-            groups[gname].append(v)
-
-        now = datetime.now(CST)
-        for gname, vids in groups.items():
-            # 从组内第一个视频读取参考视频BV和阈值（组编辑时已统一设置）
-            ref_bvid = vids[0].get("gap_alert_target_bvid")
-            threshold = vids[0].get("gap_alert_threshold", 0)
-            if not ref_bvid or not threshold or threshold <= 0:
-                continue
-
-            # 获取参考视频的播放量
-            ref_video = None
-            for v in vids:
-                if v["bvid"] == ref_bvid:
-                    ref_video = v
-                    break
-            if not ref_video:
-                # 参考视频可能不在 gap_alert_enabled 结果中，从数据库查
-                ref_res = supabase_get("videos", {"select": "*", "bvid": f"eq.{ref_bvid}"})
-                if ref_res:
-                    ref_video = ref_res[0]
-            if not ref_video:
-                continue
-
-            ref_cid = ref_video.get("cid")
-            if not ref_cid:
-                ref_cid = get_cid_from_api(ref_bvid)
-            if not ref_cid:
-                continue
-            ref_data = get_video_data(ref_bvid, ref_cid)
-            if not ref_data:
-                continue
-            ref_view = ref_data["view"]
-
-            # 检查组内其他视频是否接近参考视频
-            for v in vids:
-                if v["bvid"] == ref_bvid:
-                    continue
-                v_cid = v.get("cid")
-                if not v_cid:
-                    continue
-                v_data = get_video_data(v["bvid"], v_cid)
-                if not v_data:
-                    continue
-                v_view = v_data["view"]
-
-                diff = ref_view - v_view  # 参考视频应高于其他视频
-                # 差距在阈值内（包括反超的情况）→ 预警
-                if diff <= threshold:
-                    bvid = v["bvid"]
-                    last_time = last_gap_alert_times.get(bvid)
-                    if last_time and (now - last_time).total_seconds() < 300:
-                        continue
-                    msg = (
-                        f"## 📊 播放量差距预警\n\n"
-                        f"**组：{gname}**\n\n"
-                        f"**参考视频：[{ref_data.get('title', ref_bvid)}](https://www.bilibili.com/video/{ref_bvid})**\n"
-                        f"播放量：{fmt_num(ref_view)}\n\n"
-                        f"**追赶视频：[{v_data.get('title', v['bvid'])}](https://www.bilibili.com/video/{v['bvid']})**\n"
-                        f"播放量：{fmt_num(v_view)}\n\n"
-                        f"差距：<font color='warning'>{fmt_num(diff)}</font>（阈值 {fmt_num(threshold)}）"
-                    )
-                    send_wecom(msg)
-                    last_gap_alert_times[bvid] = now
-                    log.info(f"播放量差距预警: 组={gname} 参考={ref_bvid}({ref_view}) vs {v['bvid']}({v_view}) 差距={diff}")
-                    write_log_to_db("INFO", "gap_alert", f"差距预警 组={gname} {v['bvid']}差距参考{ref_bvid} {diff}", v.get('id'))
-                time.sleep(1)
-    except Exception as e:
-        err_msg = str(e)
-        if "column" in err_msg and "does not exist" in err_msg:
-            log.warning(f"播放量差距预警字段不存在，请先在Supabase执行add_columns.sql。功能暂停。")
-            _gap_alert_col_missing = True
-        else:
-            log.error(f"播放量差距检查异常: {e}")
-
-def push_request_watcher():
-    """
-    独立线程：高频轮询网页触发的推送请求。
-    不经过 schedule 库，不受 scan_gqt_space / hourly_monitor 等耗时任务阻塞。
-    网页点击推送后最多 10 秒内响应。
-    仅活跃机器处理请求，非活跃机器待机跳过。
-    """
-    log.info(f"推送请求监听线程已启动 (本机: {MACHINE_ID}, 活跃: {'是' if am_i_active else '否'})")
-    while True:
-        try:
-            if am_i_active:
-                process_push_requests()
-        except Exception as e:
-            log.error(f"推送请求监听异常: {e}")
-            traceback.print_exc()
-        time.sleep(10)
-
-def schedule_loop():
-    schedule.clear()
-    schedule.every(1).minutes.do(process_push_requests)
-    # 每30分钟兜底补全缺失的CID
-    schedule.every(30).minutes.do(background_complete_cid)
-    # 每5分钟检查普通视频是否到推送时间
-    schedule.every(5).minutes.do(hourly_monitor)
-    # 每5分钟检查预警
-    schedule.every(5).minutes.do(alert_check)
-    schedule.every(2).hours.do(scan_gqt_space)          # 每2小时扫描共青团
-    schedule.every(30).minutes.do(gqt_alert_check)
-    schedule.every().day.at("08:00").do(fans_monitor_check)
-    # 每5分钟刷新普通视频播放量和在线人数到数据库（不推送，仅更新看板）
-    schedule.every(5).minutes.do(refresh_video_stats)
-    # 每5分钟检查播放量差距预警
-    schedule.every(5).minutes.do(gap_alert_check)
-    # 每2小时扫描共青团空间，发现关键词视频自动加入监控
-    schedule.every(2).hours.do(scan_gqt_space)
-    # 每5分钟检查共青团视频播放量是否达标
-    schedule.every(5).minutes.do(gqt_alert_check)
-    # 每小时整点检查粉丝监控（函数内部判断 8-24 点才推送）
-    schedule.every().hour.at(":00").do(fans_monitor_check)
-    # 每天中午清理旧数据
-    schedule.every().day.at("12:00").do(clean_old_data)
-    process_push_requests()
-    log.info("智能调度已启动（含共青团自动扫描，每2小时）")
-    # 每天凌晨清理重复历史记录
-    schedule.every().day.at("03:00").do(cleanup_duplicate_history)
-
-    # 启动推送请求独立监听线程（不受 schedule 队列阻塞）
-    threading.Thread(target=push_request_watcher, daemon=True).start()
-    log.info("智能调度已启动（普通监控+共青团自动扫描+粉丝监控8-24点+网页事件）")
-    log.info("调度计划:")
-    log.info("  - 网页事件检查: 每10秒（独立线程，不受其他任务阻塞）")
-    log.info("  - 普通视频推送: 每5分钟检查")
-    log.info("  - 预警检查: 每5分钟")
-    log.info("  - 看板数据刷新: 每5分钟（仅更新播放量/在线人数，不推送）")
-    log.info("  - 播放量差距预警: 每5分钟")
-    log.info("  - 共青团空间扫描: 每2小时")
-    log.info("  - 共青团达标检查: 每5分钟")
-    log.info("  - 粉丝监控: 每小时整点(8-24点推送)")
-    log.info("  - 历史数据清理: 每天12:00")
-    log.info("  - 重复历史记录清理: 每天03:00")
-    log.info("  - 历史稿件同步: 常驻线程每10分钟（与活跃状态无关，每台电脑都同步）")
-    while True:
-        schedule.run_pending()
-        if am_i_active:
-            schedule.run_pending()
-        time.sleep(5)
-
-def manuscript_sync_loop():
-    """常驻线程：无论是否活跃机器，每10分钟同步本机历史稿件到 Supabase 与本地文件。"""
-    log.info("历史稿件同步线程已启动（每台电脑都会同步，与活跃状态无关）")
-    while True:
-        try:
-            sync_manuscript_history()
-        except Exception as e:
-            log.error(f"历史稿件同步异常: {e}")
-        time.sleep(600)
-
-# ===================== 系统托盘 =====================
-def create_image():
-    image = Image.new('RGB', (64, 64), (70, 130, 180))
-    draw = ImageDraw.Draw(image); draw.text((8, 8), "B站", fill="white")
-    draw = ImageDraw.Draw(image)
-    draw.text((8, 8), "B站", fill="white")
-    return image
-
-def open_web_panel():
-    """打开网页管理面板"""
-    import webbrowser
-    webbrowser.open("https://erzjcvsbrkmukswkqfss.supabase.co")
-
-def show_status():
-    """弹窗显示当前状态"""
-    try:
-        cfg = load_config()
-        videos = cfg.get("videos", [])
-        normal = [v for v in videos if v.get("category") != "gqt" and not v.get("alert_only")]
-        gqt = [v for v in videos if v.get("category") == "gqt"]
-        fm = cfg.get("fans_monitor", {})
-        # 获取当前活跃机器
-        try:
-            res = supabase_get("app_config", {"key": "eq.active_machine"})
-            active_machine = res[0]["value"] if res and res[0].get("value") else "未设置"
-        except:
-            active_machine = "查询失败"
-        info = (
-            f"机器编号：{MACHINE_ID}\n"
-            f"运行状态：{'🟢 活跃运行中' if am_i_active else '🟡 待机中（等待网页切换）'}\n"
-            f"当前活跃机器：{active_machine}\n\n"
-            f"普通监控视频：{len(normal)} 个\n"
-            f"共青团监控视频：{len(gqt)} 个\n"
-            f"粉丝监控：{'启用' if fm.get('enabled') else '未启用'}\n"
-            f"\n日志文件：{log_file}\n"
-            f"\n网页面板请通过浏览器访问"
-        )
-        if root:
-            messagebox.showinfo("监控状态", info)
-    except Exception as e:
-        log.error(f"显示状态失败: {e}")
-
-def view_log_gui():
-    """查看日志文件"""
-    try:
-        log_win = tk.Toplevel(root)
-        log_win.title("监控日志")
-        log_win.geometry("800x500")
-        st = scrolledtext.ScrolledText(log_win, wrap=tk.WORD, font=("Consolas", 10))
-        st.pack(fill=tk.BOTH, expand=True)
-        try:
-            with open(log_file, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-            content = "".join(lines[-500:]) if len(lines) > 500 else "".join(lines)
-            st.insert(tk.END, content)
-        except Exception as e:
-            st.insert(tk.END, f"读取日志失败: {e}")
-        st.config(state=tk.DISABLED)
-    except Exception as e:
-        log.error(f"打开日志窗口失败: {e}")
-
-def setup_tray():
-    global tray_icon
-    icon = pystray.Icon("bilibili_monitor")
-    icon.icon = create_image(); icon.title = "B站视频监控"
-    icon.icon = create_image()
-    icon.title = f"B站视频监控 ({'运行中' if am_i_active else '待机中'}: {MACHINE_ID})"
-    icon.menu = pystray.Menu(
-        pystray.MenuItem("批量添加监控", lambda: root.after(0, batch_add_gui)),
-        pystray.MenuItem("手动推送", lambda: root.after(0, manual_push_gui)),
-        pystray.MenuItem("编辑监控", lambda: root.after(0, edit_video_gui)),
-        pystray.MenuItem("删除整组", lambda: root.after(0, delete_group_gui)),
-        pystray.MenuItem("查询历史", lambda: root.after(0, view_history_gui)),
-        pystray.MenuItem("导入历史", lambda: root.after(0, import_history_gui)),
-        pystray.MenuItem("显示管理窗口", lambda: root.after(0, show_window)),
-        pystray.MenuItem("显示状态", lambda: root.after(0, show_status)),
-        pystray.MenuItem("查看日志", lambda: root.after(0, view_log_gui)),
-        pystray.MenuItem("打开网页面板", lambda: root.after(0, open_web_panel)),
-        pystray.MenuItem("退出", lambda: root.after(0, on_exit, icon))
-    )
-    tray_icon = icon
-    icon.run_detached()
-
-def show_window():
-    # 请从之前的完整脚本中复制管理窗口函数
-    pass
-
-def on_exit(icon):
-    icon.stop(); root.quit(); os._exit(0)
-    try:
-        icon.stop()
-    except:
-        pass
-    try:
-        root.quit()
-    except:
-        pass
-    os._exit(0)
-
-def main():
-    check_single_instance()
-    global root
-    root = tk.Tk(); root.withdraw()
-    
-    # 注册本机并检查是否是活跃机器
-    register_machine()
-    check_active()
-    
-    log.info("="*50)
-    log.info(f"B站监控脚本启动 (机器: {MACHINE_ID}, 状态: {'🟢活跃' if am_i_active else '🟡待机'})")
-    log.info(f"日志文件: {log_file}")
-    log.info(f"工作目录: {os.path.dirname(os.path.abspath(__file__))}")
-    log.info("="*50)
-    
-    # 启动时同步历史稿件到本地（含已删除稿件，每台电脑都执行，与活跃状态无关）
-    try:
-        sync_manuscript_history()
-    except Exception as e:
-        log.warning(f"启动同步历史稿件失败(忽略): {e}")
-    
-    # 历史稿件同步常驻线程（每台电脑都运行，保证本地文件与 Supabase 都有本机历史）
-    threading.Thread(target=manuscript_sync_loop, daemon=True).start()
-    
-    if not am_i_active:
-        try:
-            res = supabase_get("app_config", {"key": "eq.active_machine"})
-            active = res[0]["value"] if res and res[0].get("value") else "未知"
-            log.info(f"当前活跃机器: {active}，本机进入待机模式（可在网页面板切换本机为活跃）")
-            write_log_to_db("INFO", "machine_switch", f"机器 {MACHINE_ID} 启动待机，活跃机器: {active}")
-        except:
-            log.info("本机进入待机模式")
-    
-    # 启动活跃机器检查线程（每30秒检查，切换时自动待机/激活，不会退出）
-    threading.Thread(target=active_check_loop, daemon=True).start()
-    
-    root = tk.Tk()
-    root.withdraw()
-    threading.Thread(target=schedule_loop, daemon=True).start()
-    setup_tray()
-    root.mainloop()
-
-if __name__ == "__main__":
-    main()
+    console.log('[B站监控] 页面初始化完成，所有按钮已绑定');
+  </script>
+</body>
+</html>
