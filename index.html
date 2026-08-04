@@ -405,6 +405,12 @@
         let html = '';
         groupOrder.forEach(gname => {
           const vids = groups[gname];
+          // 组内排序：① 被高亮的稿件固定排到本组第一个；② 其余按播放量降序
+          vids.sort((a, b) => {
+            const ah = a.highlight ? 1 : 0, bh = b.highlight ? 1 : 0;
+            if (ah !== bh) return bh - ah;                       // 高亮排最前
+            return (Number(b.view) || 0) - (Number(a.view) || 0); // 播放量降序
+          });
           // 分组标题行
           html += `<tr class="group-header"><td colspan="14">📁 ${gname} <span class="group-count">(${vids.length} 个视频)</span> <button class="group-edit-btn" data-group="${gname}" style="float:right;padding:3px 12px;font-size:12px;">编辑整组</button></td></tr>`;
           // 该组下的视频行
