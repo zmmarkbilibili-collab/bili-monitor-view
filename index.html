@@ -54,6 +54,8 @@
     .time-text { color: #888; font-size: 12px; }
     .group-header td { background: #e3f2fd !important; font-weight: bold; font-size: 14px; color: #1565c0; padding: 8px 12px; border-top: 2px solid #2196F3; }
     .group-header .group-count { font-weight: normal; font-size: 12px; color: #666; margin-left: 8px; }
+    tr.highlighted > td { background: #fff3cd !important; }
+    tr.highlighted > td:first-child { border-left: 4px solid #ff9800; }
     .toolbar { position: sticky; top: 0; z-index: 10; background: white; padding: 8px 0; margin-bottom: 5px; }
   </style>
 </head>
@@ -147,6 +149,38 @@
     </table>
   </div>
 
+  <div class="section">
+    <h2>🗂️ 历史稿件 <span class="auto-refresh-hint">(含已删除，数据同步自脚本目录 manuscript_history.json)</span></h2>
+    <div class="toolbar" style="position:static;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <input id="mhSearch" placeholder="搜索 BV号/标题/UP/组名" style="width:240px;display:inline-block;">
+      <select id="mhStatus" style="width:160px;display:inline-block;">
+        <option value="">全部状态</option>
+        <option value="active">在监控中</option>
+        <option value="removed">已删除</option>
+      </select>
+      <button id="btn-mh-search">查询</button>
+      <button id="btn-mh-refresh" class="secondary">刷新</button>
+      <span id="mhCount" style="color:#888;font-size:13px;margin-left:8px;"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:120px">BV号</th>
+          <th>标题</th>
+          <th style="width:120px">UP主</th>
+          <th style="width:120px">组名</th>
+          <th style="width:90px">类型</th>
+          <th style="width:90px">状态</th>
+          <th style="width:150px">加入时间</th>
+          <th style="width:150px">删除时间</th>
+        </tr>
+      </thead>
+      <tbody id="mh-tbody">
+        <tr><td colspan="8" style="text-align:center;color:#999;">加载中...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
   <div id="progress-overlay">
     <div class="progress-container">
       <h2 id="progress-title">推送进度</h2>
@@ -190,6 +224,7 @@
       <div class="form-row"><label>里程碑(万):</label><input id="editMilestone" type="number" step="0.1"></div>
       <div class="form-row"><label>检查间隔(分):</label><input id="editInterval" type="number"></div>
       <div class="form-row"><label>仅预警:</label><input type="checkbox" id="editAlertOnly"></div>
+      <div class="form-row"><label>突出显示:</label><input type="checkbox" id="editHighlight"> <span style="color:#888;font-size:12px">在看板中高亮该行，便于从一组中分辨</span></div>
       <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
       <div class="form-row"><label>推送开关:</label><input type="checkbox" id="editPushEnabled" checked> <span style="color:#888;font-size:12px">关闭后仅更新看板数据，不推送企微</span></div>
       <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
@@ -260,6 +295,32 @@
     const SUPABASE_URL = 'https://erzjcvsbrkmukswkqfss.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g';
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // ========== 历史稿件记录 ==========
+    // 把稿件写入 manuscript_history 表（含已删除），网页增删时调用
+    async function recordManuscript(bvid, info = {}, status = 'active') {
+      try {
+        const row = {
+          bvid,
+          title: info.title || '',
+          up_name: info.up_name || '',
+          group_name: info.group_name || '',
+          category: info.category || '',
+          status,
+          last_seen_at: new Date().toISOString(),
+        };
+        if (status === 'removed') row.removed_at = new Date().toISOString();
+        // 用 upsert：同一 bvid 覆盖更新
+        const { error } = await supabase.from('manuscript_history').upsert(row, { onConflict: 'bvid' });
+        if (error) console.error('记录历史稿件失败:', error);
+      } catch (e) { console.error('recordManuscript error:', e); }
+    }
+    // 批量记录（添加时调用）
+    async function recordManuscripts(list, status = 'active') {
+      for (const it of list) {
+        await recordManuscript(it.bvid, it, status);
+      }
+    }
 
     // ========== 工具函数 ==========
     function formatLocalDateTime(date) {
@@ -371,7 +432,8 @@
             const hour = v.current_hour ?? 0;
             const progress = Math.min(hour / 48 * 100, 100);
             const isComplete = hour > 48;
-            html += `<tr ${isComplete ? 'style="opacity:0.5"' : ''}>
+            const hlClass = v.highlight ? ' highlighted' : '';
+            html += `<tr class="${hlClass.trim()}" ${isComplete ? 'style="opacity:0.5"' : ''}>
               <td><input type="checkbox" value="${v.id}" class="video-check"></td>
               <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
               <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
@@ -492,6 +554,10 @@
       if (error) { alert('添加失败：' + error.message); return; }
       if (newVideos && newVideos.length > 0) {
         await supabase.from('push_requests').insert(newVideos.map(v => ({ action: 'new_video', video_id: v.id, status: 'pending' })));
+        // 记录到历史稿件表
+        await recordManuscripts(newVideos.map(v => ({
+          bvid: v.bvid, title: v.title || (v.bvid), up_name: v.up_name || '', group_name: v.group_name || '', category: v.category || 'normal'
+        })), 'active');
       }
       alert(`成功添加 ${bvs.length} 个视频！后台正在获取视频信息，首次推送将在开始时间+1小时后自动执行`);
       closeModal('addModal'); loadVideos(); loadLogs();
@@ -535,6 +601,15 @@
       const ids = getSelectedIds();
       if (!ids.length) return alert('请选中视频');
       if (!confirm(`确定删除 ${ids.length} 个视频？`)) return;
+      // 删除前先查出这些视频的 bvid，记录到历史稿件表（标记 removed）
+      try {
+        const { data: toDel } = await supabase.from('videos').select('bvid,title,up_name,group_name,category').in('id', ids);
+        if (toDel && toDel.length) {
+          await recordManuscripts(toDel.map(v => ({
+            bvid: v.bvid, title: v.title || v.bvid, up_name: v.up_name || '', group_name: v.group_name || '', category: v.category || 'normal'
+          })), 'removed');
+        }
+      } catch (e) { console.error('删除前记录历史失败:', e); }
       const { error } = await supabase.from('videos').delete().in('id', ids);
       if (error) alert('删除失败'); else { loadVideos(); loadLogs(); }
     }
@@ -561,6 +636,8 @@
       document.getElementById('editMilestone').value = (data.alert_milestone || 0) / 10000;
       document.getElementById('editInterval').value = data.alert_interval_minutes || 15;
       document.getElementById('editAlertOnly').checked = data.alert_only || false;
+      // 突出显示
+      document.getElementById('editHighlight').checked = data.highlight || false;
       // 推送开关
       document.getElementById('editPushEnabled').checked = data.push_enabled !== false;
       // 播放量差距预警
@@ -593,6 +670,7 @@
         alert_milestone: Math.floor(parseFloat(document.getElementById('editMilestone').value) * 10000) || null,
         alert_interval_minutes: parseInt(document.getElementById('editInterval').value) || 15,
         alert_only: document.getElementById('editAlertOnly').checked,
+        highlight: document.getElementById('editHighlight').checked,
         push_enabled: document.getElementById('editPushEnabled').checked,
         gap_alert_enabled: document.getElementById('editGapAlertEnabled').checked,
         gap_alert_target_bvid: document.getElementById('editGapTargetBvid').value.trim() || null,
@@ -660,6 +738,7 @@
       if (error) { alert('添加失败：' + error.message); return; }
       if (data && data.length > 0) {
         await supabase.from('push_requests').insert([{ action: 'new_video', video_id: data[0].id, status: 'pending' }]);
+        await recordManuscripts([{ bvid: data[0].bvid, title: data[0].title || data[0].bvid, up_name: data[0].up_name || '', group_name: data[0].group_name || '共青团搬运', category: 'gqt' }], 'active');
       }
       alert('共青团视频已添加，后台将自动补全CID并开始监控');
       closeModal('gqtAddModal'); loadGqtVideos(); loadLogs();
@@ -683,6 +762,12 @@
       const ids = [...document.querySelectorAll('.gqt-check:checked')].map(cb => parseInt(cb.value));
       if (!ids.length) return alert('请勾选视频');
       if (!confirm(`确定删除选中的 ${ids.length} 个共青团视频？`)) return;
+      try {
+        const { data: toDel } = await supabase.from('videos').select('bvid,title,up_name,group_name,category').in('id', ids);
+        if (toDel && toDel.length) {
+          await recordManuscripts(toDel.map(v => ({ bvid: v.bvid, title: v.title || v.bvid, up_name: v.up_name || '', group_name: v.group_name || '共青团搬运', category: 'gqt' })), 'removed');
+        }
+      } catch (e) { console.error('删除前记录历史失败:', e); }
       const { error } = await supabase.from('videos').delete().in('id', ids);
       if (error) alert('删除失败'); else { loadGqtVideos(); loadLogs(); }
     }
@@ -835,19 +920,67 @@
       } catch(e) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">日志加载失败</td></tr>'; }
     }
 
+    // ========== 历史稿件查询 ==========
+    async function loadManuscriptHistory() {
+      const tbody = document.getElementById('mh-tbody');
+      const kw = (document.getElementById('mhSearch').value || '').trim().toLowerCase();
+      const statusFilter = document.getElementById('mhStatus').value;
+      try {
+        let q = supabase.from('manuscript_history').select('*').order('added_at', { ascending: false });
+        const { data, error } = await q;
+        if (error) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#f44336;">查询失败：' + error.message + '</td></tr>'; return; }
+        let list = data || [];
+        if (statusFilter) list = list.filter(r => (r.status || 'active') === statusFilter);
+        if (kw) list = list.filter(r =>
+          (r.bvid || '').toLowerCase().includes(kw) ||
+          (r.title || '').toLowerCase().includes(kw) ||
+          (r.up_name || '').toLowerCase().includes(kw) ||
+          (r.group_name || '').toLowerCase().includes(kw)
+        );
+        document.getElementById('mhCount').textContent = `共 ${list.length} 条`;
+        if (list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;">暂无数据</td></tr>';
+          return;
+        }
+        tbody.innerHTML = list.map(r => {
+          const st = r.status || 'active';
+          const stBadge = st === 'active'
+            ? '<span class="badge badge-done">在监控</span>'
+            : '<span class="badge badge-error">已删除</span>';
+          const cat = r.category === 'gqt' ? '共青团' : (r.category === 'normal' ? '普通' : (r.category || '-'));
+          return `<tr>
+            <td><a href="https://www.bilibili.com/video/${r.bvid}" target="_blank" style="color:#2196F3">${r.bvid}</a></td>
+            <td>${r.title || '<span style="color:#999">-</span>'}</td>
+            <td>${r.up_name || '-'}</td>
+            <td>${r.group_name || '-'}</td>
+            <td>${cat}</td>
+            <td>${stBadge}</td>
+            <td class="time-text">${formatTime(r.added_at)}</td>
+            <td class="time-text">${formatTime(r.removed_at)}</td>
+          </tr>`;
+        }).join('');
+      } catch(e) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;">加载失败</td></tr>';
+      }
+    }
+
     // ========== 弹窗 ==========
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
     // ========== 组编辑 ==========
     let editingGroupName = null;
+    let allVideosCache = [];  // 缓存所有视频数据
     async function openGroupEdit(groupName) {
       editingGroupName = groupName;
-      console.log('openGroupEdit, groupName:', groupName);
-      const { data, error } = await supabase.from('videos').select('*').eq('group_name', groupName);
-      console.log('openGroupEdit result:', { data, error });
+      console.log('openGroupEdit, groupName:', JSON.stringify(groupName));
+      // 获取所有视频，客户端过滤（和 loadVideos 逻辑一致，避免 Supabase .eq() 编码问题）
+      const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
+      console.log('openGroupEdit: total videos fetched:', data ? data.length : 0);
       if (error) { alert('获取组数据失败：' + error.message); return; }
-      const groupData = (data || []).filter(v => v.category !== 'gqt');
-      if (groupData.length === 0) { alert('获取组数据失败：未找到组 "' + groupName + '" 的视频'); return; }
+      const groupData = (data || []).filter(v => v.category !== 'gqt' && (v.group_name || '未分组') === groupName);
+      console.log('openGroupEdit: groupData matched:', groupData.length, 'groupNames in data:', [...new Set((data||[]).map(v => JSON.stringify(v.group_name)))]);
+      if (groupData.length === 0) { alert('获取组数据失败：未找到组 "' + groupName + '" 的视频（共' + (data||[]).length + '条数据）'); return; }
+      allVideosCache = groupData;
       
       const first = groupData[0];
       document.getElementById('grpGroupName').value = groupName;
@@ -875,9 +1008,8 @@
 
     async function saveGroupEdit() {
       if (!editingGroupName) return;
-      const { data: vids, error } = await supabase.from('videos').select('id,start_time,category').eq('group_name', editingGroupName);
-      if (error) { alert('获取组数据失败：' + error.message); return; }
-      const groupVids = (vids || []).filter(v => v.category !== 'gqt');
+      // 直接用缓存的数据，不再重新查询
+      const groupVids = allVideosCache;
       if (!groupVids || groupVids.length === 0) { alert('获取组数据失败：未找到视频'); return; }
       
       const newStartTime = document.getElementById('grpStartTime').value;
@@ -969,6 +1101,11 @@
     document.getElementById('btn-push-fans').addEventListener('click', triggerFansPush);
     document.getElementById('btn-refresh-log').addEventListener('click', loadLogs);
     document.getElementById('btn-switch-machine').addEventListener('click', switchActiveMachine);
+    // 历史稿件查询
+    document.getElementById('btn-mh-search').addEventListener('click', loadManuscriptHistory);
+    document.getElementById('btn-mh-refresh').addEventListener('click', loadManuscriptHistory);
+    document.getElementById('mhSearch').addEventListener('keydown', e => { if (e.key === 'Enter') loadManuscriptHistory(); });
+    document.getElementById('mhStatus').addEventListener('change', loadManuscriptHistory);
 
     // ========== 自动刷新 ==========
     setInterval(loadVideos, 300000);
@@ -982,6 +1119,7 @@
     loadFansSettings();
     loadLogs();
     loadActiveMachine();
+    loadManuscriptHistory();
 
     console.log('[B站监控] 页面初始化完成，所有按钮已绑定');
   </script>
