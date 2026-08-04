@@ -64,13 +64,6 @@
 <body>
   <h1>B站视频监控管理</h1>
 
-  <div class="section" style="padding:10px 15px;">
-    <label style="width:auto;margin-right:10px;font-weight:bold;">🖥️ 活跃机器:</label>
-    <select id="activeMachineSelect" style="width:200px;display:inline-block;"></select>
-    <button id="btn-switch-machine" style="margin-left:8px;">切换</button>
-    <span id="machineStatus" style="margin-left:10px;color:#888;font-size:13px;"></span>
-  </div>
-
   <div class="section">
     <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
     <div class="toolbar">
@@ -680,59 +673,6 @@
       if (error) alert('删除失败'); else { loadGqtVideos(); loadLogs(); }
     }
 
-    // ========== 活跃机器控制 ==========
-    async function loadActiveMachine() {
-      try {
-        // 并行读取活跃机器和已注册机器列表
-        const [{ data: activeData }, { data: regData }] = await Promise.all([
-          supabase.from('app_config').select('value').eq('key', 'active_machine').single(),
-          supabase.from('app_config').select('value').eq('key', 'registered_machines').single()
-        ]);
-        
-        const activeMachine = activeData?.value || '';
-        let machines = [];
-        try { machines = JSON.parse(regData?.value || '[]'); } catch(e) {}
-        if (!machines.length) machines = activeMachine ? [activeMachine] : [];
-        
-        const select = document.getElementById('activeMachineSelect');
-        select.innerHTML = machines.map(m => `<option value="${m}" ${m === activeMachine ? 'selected' : ''}>${m}</option>`).join('');
-        
-        const status = document.getElementById('machineStatus');
-        if (activeMachine) {
-          status.innerHTML = `当前活跃: <span style="color:#4CAF50;font-weight:bold;">${activeMachine}</span>`;
-        } else {
-          status.innerHTML = '<span style="color:#f44336;">未设置活跃机器</span>';
-        }
-      } catch(e) { console.error('loadActiveMachine error:', e); }
-    }
-
-    async function switchActiveMachine() {
-      const select = document.getElementById('activeMachineSelect');
-      const newMachine = select.value;
-      if (!newMachine) return alert('请选择机器');
-      
-      // 更新 app_config 表
-      const { error } = await supabase.from('app_config')
-        .update({ value: newMachine, updated_at: new Date().toISOString() })
-        .eq('key', 'active_machine');
-      
-      if (error) {
-        // 可能是行不存在，尝试 insert
-        const { error: err2 } = await supabase.from('app_config')
-          .upsert({ key: 'active_machine', value: newMachine, updated_at: new Date().toISOString() });
-        if (err2) { alert('切换失败: ' + err2.message); return; }
-      }
-      
-      // 提交一个 push_request 通知（可选，用于记录日志）
-      await supabase.from('push_requests').insert([{
-        action: 'switch_machine', video_id: 0, status: 'pending'
-      }]);
-      
-      alert(`已切换活跃机器为: ${newMachine}\n\n新机器将在30秒内激活，旧机器进入待机模式。`);
-      loadActiveMachine();
-      loadLogs();
-    }
-
     // ========== 粉丝监控 ==========
     async function loadFansSettings() {
       try {
@@ -861,4 +801,32 @@
       document.querySelectorAll('.video-check').forEach(c => c.checked = this.checked);
     });
 
-    document.getElementById('btn-gqt-add').addEventListener('clic
+    document.getElementById('btn-gqt-add').addEventListener('click', () => { document.getElementById('gqtAddModal').style.display = 'block'; });
+    document.getElementById('btn-submit-gqt').addEventListener('click', addGqtVideo);
+    document.getElementById('btn-cancel-gqt').addEventListener('click', () => closeModal('gqtAddModal'));
+    document.getElementById('btn-gqt-push').addEventListener('click', pushGqtSelected);
+    document.getElementById('btn-gqt-refresh').addEventListener('click', refreshGqtStatus);
+    document.getElementById('btn-gqt-del').addEventListener('click', deleteGqtSelected);
+    document.getElementById('selectAllGqt').addEventListener('change', function() {
+      document.querySelectorAll('.gqt-check').forEach(c => c.checked = this.checked);
+    });
+
+    document.getElementById('btn-save-fans').addEventListener('click', saveFansSettings);
+    document.getElementById('btn-push-fans').addEventListener('click', triggerFansPush);
+    document.getElementById('btn-refresh-log').addEventListener('click', loadLogs);
+
+    // ========== 自动刷新 ==========
+    setInterval(loadVideos, 300000);
+    setInterval(loadGqtVideos, 300000);
+    setInterval(loadLogs, 30000);
+
+    // ========== 初始化 ==========
+    loadVideos();
+    loadGqtVideos();
+    loadFansSettings();
+    loadLogs();
+
+    console.log('[B站监控] 页面初始化完成，所有按钮已绑定');
+  </script>
+</body>
+</html>
