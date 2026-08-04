@@ -843,12 +843,13 @@
     async function openGroupEdit(groupName) {
       editingGroupName = groupName;
       console.log('openGroupEdit, groupName:', groupName);
-      const { data, error } = await supabase.from('videos').select('*').eq('group_name', groupName).neq('category', 'gqt');
+      const { data, error } = await supabase.from('videos').select('*').eq('group_name', groupName);
       console.log('openGroupEdit result:', { data, error });
       if (error) { alert('获取组数据失败：' + error.message); return; }
-      if (!data || data.length === 0) { alert('获取组数据失败：未找到组 "' + groupName + '" 的视频'); return; }
+      const groupData = (data || []).filter(v => v.category !== 'gqt');
+      if (groupData.length === 0) { alert('获取组数据失败：未找到组 "' + groupName + '" 的视频'); return; }
       
-      const first = data[0];
+      const first = groupData[0];
       document.getElementById('grpGroupName').value = groupName;
       document.getElementById('grpStartTime').value = first.start_time || '';
       document.getElementById('grpMonitorHours').value = first.monitor_hours || 48;
@@ -867,16 +868,17 @@
       // 填充参考视频下拉列表（组内所有视频）
       const refSelect = document.getElementById('grpGapRefBvid');
       refSelect.innerHTML = '<option value="">-- 选择参考视频 --</option>' + 
-        data.map(v => `<option value="${v.bvid}" ${v.bvid === first.gap_alert_target_bvid ? 'selected' : ''}>${v.bvid} - ${v.title || '获取中...'}</option>`).join('');
+        groupData.map(v => `<option value="${v.bvid}" ${v.bvid === first.gap_alert_target_bvid ? 'selected' : ''}>${v.bvid} - ${v.title || '获取中...'}</option>`).join('');
       
       document.getElementById('groupEditModal').style.display = 'block';
     }
 
     async function saveGroupEdit() {
       if (!editingGroupName) return;
-      const { data: vids, error } = await supabase.from('videos').select('id,start_time').eq('group_name', editingGroupName).neq('category', 'gqt');
+      const { data: vids, error } = await supabase.from('videos').select('id,start_time,category').eq('group_name', editingGroupName);
       if (error) { alert('获取组数据失败：' + error.message); return; }
-      if (!vids || vids.length === 0) { alert('获取组数据失败：未找到视频'); return; }
+      const groupVids = (vids || []).filter(v => v.category !== 'gqt');
+      if (!groupVids || groupVids.length === 0) { alert('获取组数据失败：未找到视频'); return; }
       
       const newStartTime = document.getElementById('grpStartTime').value;
       const updated = {
@@ -898,7 +900,7 @@
       
       // 检查开始时间是否变化 → 重置 current_hour
       let resetHour = false;
-      for (const v of vids) {
+      for (const v of groupVids) {
         if (v.start_time && v.start_time.trim() !== newStartTime.trim()) { resetHour = true; break; }
       }
       if (resetHour) {
@@ -906,7 +908,7 @@
         updated.current_hour = 0;
       }
       
-      const ids = vids.map(v => v.id);
+      const ids = groupVids.map(v => v.id);
       const { error: updateError } = await supabase.from('videos').update(updated).in('id', ids);
       if (updateError) { alert('更新失败：' + updateError.message); return; }
       alert(`已更新 ${ids.length} 个视频`);
