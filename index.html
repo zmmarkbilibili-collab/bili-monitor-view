@@ -148,13 +148,13 @@
         </tr>
       </thead>
       <tbody id="log-tbody">
-        <tr><td colspan="4" style="text-align:center;color:#999;">加载中...</td></tr>
+        <tr><td colspan="5" style="text-align:center;color:#999;">加载中...</td></tr>
       </tbody>
     </table>
   </div>
 
   <div class="section">
-    <h2>🗂️ 历史稿件 <span class="auto-refresh-hint">(含已删除 · 数据来自云端历史库；本地 manuscript_history.json 镜像由监控脚本导出)</span></h2>
+    <h2>🗂️ 历史稿件 <span class="auto-refresh-hint">(含已删除 · 数据来自云端历史库)</span></h2>
     <div class="toolbar" style="position:static;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
       <input id="mhSearch" placeholder="搜索 BV号/标题/UP/组名" style="width:240px;display:inline-block;">
       <select id="mhStatus" style="width:160px;display:inline-block;">
@@ -234,7 +234,7 @@
       <div class="form-row"><label>里程碑(万):</label><input id="editMilestone" type="number" step="0.1"></div>
       <div class="form-row"><label>检查间隔(分):</label><input id="editInterval" type="number"></div>
       <div class="form-row"><label>仅预警:</label><input type="checkbox" id="editAlertOnly"></div>
-      <div class="form-row"><label>突出显示:</label><input type="checkbox" id="editHighlight"> <span style="color:#888;font-size:12px">在看板中高亮该行，便于从一组中分辨</span></div>
+      <div class="form-row"><label>突出显示:</label><input type="checkbox" id="editHighlight"> <span style="color:#888;font-size:12px">在看板中高亮该行</span></div>
       <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
       <div class="form-row"><label>推送开关:</label><input type="checkbox" id="editPushEnabled" checked> <span style="color:#888;font-size:12px">关闭后仅更新看板数据，不推送企微</span></div>
       <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
@@ -397,7 +397,6 @@
         const filtered = (data || []).filter(v => v.category !== 'gqt');
         const tbody = document.getElementById('video-tbody');
 
-        // 按 group_name 分组
         const groups = {};
         const groupOrder = [];
         filtered.forEach(v => {
@@ -409,15 +408,12 @@
         let html = '';
         groupOrder.forEach(gname => {
           const vids = groups[gname];
-          // 组内排序：① 被高亮的稿件固定排到本组第一个；② 其余按播放量降序
           vids.sort((a, b) => {
             const ah = a.highlight ? 1 : 0, bh = b.highlight ? 1 : 0;
-            if (ah !== bh) return bh - ah;                       // 高亮排最前
-            return (Number(b.view) || 0) - (Number(a.view) || 0); // 播放量降序
+            if (ah !== bh) return bh - ah;
+            return (Number(b.view) || 0) - (Number(a.view) || 0);
           });
-          // 分组标题行
           html += `<tr class="group-header"><td colspan="14">📁 ${gname} <span class="group-count">(${vids.length} 个视频)</span> <button class="group-edit-btn" data-group="${gname}" style="float:right;padding:3px 12px;font-size:12px;">编辑整组</button></td></tr>`;
-          // 该组下的视频行
           vids.forEach(v => {
             const hour = v.current_hour ?? 0;
             const progress = Math.min(hour / 48 * 100, 100);
@@ -448,12 +444,11 @@
       } catch(e) { console.error('loadVideos exception:', e); }
     }
 
-    // ========== 突出显示开关（直接在列表里点，便于"选择某稿件突出"）==========
     async function toggleHighlight(id, current) {
       try {
         const { error } = await supabase.from('videos').update({ highlight: !current }).eq('id', id);
         if (error) { alert('突出设置失败：' + error.message); return; }
-        loadVideos(); // 刷新列表，立即看到高亮效果
+        loadVideos();
       } catch (e) { alert('突出设置失败：' + e.message); }
     }
 
@@ -461,27 +456,20 @@
     async function refreshListWithStats() {
       if (isRefreshing) return;
       isRefreshing = true;
-
-      // 1. 播放量、在线人数格子先显示"加载中…"
       document.querySelectorAll('#video-tbody .view-num').forEach(td => {
         td.innerHTML = '<span style="color:#999">加载中…</span>';
       });
       document.querySelectorAll('#video-tbody .online-num').forEach(td => {
         td.innerHTML = '<span style="color:#999">…</span>';
       });
-
-      // 2. 按钮禁用 + 改文字
       const btn = document.getElementById('btn-refresh');
       const oldText = btn.innerText;
       btn.innerText = '刷新中…';
       btn.disabled = true;
-
       try {
-        // 3. 提交刷新请求，由后台Python去B站取数据写库
         const { data, error } = await supabase.from('push_requests').insert([{
           action: 'refresh_stats', video_id: 0, status: 'pending'
         }]).select();
-
         if (error) {
           alert('刷新请求失败：' + error.message);
           btn.innerText = oldText;
@@ -489,12 +477,10 @@
           isRefreshing = false;
           return;
         }
-
         if (data && data.length > 0) {
           const reqId = data[0].id;
           let attempts = 0;
-          const maxAttempts = 30; // 最多等60秒
-
+          const maxAttempts = 30;
           const poll = setInterval(async () => {
             attempts++;
             if (attempts >= maxAttempts) {
@@ -531,8 +517,8 @@
       return [...document.querySelectorAll('.video-check:checked')].map(cb => parseInt(cb.value));
     }
 
-    // 网页直写中央历史表：保证即使当时没有任何电脑运行同步线程，加视频事件也不会丢失
-    // （对应“多台电脑随机开关机、有的长期不开”的场景；删除事件本来就是网页直写，这里补齐“新增”这一半）
+    let currentActiveMachine = '';
+    
     async function recordHistoryOnAdd(list, opts = {}) {
       try {
         const nowIso = new Date().toISOString();
@@ -553,7 +539,6 @@
       } catch (e) { console.error('recordHistoryOnAdd error:', e); }
     }
 
-    // 网页侧固定间隔把当前在监控的稿件同步进历史表（不依赖 Python 脚本）
     async function syncAllToHistory() {
       try {
         const mid = currentActiveMachine || '(网页)';
@@ -563,7 +548,6 @@
           .select('bvid, title, up_name, group_name, category');
         if (error) { console.error('读取videos失败:', error); return; }
         if (!vids || !vids.length) return;
-        // 保留已存在的 added_at（首次加入时间不被覆盖）
         const { data: exist } = await supabase
           .from('manuscript_history')
           .select('bvid, added_at')
@@ -616,7 +600,6 @@
       if (error) { alert('添加失败：' + error.message); return; }
       if (newVideos && newVideos.length > 0) {
         await supabase.from('push_requests').insert(newVideos.map(v => ({ action: 'new_video', video_id: v.id, status: 'pending' })));
-        // 网页直写中央历史（保证随机开关机场景下不丢新增事件），脚本同步线程后续会补全标题/UP
         await recordHistoryOnAdd(bvs, { group_name: groupName });
       }
       alert(`成功添加 ${bvs.length} 个视频！后台正在获取视频信息，首次推送将在开始时间+1小时后自动执行`);
@@ -624,7 +607,6 @@
     }
 
     let isPushing = false;
-    let currentActiveMachine = '';  // 当前网页侧获知的活跃机器，用于给历史记录打标签
     async function pushSelected() {
       if (isPushing) return;
       const ids = getSelectedIds();
@@ -646,7 +628,7 @@
       if (qErr) return alert('查询失败：' + qErr.message);
       const filtered = (videos || []).filter(v => !v.alert_only);
       if (filtered.length === 0) return alert('没有可推送的视频');
-      if (!confirm(`确定要推送全部 ${filtered.length} 个视频吗？\n（此操作会推送所有非共青团、非仅预警的视频）`)) return;
+      if (!confirm(`确定要推送全部 ${filtered.length} 个视频吗？`)) return;
       isPushing = true;
       try {
         await supabase.from('push_requests').update({ status: 'cancelled' }).eq('status', 'pending').eq('action', 'push');
@@ -662,7 +644,6 @@
       const ids = getSelectedIds();
       if (!ids.length) return alert('请选中视频');
       if (!confirm(`确定删除 ${ids.length} 个视频？`)) return;
-      // 删除前把历史稿件表中这些 bvid 标记为已删除（按 bvid 标记全部电脑的记录，因为 videos 表是共享的）
       try {
         const { data: toDel } = await supabase.from('videos').select('bvid,title,up_name,group_name,category').in('id', ids);
         const bvids = (toDel || []).map(v => v.bvid).filter(Boolean);
@@ -696,15 +677,11 @@
       document.getElementById('editMilestone').value = (data.alert_milestone || 0) / 10000;
       document.getElementById('editInterval').value = data.alert_interval_minutes || 15;
       document.getElementById('editAlertOnly').checked = data.alert_only || false;
-      // 突出显示
       document.getElementById('editHighlight').checked = data.highlight || false;
-      // 推送开关
       document.getElementById('editPushEnabled').checked = data.push_enabled !== false;
-      // 播放量差距预警
       document.getElementById('editGapAlertEnabled').checked = data.gap_alert_enabled || false;
       document.getElementById('editGapTargetBvid').value = data.gap_alert_target_bvid || '';
       document.getElementById('editGapThreshold').value = data.gap_alert_threshold || '';
-      // 填充 BV 下拉列表（当前监控的所有视频）
       try {
         const { data: allVids } = await supabase.from('videos').select('bvid,title').neq('category', 'gqt');
         const dl = document.getElementById('bvList');
@@ -736,10 +713,9 @@
         gap_alert_target_bvid: document.getElementById('editGapTargetBvid').value.trim() || null,
         gap_alert_threshold: parseInt(document.getElementById('editGapThreshold').value) || 0,
       };
-      // 开始时间被修改 → 重置 current_hour = 0，监控按新开始时间重新开始
       if (editingOriginalStartTime && newStartTime && editingOriginalStartTime.trim() !== newStartTime.trim()) {
         updated.current_hour = 0;
-        if (!confirm(`检测到开始时间已修改：\n  旧：${editingOriginalStartTime}\n  新：${newStartTime}\n\n将自动重置已推送小时为 0，监控将按新的开始时间重新开始。确认保存？`)) return;
+        if (!confirm(`检测到开始时间已修改，将自动重置已推送小时为 0。确认保存？`)) return;
       }
       const { error } = await supabase.from('videos').update(updated).eq('id', editingId);
       if (error) { alert('更新失败：' + error.message); return; }
@@ -798,7 +774,6 @@
       if (error) { alert('添加失败：' + error.message); return; }
       if (data && data.length > 0) {
         await supabase.from('push_requests').insert([{ action: 'new_video', video_id: data[0].id, status: 'pending' }]);
-        // 网页直写中央历史（保证随机开关机场景下不丢新增事件）
         await recordHistoryOnAdd([bv], { group_name: '共青团搬运', category: 'gqt' });
       }
       alert('共青团视频已添加，后台将自动补全CID并开始监控');
@@ -823,7 +798,6 @@
       const ids = [...document.querySelectorAll('.gqt-check:checked')].map(cb => parseInt(cb.value));
       if (!ids.length) return alert('请勾选视频');
       if (!confirm(`确定删除选中的 ${ids.length} 个共青团视频？`)) return;
-      // 删除前把历史稿件表中这些 bvid 标记为已删除（按 bvid 标记全部电脑的记录，因为 videos 表是共享的）
       try {
         const { data: toDel } = await supabase.from('videos').select('bvid').in('id', ids);
         const bvids = (toDel || []).map(v => v.bvid).filter(Boolean);
@@ -838,7 +812,6 @@
     // ========== 活跃机器控制 ==========
     async function loadActiveMachine() {
       try {
-        // 并行读取活跃机器和已注册机器列表
         const [{ data: activeData }, { data: regData }] = await Promise.all([
           supabase.from('app_config').select('value').eq('key', 'active_machine').single(),
           supabase.from('app_config').select('value').eq('key', 'registered_machines').single()
@@ -867,19 +840,16 @@
       const newMachine = select.value;
       if (!newMachine) return alert('请选择机器');
       
-      // 更新 app_config 表
       const { error } = await supabase.from('app_config')
         .update({ value: newMachine, updated_at: new Date().toISOString() })
         .eq('key', 'active_machine');
       
       if (error) {
-        // 可能是行不存在，尝试 insert
         const { error: err2 } = await supabase.from('app_config')
           .upsert({ key: 'active_machine', value: newMachine, updated_at: new Date().toISOString() });
         if (err2) { alert('切换失败: ' + err2.message); return; }
       }
       
-      // 提交一个 push_request 通知（可选，用于记录日志）
       await supabase.from('push_requests').insert([{
         action: 'switch_machine', video_id: 0, status: 'pending'
       }]);
@@ -947,6 +917,7 @@
       'scheduled_push': '⏰ 定时推送', 'gqt_check': '🚩 共青团检查', 'gqt_scan': '🔍 共青团扫描',
       'gqt_alert': '🔔 达标提醒', 'push_result': '📋 推送结果'
     };
+    
     async function loadLogs() {
       const tbody = document.getElementById('log-tbody');
       try {
@@ -964,6 +935,7 @@
           return;
         }
       } catch(e) {}
+      
       try {
         const { data, error } = await supabase.from('push_requests')
           .select('*').order('created_at', { ascending: false }).limit(30);
@@ -984,6 +956,7 @@
           <td>视频ID: ${r.video_id || '-'}</td>
           <td><button class="log-del-btn danger" data-del>删除</button></td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:#999;">暂无日志数据</td></tr>';
       } catch(e) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">日志加载失败</td></tr>'; }
+    }
 
     async function deleteLog(id, table) {
       try {
@@ -998,8 +971,6 @@
       const { error } = await supabase.from('monitor_logs').delete().not('id', 'is', null);
       if (error) { alert('清空失败：' + error.message); return; }
       loadLogs();
-    }
-
     }
 
     // ========== 历史稿件查询 ==========
@@ -1021,7 +992,6 @@
           (r.up_name || '').toLowerCase().includes(kw) ||
           (r.group_name || '').toLowerCase().includes(kw)
         );
-        // 刷新电脑下拉框（保留当前选择）
         refreshMachineOptions(data || [], machineFilter);
         document.getElementById('mhCount').textContent = `共 ${list.length} 条`;
         if (list.length === 0) {
@@ -1071,17 +1041,13 @@
 
     // ========== 组编辑 ==========
     let editingGroupName = null;
-    let allVideosCache = [];  // 缓存所有视频数据
+    let allVideosCache = [];
     async function openGroupEdit(groupName) {
       editingGroupName = groupName;
-      console.log('openGroupEdit, groupName:', JSON.stringify(groupName));
-      // 获取所有视频，客户端过滤（和 loadVideos 逻辑一致，避免 Supabase .eq() 编码问题）
       const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
-      console.log('openGroupEdit: total videos fetched:', data ? data.length : 0);
       if (error) { alert('获取组数据失败：' + error.message); return; }
       const groupData = (data || []).filter(v => v.category !== 'gqt' && (v.group_name || '未分组') === groupName);
-      console.log('openGroupEdit: groupData matched:', groupData.length, 'groupNames in data:', [...new Set((data||[]).map(v => JSON.stringify(v.group_name)))]);
-      if (groupData.length === 0) { alert('获取组数据失败：未找到组 "' + groupName + '" 的视频（共' + (data||[]).length + '条数据）'); return; }
+      if (groupData.length === 0) { alert('获取组数据失败：未找到组 "' + groupName + '" 的视频'); return; }
       allVideosCache = groupData;
       
       const first = groupData[0];
@@ -1100,7 +1066,6 @@
       document.getElementById('grpGapAlertEnabled').checked = first.gap_alert_enabled || false;
       document.getElementById('grpGapThreshold').value = first.gap_alert_threshold || '';
       
-      // 填充参考视频下拉列表（组内所有视频）
       const refSelect = document.getElementById('grpGapRefBvid');
       refSelect.innerHTML = '<option value="">-- 选择参考视频 --</option>' + 
         groupData.map(v => `<option value="${v.bvid}" ${v.bvid === first.gap_alert_target_bvid ? 'selected' : ''}>${v.bvid} - ${v.title || '获取中...'}</option>`).join('');
@@ -1110,7 +1075,6 @@
 
     async function saveGroupEdit() {
       if (!editingGroupName) return;
-      // 直接用缓存的数据，不再重新查询
       const groupVids = allVideosCache;
       if (!groupVids || groupVids.length === 0) { alert('获取组数据失败：未找到视频'); return; }
       
@@ -1132,7 +1096,6 @@
         gap_alert_threshold: parseInt(document.getElementById('grpGapThreshold').value) || 0,
       };
       
-      // 检查开始时间是否变化 → 重置 current_hour
       let resetHour = false;
       for (const v of groupVids) {
         if (v.start_time && v.start_time.trim() !== newStartTime.trim()) { resetHour = true; break; }
@@ -1150,7 +1113,7 @@
       loadVideos();
     }
 
-    // ========== 事件绑定（addEventListener，不依赖 onclick 全局作用域）==========
+    // ========== 事件绑定 ==========
     document.getElementById('btn-add').addEventListener('click', () => { document.getElementById('addModal').style.display = 'block'; });
     document.getElementById('btn-submit-add').addEventListener('click', addVideos);
     document.getElementById('btn-cancel-add').addEventListener('click', () => closeModal('addModal'));
@@ -1169,15 +1132,12 @@
       catch(e) { alert('复制失败，请手动选中复制'); }
     });
     document.getElementById('btn-refresh').addEventListener('click', refreshListWithStats);
-    // "此刻"按钮 - 批量添加弹窗
     document.getElementById('btn-now-time').addEventListener('click', () => {
       document.getElementById('startTime').value = formatLocalDateTime();
     });
-    // "此刻"按钮 - 组编辑弹窗
     document.getElementById('btn-grp-now').addEventListener('click', () => {
       document.getElementById('grpStartTime').value = formatLocalDateTime();
     });
-    // 组编辑 + 突出显示 - 事件委托（按钮是动态生成的）
     document.getElementById('video-tbody').addEventListener('click', function(e) {
       if (e.target.classList.contains('group-edit-btn')) {
         openGroupEdit(e.target.getAttribute('data-group'));
@@ -1219,7 +1179,6 @@
       if (ok) loadLogs(); else btn.disabled = false;
     });
     document.getElementById('btn-switch-machine').addEventListener('click', switchActiveMachine);
-    // 历史稿件查询
     document.getElementById('btn-mh-search').addEventListener('click', loadManuscriptHistory);
     document.getElementById('btn-mh-refresh').addEventListener('click', loadManuscriptHistory);
     document.getElementById('btn-mh-sync').addEventListener('click', async () => {
@@ -1227,7 +1186,6 @@
       await syncAllToHistory();
       await loadManuscriptHistory();
     });
-    // 固定间隔（每 10 分钟）把当前在监控的稿件同步进历史表，不依赖 Python 脚本
     setInterval(syncAllToHistory, 10 * 60 * 1000);
     loadActiveMachine().then(() => syncAllToHistory());
     document.getElementById('mhSearch').addEventListener('keydown', e => { if (e.key === 'Enter') loadManuscriptHistory(); });
@@ -1238,7 +1196,7 @@
     setInterval(loadVideos, 300000);
     setInterval(loadGqtVideos, 300000);
     setInterval(loadLogs, 30000);
-    setInterval(loadActiveMachine, 30000); // 每30秒刷新机器状态
+    setInterval(loadActiveMachine, 30000);
 
     // ========== 初始化 ==========
     loadVideos();
