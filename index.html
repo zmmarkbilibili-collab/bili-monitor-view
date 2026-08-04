@@ -56,6 +56,8 @@
     .group-header .group-count { font-weight: normal; font-size: 12px; color: #666; margin-left: 8px; }
     tr.highlighted > td { background: #fff3cd !important; }
     tr.highlighted > td:first-child { border-left: 4px solid #ff9800; }
+    .hl-btn { padding:2px 8px; font-size:12px; border:1px solid #ff9800; background:#fff; color:#ff9800; border-radius:4px; cursor:pointer; white-space:nowrap; }
+    .hl-btn.on { background:#ff9800; color:#fff; }
     .toolbar { position: sticky; top: 0; z-index: 10; background: white; padding: 8px 0; margin-bottom: 5px; }
   </style>
 </head>
@@ -86,7 +88,7 @@
           <th><input type="checkbox" id="selectAll"></th>
           <th>BV号</th><th>标题</th><th>UP主</th><th>分组</th>
           <th>播放量</th><th>在线人数</th><th>开始时间</th>
-          <th>已推送</th><th>进度</th><th>上次推送</th><th>预警</th><th>推送</th>
+          <th>已推送</th><th>进度</th><th>上次推送</th><th>预警</th><th>推送</th><th>突出</th>
         </tr>
       </thead>
       <tbody id="video-tbody"></tbody>
@@ -404,7 +406,7 @@
         groupOrder.forEach(gname => {
           const vids = groups[gname];
           // 分组标题行
-          html += `<tr class="group-header"><td colspan="13">📁 ${gname} <span class="group-count">(${vids.length} 个视频)</span> <button class="group-edit-btn" data-group="${gname}" style="float:right;padding:3px 12px;font-size:12px;">编辑整组</button></td></tr>`;
+          html += `<tr class="group-header"><td colspan="14">📁 ${gname} <span class="group-count">(${vids.length} 个视频)</span> <button class="group-edit-btn" data-group="${gname}" style="float:right;padding:3px 12px;font-size:12px;">编辑整组</button></td></tr>`;
           // 该组下的视频行
           vids.forEach(v => {
             const hour = v.current_hour ?? 0;
@@ -428,11 +430,21 @@
               <td class="time-text">${formatTime(v.last_push_time)}</td>
               <td>${v.alert_enabled ? '<span class="badge badge-info">是</span>' : '否'}</td>
               <td>${v.push_enabled === false ? '<span style="color:#f44336">关</span>' : '<span style="color:#4CAF50">开</span>'}</td>
+              <td><button class="hl-btn ${v.highlight ? 'on' : ''}" data-id="${v.id}" data-hl="${v.highlight ? 1 : 0}">${v.highlight ? '★ 已突出' : '☆ 突出'}</button></td>
             </tr>`;
           });
         });
-        tbody.innerHTML = html || '<tr><td colspan="13" style="text-align:center;color:#999;">暂无视频</td></tr>';
+        tbody.innerHTML = html || '<tr><td colspan="14" style="text-align:center;color:#999;">暂无视频</td></tr>';
       } catch(e) { console.error('loadVideos exception:', e); }
+    }
+
+    // ========== 突出显示开关（直接在列表里点，便于"选择某稿件突出"）==========
+    async function toggleHighlight(id, current) {
+      try {
+        const { error } = await supabase.from('videos').update({ highlight: !current }).eq('id', id);
+        if (error) { alert('突出设置失败：' + error.message); return; }
+        loadVideos(); // 刷新列表，立即看到高亮效果
+      } catch (e) { alert('突出设置失败：' + e.message); }
     }
 
     let isRefreshing = false;
@@ -1097,10 +1109,16 @@
     document.getElementById('btn-grp-now').addEventListener('click', () => {
       document.getElementById('grpStartTime').value = formatLocalDateTime();
     });
-    // 组编辑 - 事件委托（按钮是动态生成的）
+    // 组编辑 + 突出显示 - 事件委托（按钮是动态生成的）
     document.getElementById('video-tbody').addEventListener('click', function(e) {
       if (e.target.classList.contains('group-edit-btn')) {
         openGroupEdit(e.target.getAttribute('data-group'));
+        return;
+      }
+      if (e.target.classList.contains('hl-btn')) {
+        const id = parseInt(e.target.getAttribute('data-id'));
+        const cur = e.target.getAttribute('data-hl') === '1';
+        toggleHighlight(id, cur);
       }
     });
     document.getElementById('btn-submit-grp-edit').addEventListener('click', saveGroupEdit);
