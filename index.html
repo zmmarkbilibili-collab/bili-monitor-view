@@ -18,47 +18,34 @@
     button.secondary { background: #2196F3; }
     button.secondary:hover { background: #1976D2; }
     .form-row { margin-bottom: 10px; }
-    label { display: inline-block; width: 130px; }
-    input, select { width: 220px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+    label { display: inline-block; width: 100px; }
+    input, select { padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; }
-    .modal-content { background: white; margin: 5% auto; padding: 20px; width: 600px; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
+    .modal-content { background: white; margin: 3% auto; padding: 20px; width: 650px; border-radius: 8px; max-height: 85vh; overflow-y: auto; }
     .section { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; background: white; border-radius: 8px; }
     .section h2 { margin-top: 0; }
-    #progress-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 1000; text-align: center; padding-top: 100px; }
-    .progress-container { width: 50%; margin: auto; }
-    .progress-bar { width: 100%; background: #f0f0f0; border-radius: 8px; overflow: hidden; }
-    .progress-fill { width: 0%; height: 30px; background: #4CAF50; text-align: center; line-height: 30px; color: white; transition: width 0.3s; }
-    .step-text { margin: 15px 0; font-size: 18px; }
-    .sub-step { font-size: 14px; color: #666; margin: 5px 0; }
-    .auto-refresh-hint { color: gray; font-size: 0.9em; margin-left: 10px; }
-    .fans-display { background: #e8f5e9; padding: 10px; border-radius: 4px; margin-top: 10px; }
-    .fans-display table { margin-bottom: 0; }
     .badge { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold; white-space: nowrap; }
     .badge-success { background: #4CAF50; color: white; }
     .badge-error { background: #f44336; color: white; }
-    .badge-pending { background: #FF9800; color: white; }
-    .badge-processing { background: #2196F3; color: white; }
-    .badge-done { background: #4CAF50; color: white; }
     .badge-info { background: #00BCD4; color: white; }
-    .log-section { max-height: 400px; overflow-y: auto; }
+    .badge-pending { background: #FF9800; color: white; }
+    .badge-done { background: #4CAF50; color: white; }
+    .badge-processing { background: #2196F3; color: white; }
+    .view-num { color: #e83e8c; font-weight: bold; }
+    .online-num { color: #007bff; }
+    .time-text { color: #888; font-size: 12px; }
+    .group-header td { background: #e3f2fd !important; font-weight: bold; color: #1565c0; }
+    tr.highlighted > td { background: #fff3cd !important; }
+    .toolbar { position: sticky; top: 0; z-index: 10; background: white; padding: 8px 0; margin-bottom: 5px; }
+    .auto-refresh-hint { color: gray; font-size: 0.9em; margin-left: 10px; }
+    .log-section { max-height: 300px; overflow-y: auto; }
     .log-section table { font-size: 12px; }
     .log-level-INFO { color: #2196F3; }
     .log-level-ERROR { color: #f44336; font-weight: bold; }
     .log-level-WARNING { color: #FF9800; }
-    .progress-cell { width: 80px; }
-    .progress-cell-bar { background: #e0e0e0; border-radius: 4px; height: 16px; overflow: hidden; display: inline-block; width: 60px; vertical-align: middle; }
-    .progress-cell-fill { height: 100%; background: #4CAF50; }
-    .progress-cell-text { font-size: 11px; margin-left: 4px; }
-    .view-num { color: #e83e8c; font-weight: bold; }
-    .online-num { color: #007bff; }
-    .time-text { color: #888; font-size: 12px; }
-    .group-header td { background: #e3f2fd !important; font-weight: bold; font-size: 14px; color: #1565c0; padding: 8px 12px; border-top: 2px solid #2196F3; }
-    .group-header .group-count { font-weight: normal; font-size: 12px; color: #666; margin-left: 8px; }
-    tr.highlighted > td { background: #fff3cd !important; }
-    tr.highlighted > td:first-child { border-left: 4px solid #ff9800; }
-    .hl-btn { border:1px solid #ddd; background:#fafafa; border-radius:4px; padding:2px 6px; cursor:pointer; font-size:12px; }
-    .hl-btn.on { background:#ff9800; color:#fff; border-color:#ff9800; }
-    .toolbar { position: sticky; top: 0; z-index: 10; background: white; padding: 8px 0; margin-bottom: 5px; }
+    .hl-btn { padding:2px 8px; font-size:12px; border:1px solid #ff9800; background:#fff; color:#ff9800; border-radius:4px; cursor:pointer; }
+    .hl-btn.on { background:#ff9800; color:#fff; }
+    select[multiple] { height: 120px; width: 220px; }
   </style>
 </head>
 <body>
@@ -78,10 +65,10 @@
     <table>
       <thead>
         <tr>
-          <th><input type="checkbox" id="selectAll"></th>
-          <th>BV号</th><th>标题</th><th>UP主</th><th>分组</th>
-          <th>播放量</th><th>在线人数</th><th>开始时间</th>
-          <th>已推送</th><th>进度</th><th>上次推送</th><th>预警</th><th>推送</th><th>突出</th>
+          <th style="width:30px"><input type="checkbox" id="selectAll"></th>
+          <th style="width:110px">BV号</th><th>标题</th><th style="width:100px">UP主</th><th style="width:100px">分组</th>
+          <th style="width:85px">播放量</th><th style="width:75px">在线</th><th style="width:130px">开始时间</th>
+          <th style="width:55px">已推</th><th style="width:70px">进度</th><th style="width:85px">上次推送</th><th style="width:50px">推送</th><th style="width:55px">突出</th>
         </tr>
       </thead>
       <tbody id="video-tbody"></tbody>
@@ -98,72 +85,46 @@
     </div>
     <table>
       <thead>
-        <tr>
-          <th><input type="checkbox" id="selectAllGqt"></th>
-          <th>BV号</th><th>标题</th><th>UP主</th><th>当前播放量</th><th>状态</th><th>加入时间</th>
-        </tr>
+        <tr><th style="width:30px"><input type="checkbox" id="selectAllGqt"></th><th>BV号</th><th>标题</th><th>UP主</th><th>当前播放量</th><th>状态</th><th>加入时间</th></tr>
       </thead>
       <tbody id="gqt-video-tbody"></tbody>
     </table>
   </div>
 
-  <div class="section">
-    <h2>📊 粉丝监控设置</h2>
-    <div class="form-row"><label>新闻UID:</label><input id="newsUid" value="456664753"></div>
-    <div class="form-row"><label>军事UID:</label><input id="militaryUid" value="46470268"></div>
-    <div class="form-row"><label>周一基准新闻:</label><input id="mondayNews" type="number" placeholder="自动记录，可手动覆盖"></div>
-    <div class="form-row"><label>周一基准军事:</label><input id="mondayMilitary" type="number" placeholder="自动记录，可手动覆盖"></div>
-    <div class="form-row"><label>Webhook URL:</label><input id="webhookUrl" placeholder="留空使用默认"></div>
-    <div class="form-row"><label>启用监控:</label><input type="checkbox" id="fansEnabled"></div>
-    <button id="btn-save-fans">保存设置</button>
-    <button id="btn-push-fans" class="secondary">立即推送粉丝数据</button>
-    <div id="fans-display" class="fans-display" style="display:none;">
-      <h3>最近一次粉丝数据</h3>
-      <table>
-        <tr><th>项目</th><th>央视新闻</th><th>央视军事</th><th>差值</th></tr>
-        <tr><td>实时粉丝</td><td id="fd-news">-</td><td id="fd-military">-</td><td id="fd-diff">-</td></tr>
-        <tr><td>日维度涨粉</td><td id="fd-dnews">-</td><td id="fd-dmil">-</td><td id="fd-ddiff">-</td></tr>
-        <tr><td>周维度涨粉</td><td id="fd-wnews">-</td><td id="fd-wmil">-</td><td id="fd-wdiff">-</td></tr>
-      </table>
-    </div>
-  </div>
-
   <div class="section log-section">
     <h2>📋 操作日志 <span class="auto-refresh-hint">(每30秒自动刷新)</span></h2>
     <button id="btn-refresh-log">刷新日志</button>
+    <button id="btn-clear-log" class="danger">清空日志</button>
     <table>
-      <thead>
-        <tr>
-          <th style="width:160px">时间</th><th style="width:100px">类型</th>
-          <th style="width:80px">级别</th><th>详情</th>
-        </tr>
-      </thead>
-      <tbody id="log-tbody">
-        <tr><td colspan="4" style="text-align:center;color:#999;">加载中...</td></tr>
-      </tbody>
+      <thead><tr><th style="width:150px">时间</th><th style="width:100px">类型</th><th style="width:70px">级别</th><th>详情</th><th style="width:70px">操作</th></tr></thead>
+      <tbody id="log-tbody"><tr><td colspan="5" style="text-align:center;color:#999;">加载中...</td></tr></tbody>
     </table>
   </div>
 
-  <div id="progress-overlay">
-    <div class="progress-container">
-      <h2 id="progress-title">推送进度</h2>
-      <div class="progress-bar">
-        <div id="progress-fill" class="progress-fill" style="width: 0%;">0%</div>
-      </div>
-      <p id="step-text" class="step-text">准备中...</p>
-      <p id="sub-step-text" class="sub-step"></p>
+  <div class="section">
+    <h2>🗂️ 历史稿件查询</h2>
+    <div class="toolbar" style="position:static;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <input id="mhSearch" placeholder="搜索 BV号/标题/UP/组名" style="width:200px;">
+      <select id="mhStatus" style="width:130px;"><option value="">全部状态</option><option value="active">在监控中</option><option value="removed">已删除</option></select>
+      <select id="mhMonth" style="width:150px;"><option value="">全部时间</option></select>
+      <button id="btn-mh-search">查询</button>
+      <button id="btn-mh-refresh" class="secondary">刷新</button>
+      <button id="btn-mh-export" class="secondary">📥 导出Excel</button>
+      <span id="mhCount" style="color:#888;font-size:13px;margin-left:8px;"></span>
     </div>
+    <table>
+      <thead><tr><th>BV号</th><th>标题</th><th>UP主</th><th>组名</th><th>状态</th><th>加入时间</th><th>删除时间</th></tr></thead>
+      <tbody id="mh-tbody"><tr><td colspan="7" style="text-align:center;color:#999;">加载中...</td></tr></tbody>
+    </table>
   </div>
 
   <!-- 添加普通视频弹窗 -->
   <div id="addModal" class="modal">
     <div class="modal-content">
       <h3>添加 BV</h3>
-      <p>多个 BV 用英文逗号分隔，CID 和标题会自动获取</p>
-      <div class="form-row"><label>BV号:</label><input id="bvInput" placeholder="BVxxx, BVyyy"></div>
-      <div class="form-row"><label>开始时间:</label><input id="startTime" placeholder="如 2026-07-29 09:56"></div>
-      <div class="form-row"><label>已监控小时:</label><input id="monitoredHours" type="number" value="0"></div>
-      <div class="form-row"><label>组名:</label><input id="groupName" placeholder="留空自动生成"></div>
+      <div class="form-row"><label>BV号:</label><input id="bvInput" placeholder="BVxxx, BVyyy" style="width:300px;"></div>
+      <div class="form-row"><label>开始时间:</label><input id="startTime" style="width:180px;"> <button id="btn-now-time">此刻</button></div>
+      <div class="form-row"><label>组名:</label><input id="groupName" list="groupList" style="width:200px;"><datalist id="groupList"></datalist></div>
       <div class="form-row"><label>仅预警:</label><input type="checkbox" id="alertOnlyAdd"></div>
       <button id="btn-submit-add">提交</button>
       <button id="btn-cancel-add" class="danger">取消</button>
@@ -178,25 +139,47 @@
       <div class="form-row"><label>开始时间:</label><input id="editStartTime"></div>
       <div class="form-row"><label>已推送小时:</label><input id="editCurrentHour" type="number"></div>
       <div class="form-row"><label>总监控时长:</label><input id="editMonitorHours" type="number"></div>
-      <div class="form-row"><label>推送频率(小时):</label><input id="editNotifyInterval" type="number" step="0.5"></div>
+      <div class="form-row"><label>推送频率(h):</label><input id="editNotifyInterval" type="number" step="0.5"></div>
       <div class="form-row"><label>组名:</label><input id="editGroupName"></div>
-      <div class="form-row"><label>窗口开始:</label><input id="editWinStart" type="number"></div>
-      <div class="form-row"><label>窗口结束:</label><input id="editWinEnd" type="number"></div>
-      <div class="form-row"><label>启用预警:</label><input type="checkbox" id="editAlertEnabled"></div>
-      <div class="form-row"><label>在线阈值:</label><input id="editOnlineTh" type="number"></div>
-      <div class="form-row"><label>里程碑(万):</label><input id="editMilestone" type="number" step="0.1"></div>
-      <div class="form-row"><label>检查间隔(分):</label><input id="editInterval" type="number"></div>
-      <div class="form-row"><label>仅预警:</label><input type="checkbox" id="editAlertOnly"></div>
-      <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
-      <div class="form-row"><label>推送开关:</label><input type="checkbox" id="editPushEnabled" checked> <span style="color:#888;font-size:12px">关闭后仅更新看板数据，不推送企微</span></div>
-      <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
-      <h4 style="margin:0 0 10px;color:#333">📊 播放量差距预警</h4>
+      <div class="form-row"><label>窗口开始:</label><input id="editWinStart" type="number"> <span style="color:#888;font-size:12px">(推送允许时间段开始小时)</span></div>
+      <div class="form-row"><label>窗口结束:</label><input id="editWinEnd" type="number"> <span style="color:#888;font-size:12px">(推送允许时间段结束小时)</span></div>
+      <div class="form-row"><label>突出显示:</label><input type="checkbox" id="editHighlight"></div>
+      <hr>
+      <div class="form-row"><label>推送开关:</label><input type="checkbox" id="editPushEnabled"> <span style="color:#888;font-size:12px">开启后才推送企微</span></div>
+      <hr>
+      <h4>📊 播放量差距预警</h4>
       <div class="form-row"><label>启用差距预警:</label><input type="checkbox" id="editGapAlertEnabled"></div>
-      <div class="form-row"><label>对比目标BV号:</label><input id="editGapTargetBvid" list="bvList" placeholder="输入或选择BV号"></div>
-      <datalist id="bvList"></datalist>
-      <div class="form-row"><label>差距阈值(播放量):</label><input id="editGapThreshold" type="number" placeholder="差距在此值以内时提醒"></div>
+      <div class="form-row"><label>对比稿件:</label><select id="editGapTargetBvids" multiple></select></div>
+      <div class="form-row"><label>差距阈值:</label><input id="editGapThreshold" type="number" placeholder="播放量差距在此值内时提醒"></div>
+      <hr>
+      <h4>📈 在线人数预警</h4>
+      <div class="form-row"><label>启用在线预警:</label><input type="checkbox" id="editOnlineAlertEnabled"></div>
+      <div class="form-row"><label>对比稿件:</label><select id="editOnlineAlertBvids" multiple></select></div>
+      <div class="form-row"><label>条件:</label>
+        <select id="editOnlineAlertCondition" style="width:200px;">
+          <option value="double">在线人数超半小时前1倍</option>
+          <option value="threshold">在线人数超过指定值</option>
+        </select>
+      </div>
+      <div class="form-row"><label>超过阈值:</label><input id="editOnlineAlertThreshold" type="number" placeholder="如 1000"></div>
       <button id="btn-submit-edit">保存</button>
       <button id="btn-cancel-edit" class="danger">取消</button>
+    </div>
+  </div>
+    <!-- 编辑整组弹窗 -->
+  <div id="groupEditModal" class="modal">
+    <div class="modal-content">
+      <h3>编辑整组</h3>
+      <div class="form-row"><label>组名:</label><input id="grpGroupName" readonly style="background:#f0f0f0;"></div>
+      <div class="form-row"><label>开始时间:</label><input id="grpStartTime"> <button id="btn-grp-now">此刻</button></div>
+      <div class="form-row"><label>总监控时长:</label><input id="grpMonitorHours" type="number"></div>
+      <div class="form-row"><label>推送频率(h):</label><input id="grpNotifyInterval" type="number" step="0.5"></div>
+      <div class="form-row"><label>窗口开始:</label><input id="grpWinStart" type="number"> <span style="color:#888;font-size:12px">(推送允许时间段)</span></div>
+      <div class="form-row"><label>窗口结束:</label><input id="grpWinEnd" type="number"></div>
+      <hr>
+      <div class="form-row"><label>推送开关:</label><input type="checkbox" id="grpPushEnabled"></div>
+      <button id="btn-submit-grp-edit">保存</button>
+      <button id="btn-cancel-grp-edit" class="danger">取消</button>
     </div>
   </div>
 
@@ -204,616 +187,420 @@
   <div id="gqtAddModal" class="modal">
     <div class="modal-content">
       <h3>添加共青团搬运视频</h3>
-      <p>自动设置预警阈值为 80000，每 30 分钟检查一次</p>
       <div class="form-row"><label>BV号:</label><input id="gqtBvInput" placeholder="BVxxx"></div>
       <button id="btn-submit-gqt">提交</button>
       <button id="btn-cancel-gqt" class="danger">取消</button>
     </div>
   </div>
 
+  <!-- 历史数据弹窗 -->
   <div id="historyModal" class="modal">
     <div class="modal-content">
       <h3>历史监控数据</h3>
-      <div style="margin-bottom:10px;">
-        <button id="btn-copy-history">一键复制</button>
-        <button id="btn-cancel-history" class="danger">关闭</button>
-      </div>
-      <textarea id="historyText" readonly style="width:100%;height:400px;font-family:monospace;font-size:13px;padding:8px;border:1px solid #ddd;border-radius:4px;resize:vertical;white-space:pre;"></textarea>
+      <div style="margin-bottom:10px;"><button id="btn-copy-history">一键复制</button><button id="btn-cancel-history" class="danger">关闭</button></div>
+      <textarea id="historyText" readonly style="width:100%;height:400px;font-family:monospace;font-size:13px;resize:vertical;white-space:pre;"></textarea>
     </div>
   </div>
 
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
     const SUPABASE_URL = 'https://erzjcvsbrkmukswkqfss.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g';
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // ========== 工具函数 ==========
-    function formatLocalDateTime(date) {
-      const d = date || new Date();
+    function formatLocalDateTime(d) {
+      d = d || new Date();
       const pad = n => String(n).padStart(2, '0');
       return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
     function formatView(n) {
       if (!n) return '0';
-      if (n >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, '') + 'w';
-      return n.toString();
+      if (n >= 10000) return (n/10000).toFixed(1).replace(/\.0$/,'')+'w';
+      return String(n);
     }
-    function formatTime(isoStr) {
-      if (!isoStr) return '<span style="color:#ccc">-</span>';
-      try {
-        const d = new Date(isoStr);
-        const pad = n => String(n).padStart(2, '0');
-        return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      } catch { return isoStr; }
+    function formatTime(iso) {
+      if (!iso) return '-';
+      try { const d = new Date(iso); return `${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+      catch { return iso; }
     }
 
-    // ========== 进度条 ==========
-    let pollingTimer = null;
-    function showProgress(title) {
-      document.getElementById('progress-overlay').style.display = 'block';
-      document.getElementById('progress-title').innerText = title || '推送进度';
-      updateProgress(0, '正在提交请求...', '');
-    }
-    function updateProgress(percent, mainText, subText) {
-      const fill = document.getElementById('progress-fill');
-      fill.style.width = percent + '%';
-      fill.innerText = percent + '%';
-      document.getElementById('step-text').innerText = mainText;
-      document.getElementById('sub-step-text').innerText = subText || '';
-    }
-    function hideProgress() {
-      document.getElementById('progress-overlay').style.display = 'none';
-      if (pollingTimer) clearInterval(pollingTimer);
-      pollingTimer = null;
-    }
-    const STATUS_STEPS = {
-      'pending': { percent: 5, main: '请求已提交，等待后台处理...', sub: '' },
-      'processing': { percent: 15, main: '后台已收到请求，开始处理...', sub: '正在读取视频信息' },
-      'fetching_cid': { percent: 35, main: '正在获取视频 CID...', sub: '通过B站API获取视频标识符' },
-      'pushing': { percent: 65, main: '正在获取最新播放量并推送...', sub: '查询B站接口，发送企业微信消息' },
-      'done': { percent: 100, main: '✅ 操作完成！', sub: '' },
-      'error': { percent: 0, main: '❌ 操作失败', sub: '请查看日志或检查视频信息' },
-      'cancelled': { percent: 0, main: '已取消', sub: '该请求已被新请求取代' }
-    };
-    async function pollPushStatus(requestId) {
-      let attempts = 0;
-      const maxAttempts = 45;
-      updateProgress(5, '已提交请求，等待后台开始处理...', '');
-      pollingTimer = setInterval(async () => {
-        attempts++;
-        if (attempts >= maxAttempts) {
-          updateProgress(0, '⏰ 操作超时，请稍后重试', '后台可能未响应');
-          clearInterval(pollingTimer);
-          setTimeout(hideProgress, 3000);
-          return;
-        }
-        try {
-          const { data, error } = await supabase.from('push_requests').select('status').eq('id', requestId).single();
-          if (error) {
-            updateProgress(0, '查询状态失败', error.message);
-            clearInterval(pollingTimer);
-            setTimeout(hideProgress, 2000);
-            return;
-          }
-          if (!data) { updateProgress(5, '等待后台开始处理...', ''); return; }
-          const step = STATUS_STEPS[data.status] || STATUS_STEPS['pending'];
-          updateProgress(step.percent, step.main, step.sub);
-          if (data.status === 'done' || data.status === 'error' || data.status === 'cancelled') {
-            clearInterval(pollingTimer);
-            setTimeout(() => { hideProgress(); loadVideos(); loadGqtVideos(); loadLogs(); }, 2500);
-          }
-        } catch (e) {
-          updateProgress(0, '轮询异常', e.toString());
-          clearInterval(pollingTimer);
-          setTimeout(hideProgress, 2000);
-        }
-      }, 2000);
-    }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-    // ========== 普通视频 ==========
+    // ========== 加载视频列表 ==========
     async function loadVideos() {
       try {
-        const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
-        if (error) { console.error('loadVideos error:', error); return; }
-        const filtered = (data || []).filter(v => v.category !== 'gqt');
-        const tbody = document.getElementById('video-tbody');
-
-        // 按 group_name 分组
-        const groups = {};
-        const groupOrder = [];
-        filtered.forEach(v => {
-          const gname = v.group_name || '未分组';
-          if (!groups[gname]) { groups[gname] = []; groupOrder.push(gname); }
-          groups[gname].push(v);
-        });
-
+        const { data } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
+        const filtered = (data||[]).filter(v => v.category !== 'gqt');
+        const groups = {}; const order = [];
+        filtered.forEach(v => { const g = v.group_name || '未分组'; if (!groups[g]) { groups[g] = []; order.push(g); } groups[g].push(v); });
         let html = '';
-        groupOrder.forEach(gname => {
-          const vids = groups[gname];
-          // 组内排序：被高亮的固定第一行，其余按播放量降序
-          vids.sort((a, b) => {
-            const ha = a.highlight ? 1 : 0, hb = b.highlight ? 1 : 0;
-            if (ha !== hb) return hb - ha;
-            return (b.view || 0) - (a.view || 0);
-          });
-          // 分组标题行
-          html += `<tr class="group-header"><td colspan="14">📁 ${gname} <span class="group-count">(${vids.length} 个视频)</span></td></tr>`;
-          // 该组下的视频行
+        order.forEach(g => {
+          const vids = groups[g];
+          vids.sort((a,b) => { const ah = a.highlight?1:0, bh = b.highlight?1:0; if(ah!==bh) return bh-ah; return (Number(b.view)||0)-(Number(a.view)||0); });
+          html += `<tr class="group-header"><td colspan="13">📁 ${g} (${vids.length}个) <button class="group-edit-btn" data-group="${g}" style="float:right;padding:3px 12px;font-size:12px;">编辑整组</button></td></tr>`;
           vids.forEach(v => {
-            const hour = v.current_hour ?? 0;
-            const progress = Math.min(hour / 48 * 100, 100);
-            const isComplete = hour > 48;
-            const hlClass = v.highlight ? ' class="highlighted"' : '';
-            const hlBtn = `<button class="hl-btn ${v.highlight ? 'on' : ''}" data-id="${v.id}" data-hl="${v.highlight ? 1 : 0}">${v.highlight ? '★ 已突出' : '☆ 突出'}</button>`;
-            html += `<tr${hlClass}${isComplete ? ' style="opacity:0.5"' : ''}>
+            const h = v.current_hour ?? 0;
+            const p = Math.min(h/48*100, 100);
+            const hl = v.highlight ? ' highlighted' : '';
+            html += `<tr class="${hl}"${h>48?' style="opacity:0.5"':''}>
               <td><input type="checkbox" value="${v.id}" class="video-check"></td>
-              <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
-              <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
-              <td>${v.up_name || '-'}</td>
-              <td>${v.group_name || '-'}</td>
+              <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank">${v.bvid}</a></td>
+              <td>${v.title||'<span style="color:#999">获取中...</span>'}</td>
+              <td>${v.up_name||'-'}</td><td>${v.group_name||'-'}</td>
               <td class="view-num">${formatView(v.view)}</td>
-              <td class="online-num">${v.online_total || '-'}</td>
-              <td class="time-text">${v.start_time || '-'}</td>
-              <td><strong>${hour}h</strong></td>
-              <td class="progress-cell">
-                <span class="progress-cell-bar"><span class="progress-cell-fill" style="width:${progress}%"></span></span>
-                <span class="progress-cell-text">${hour}/48</span>
-              </td>
+              <td class="online-num">${v.online_total||'-'}</td>
+              <td class="time-text">${v.start_time||'-'}</td><td>${h}h</td>
+              <td><div style="background:#e0e0e0;border-radius:4px;height:12px;width:60px;display:inline-block"><div style="height:100%;width:${p}%;background:#4CAF50;border-radius:4px"></div></div> ${h}/48</td>
               <td class="time-text">${formatTime(v.last_push_time)}</td>
-              <td>${v.alert_enabled ? '<span class="badge badge-info">是</span>' : '否'}</td>
-              <td>${v.push_enabled === false ? '<span style="color:#f44336">关</span>' : '<span style="color:#4CAF50">开</span>'}</td>
-              <td>${hlBtn}</td>
+              <td>${v.push_enabled?'<span style="color:#4CAF50">开</span>':'<span style="color:#f44336">关</span>'}</td>
+              <td><button class="hl-btn ${v.highlight?'on':''}" data-id="${v.id}" data-hl="${v.highlight?1:0}">${v.highlight?'★':'☆'}</button></td>
             </tr>`;
           });
         });
-        tbody.innerHTML = html || '<tr><td colspan="14" style="text-align:center;color:#999;">暂无视频</td></tr>';
-      } catch(e) { console.error('loadVideos exception:', e); }
+        document.getElementById('video-tbody').innerHTML = html || '<tr><td colspan="13" style="text-align:center">暂无视频</td></tr>';
+      } catch(e) { console.error(e); }
     }
 
-    async function toggleHighlight(id, current) {
-      const newVal = !current;
+    // ========== 加载共青团列表 ==========
+    async function loadGqtVideos() {
       try {
-        const { error } = await supabase.from('videos').update({ highlight: newVal }).eq('id', id);
-        if (error) { alert('更新突出状态失败：' + error.message); return; }
-        loadVideos();
-      } catch(e) { alert('更新突出状态异常：' + e.toString()); }
+        const { data } = await supabase.from('videos').select('*').eq('category','gqt').order('created_at',{ascending:false});
+        document.getElementById('gqt-video-tbody').innerHTML = (data||[]).map(v => {
+          const reached = v.view >= 80000;
+          let st = '监控中', bc = 'badge-pending';
+          if (reached && !v.alert_enabled) { st = '✅已达标'; bc = 'badge-done'; }
+          else if (reached) { st = '🔔达标'; bc = 'badge-error'; }
+          return `<tr class="${reached?'done':''}"><td><input type="checkbox" value="${v.id}" class="gqt-check"></td>
+            <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank">${v.bvid}</a></td>
+            <td>${v.title||'获取中...'}</td><td>${v.up_name||'-'}</td>
+            <td class="view-num">${formatView(v.view)}</td><td><span class="badge ${bc}">${st}</span></td>
+            <td class="time-text">${formatTime(v.created_at)}</td></tr>`;
+        }).join('') || '<tr><td colspan="7">暂无</td></tr>';
+      } catch(e) { console.error(e); }
     }
 
-    let isRefreshing = false;
-    async function refreshListWithStats() {
-      if (isRefreshing) return;
-      isRefreshing = true;
+    // ========== 获取选中ID ==========
+    function getSelected() { return [...document.querySelectorAll('.video-check:checked')].map(c => parseInt(c.value)); }
 
-      // 1. 播放量、在线人数格子先显示"加载中…"
-      document.querySelectorAll('#video-tbody .view-num').forEach(td => {
-        td.innerHTML = '<span style="color:#999">加载中…</span>';
-      });
-      document.querySelectorAll('#video-tbody .online-num').forEach(td => {
-        td.innerHTML = '<span style="color:#999">…</span>';
-      });
-
-      // 2. 按钮禁用 + 改文字
-      const btn = document.getElementById('btn-refresh');
-      const oldText = btn.innerText;
-      btn.innerText = '刷新中…';
-      btn.disabled = true;
-
-      try {
-        // 3. 提交刷新请求，由后台Python去B站取数据写库
-        const { data, error } = await supabase.from('push_requests').insert([{
-          action: 'refresh_stats', video_id: 0, status: 'pending'
-        }]).select();
-
-        if (error) {
-          alert('刷新请求失败：' + error.message);
-          btn.innerText = oldText;
-          btn.disabled = false;
-          isRefreshing = false;
-          return;
-        }
-
-        if (data && data.length > 0) {
-          const reqId = data[0].id;
-          let attempts = 0;
-          const maxAttempts = 30; // 最多等60秒
-
-          const poll = setInterval(async () => {
-            attempts++;
-            if (attempts >= maxAttempts) {
-              clearInterval(poll);
-              btn.innerText = oldText;
-              btn.disabled = false;
-              isRefreshing = false;
-              loadVideos();
-              return;
-            }
-            try {
-              const { data: reqData } = await supabase.from('push_requests')
-                .select('status').eq('id', reqId).single();
-              if (reqData && (reqData.status === 'done' || reqData.status === 'error')) {
-                clearInterval(poll);
-                btn.innerText = oldText;
-                btn.disabled = false;
-                isRefreshing = false;
-                loadVideos();
-                loadLogs();
-              }
-            } catch(e) {}
-          }, 2000);
-        }
-      } catch(e) {
-        btn.innerText = oldText;
-        btn.disabled = false;
-        isRefreshing = false;
-        alert('刷新异常：' + e.toString());
-      }
-    }
-
-    function getSelectedIds() {
-      return [...document.querySelectorAll('.video-check:checked')].map(cb => parseInt(cb.value));
-    }
-
+    // ========== 添加视频 ==========
     async function addVideos() {
-      const bvText = document.getElementById('bvInput').value.trim();
-      let startTime = document.getElementById('startTime').value.trim();
-      const monitoredHours = parseInt(document.getElementById('monitoredHours').value) || 0;
-      const groupName = document.getElementById('groupName').value.trim() || `web_${formatLocalDateTime().slice(0,10)}`;
-      const alertOnly = document.getElementById('alertOnlyAdd').checked;
-      if (!bvText) return alert('请输入BV号');
-      if (!startTime) startTime = formatLocalDateTime();
-      const bvs = bvText.split(/[,，\s\n]+/).map(b => b.trim()).filter(b => b.startsWith('BV'));
-      if (bvs.length === 0) return alert('未找到有效的BV号（需以BV开头）');
+      const bvs = document.getElementById('bvInput').value.split(/[,，\s\n]+/).map(b=>b.trim()).filter(b=>b.startsWith('BV'));
+      if (!bvs.length) return alert('请输入BV号');
+      let st = document.getElementById('startTime').value.trim() || formatLocalDateTime();
+      const gn = document.getElementById('groupName').value.trim();
+      const ao = document.getElementById('alertOnlyAdd').checked;
       const entries = bvs.map(bv => ({
-        bvid: bv, start_time: startTime, cid: null,
-        monitored_hours: monitoredHours, current_hour: monitoredHours,
-        monitor_hours: 48, group_name: groupName, alert_only: alertOnly,
-        category: null, notify_interval: 1.0, window_start: 0, window_end: 24,
-        alert_enabled: false, alert_online_threshold: 0, alert_milestone: null,
-        alert_interval_minutes: 15, view: 0, title: '', up_name: '', last_push_time: null,
-        push_enabled: true, gap_alert_enabled: false, gap_alert_target_bvid: null, gap_alert_threshold: 0
+        bvid: bv, start_time: st, current_hour: 0, monitor_hours: 48,
+        group_name: gn || `web_${new Date().toISOString().slice(0,10)}`,
+        alert_only: ao, category: null, notify_interval: 1, window_start: 0, window_end: 24,
+        alert_enabled: false, alert_milestone: null, alert_interval_minutes: 15,
+        view: 0, title: '', up_name: '', push_enabled: false,
+        gap_alert_enabled: false, gap_alert_target_bvid: null, gap_alert_threshold: 0,
+        online_alert_enabled: false, online_alert_bvids: null, online_alert_condition: 'double', online_alert_threshold: 0
       }));
-      const { data: newVideos, error } = await supabase.from('videos').insert(entries).select();
-      if (error) { alert('添加失败：' + error.message); return; }
-      if (newVideos && newVideos.length > 0) {
-        await supabase.from('push_requests').insert(newVideos.map(v => ({ action: 'new_video', video_id: v.id, status: 'pending' })));
+      const { data: newVids, error } = await supabase.from('videos').insert(entries).select();
+      if (error) { alert('添加失败: '+error.message); return; }
+      if (newVids?.length) {
+        await supabase.from('push_requests').insert(newVids.map(v=>({action:'new_video',video_id:v.id,status:'pending'})));
+        await supabase.from('manuscript_history').upsert(bvs.map(bv=>({
+          bvid: bv, title:'', up_name:'', group_name: gn||'', status:'active',
+          added_at: new Date().toISOString()
+        })), {onConflict:'bvid'});
       }
-      alert(`成功添加 ${bvs.length} 个视频！后台正在获取视频信息，首次推送将在开始时间+1小时后自动执行`);
-      closeModal('addModal'); loadVideos(); loadLogs();
+      alert(`已添加 ${bvs.length} 个视频`);
+      closeModal('addModal'); loadVideos();
     }
 
-    let isPushing = false;
+    // ========== 推送 ==========
     async function pushSelected() {
-      if (isPushing) return;
-      const ids = getSelectedIds();
-      if (!ids.length) return alert('请勾选视频');
-      isPushing = true;
-      try {
-        await supabase.from('push_requests').update({ status: 'cancelled' }).eq('status', 'pending').in('video_id', ids);
-        const events = ids.map(video_id => ({ action: 'push', video_id, status: 'pending' }));
-        const { data, error } = await supabase.from('push_requests').insert(events).select();
-        if (error) { alert('推送请求提交失败：' + error.message); return; }
-        if (data && data.length > 0) { showProgress('手动推送进度'); pollPushStatus(data[0].id); }
-        else alert('请求已提交，但未获取到ID');
-      } finally { isPushing = false; }
+      const ids = getSelected();
+      if (!ids.length) return alert('请勾选');
+      await supabase.from('push_requests').insert(ids.map(vid=>({action:'push',video_id:vid,status:'pending'})));
+      alert('已提交推送请求，后台将逐个推送');
     }
 
     async function pushAll() {
-      if (isPushing) return;
-      const { data: videos, error: qErr } = await supabase.from('videos').select('id,alert_only,category').neq('category', 'gqt');
-      if (qErr) return alert('查询失败：' + qErr.message);
-      const filtered = (videos || []).filter(v => !v.alert_only);
-      if (filtered.length === 0) return alert('没有可推送的视频');
-      if (!confirm(`确定要推送全部 ${filtered.length} 个视频吗？\n（此操作会推送所有非共青团、非仅预警的视频）`)) return;
-      isPushing = true;
-      try {
-        await supabase.from('push_requests').update({ status: 'cancelled' }).eq('status', 'pending').eq('action', 'push');
-        const events = filtered.map(v => ({ action: 'push', video_id: v.id, status: 'pending' }));
-        const { data, error } = await supabase.from('push_requests').insert(events).select();
-        if (error) alert('推送请求提交失败：' + error.message);
-        else if (data && data.length > 0) { showProgress('一键推送进度'); pollPushStatus(data[0].id); }
-        else alert(`已提交 ${filtered.length} 个视频，后台将逐个推送`);
-      } finally { isPushing = false; }
+      const { data } = await supabase.from('videos').select('id').neq('category','gqt').eq('alert_only',false);
+      if (!data?.length) return alert('无视频');
+      if (!confirm(`推送全部${data.length}个？`)) return;
+      await supabase.from('push_requests').insert(data.map(v=>({action:'push',video_id:v.id,status:'pending'})));
+      alert('已提交');
     }
 
+    // ========== 删除选中 ==========
     async function deleteSelected() {
-      const ids = getSelectedIds();
-      if (!ids.length) return alert('请选中视频');
-      if (!confirm(`确定删除 ${ids.length} 个视频？`)) return;
-      const { error } = await supabase.from('videos').delete().in('id', ids);
-      if (error) alert('删除失败'); else { loadVideos(); loadLogs(); }
+      const ids = getSelected();
+      if (!ids.length) return alert('请勾选');
+      if (!confirm(`删除${ids.length}个视频？`)) return;
+      const { data: toDel } = await supabase.from('videos').select('bvid').in('id', ids);
+      const bvids = (toDel||[]).map(v=>v.bvid).filter(Boolean);
+      if (bvids.length) await supabase.from('manuscript_history').update({status:'removed',removed_at:new Date().toISOString()}).in('bvid',bvids);
+      await supabase.from('videos').delete().in('id', ids);
+      loadVideos();
     }
 
+    // ========== 编辑视频 ==========
     let editingId = null;
-    let editingOriginalStartTime = null;
-    async function openEditModal() {
-      const ids = getSelectedIds();
-      if (ids.length !== 1) return alert('请选中一个视频');
+    async function openEdit() {
+      const ids = getSelected();
+      if (ids.length !== 1) return alert('请选一个');
       editingId = ids[0];
-      const { data, error } = await supabase.from('videos').select('*').eq('id', editingId).single();
-      if (error || !data) { alert('获取视频信息失败'); return; }
-      document.getElementById('editCid').value = data.cid || '';
-      document.getElementById('editStartTime').value = data.start_time || '';
-      editingOriginalStartTime = data.start_time || '';
-      document.getElementById('editCurrentHour').value = data.current_hour ?? 0;
-      document.getElementById('editMonitorHours').value = data.monitor_hours || 48;
-      document.getElementById('editNotifyInterval').value = data.notify_interval || 1;
-      document.getElementById('editGroupName').value = data.group_name || '';
-      document.getElementById('editWinStart').value = data.window_start || 0;
-      document.getElementById('editWinEnd').value = data.window_end || 24;
-      document.getElementById('editAlertEnabled').checked = data.alert_enabled || false;
-      document.getElementById('editOnlineTh').value = data.alert_online_threshold || 0;
-      document.getElementById('editMilestone').value = (data.alert_milestone || 0) / 10000;
-      document.getElementById('editInterval').value = data.alert_interval_minutes || 15;
-      document.getElementById('editAlertOnly').checked = data.alert_only || false;
-      // 推送开关
-      document.getElementById('editPushEnabled').checked = data.push_enabled !== false;
-      // 播放量差距预警
-      document.getElementById('editGapAlertEnabled').checked = data.gap_alert_enabled || false;
-      document.getElementById('editGapTargetBvid').value = data.gap_alert_target_bvid || '';
-      document.getElementById('editGapThreshold').value = data.gap_alert_threshold || '';
-      // 填充 BV 下拉列表（当前监控的所有视频）
+      const { data: v } = await supabase.from('videos').select('*').eq('id',editingId).single();
+      if (!v) return alert('未找到');
+      document.getElementById('editCid').value = v.cid||'';
+      document.getElementById('editStartTime').value = v.start_time||'';
+      document.getElementById('editCurrentHour').value = v.current_hour??0;
+      document.getElementById('editMonitorHours').value = v.monitor_hours||48;
+      document.getElementById('editNotifyInterval').value = v.notify_interval||1;
+      document.getElementById('editGroupName').value = v.group_name||'';
+      document.getElementById('editWinStart').value = v.window_start||0;
+      document.getElementById('editWinEnd').value = v.window_end||24;
+      document.getElementById('editHighlight').checked = v.highlight||false;
+      document.getElementById('editPushEnabled').checked = v.push_enabled||false;
+      document.getElementById('editGapAlertEnabled').checked = v.gap_alert_enabled||false;
+      document.getElementById('editGapThreshold').value = v.gap_alert_threshold||'';
+      document.getElementById('editOnlineAlertEnabled').checked = v.online_alert_enabled||false;
+      document.getElementById('editOnlineAlertCondition').value = v.online_alert_condition||'double';
+      document.getElementById('editOnlineAlertThreshold').value = v.online_alert_threshold||'';
+      // 填充组内其他稿件下拉框
+      const gn = v.group_name||'未分组';
+      const { data: groupVids } = await supabase.from('videos').select('bvid,title').neq('category','gqt');
+      const sameGroup = (groupVids||[]).filter(x => (x.group_name||'未分组')===gn && x.bvid!==v.bvid);
+      const opts = sameGroup.map(x => `<option value="${x.bvid}">${x.bvid} ${x.title||''}</option>`).join('');
+      document.getElementById('editGapTargetBvids').innerHTML = opts;
+      document.getElementById('editOnlineAlertBvids').innerHTML = opts;
+      // 选中已有值
       try {
-        const { data: allVids } = await supabase.from('videos').select('bvid,title').neq('category', 'gqt');
-        const dl = document.getElementById('bvList');
-        dl.innerHTML = (allVids || []).map(v => `<option value="${v.bvid}">${v.bvid} - ${v.title || ''}</option>`).join('');
+        const gapBvids = JSON.parse(v.gap_alert_target_bvid||'[]');
+        const onlineBvids = JSON.parse(v.online_alert_bvids||'[]');
+        [...document.getElementById('editGapTargetBvids').options].forEach(o => { if(gapBvids.includes(o.value)) o.selected=true; });
+        [...document.getElementById('editOnlineAlertBvids').options].forEach(o => { if(onlineBvids.includes(o.value)) o.selected=true; });
       } catch(e) {}
       document.getElementById('editModal').style.display = 'block';
     }
 
     async function saveEdit() {
       if (!editingId) return;
-      const newStartTime = document.getElementById('editStartTime').value;
-      const updated = {
+      const gapBvids = [...document.getElementById('editGapTargetBvids').selectedOptions].map(o=>o.value);
+      const onlineBvids = [...document.getElementById('editOnlineAlertBvids').selectedOptions].map(o=>o.value);
+      const upd = {
         cid: document.getElementById('editCid').value,
-        start_time: newStartTime,
-        current_hour: parseInt(document.getElementById('editCurrentHour').value) || 0,
-        monitor_hours: parseInt(document.getElementById('editMonitorHours').value) || 48,
-        notify_interval: parseFloat(document.getElementById('editNotifyInterval').value) || 1,
+        start_time: document.getElementById('editStartTime').value,
+        current_hour: parseInt(document.getElementById('editCurrentHour').value)||0,
+        monitor_hours: parseInt(document.getElementById('editMonitorHours').value)||48,
+        notify_interval: parseFloat(document.getElementById('editNotifyInterval').value)||1,
         group_name: document.getElementById('editGroupName').value,
-        window_start: parseInt(document.getElementById('editWinStart').value) || 0,
-        window_end: parseInt(document.getElementById('editWinEnd').value) || 24,
-        alert_enabled: document.getElementById('editAlertEnabled').checked,
-        alert_online_threshold: parseInt(document.getElementById('editOnlineTh').value) || 0,
-        alert_milestone: Math.floor(parseFloat(document.getElementById('editMilestone').value) * 10000) || null,
-        alert_interval_minutes: parseInt(document.getElementById('editInterval').value) || 15,
-        alert_only: document.getElementById('editAlertOnly').checked,
+        window_start: parseInt(document.getElementById('editWinStart').value)||0,
+        window_end: parseInt(document.getElementById('editWinEnd').value)||24,
+        highlight: document.getElementById('editHighlight').checked,
         push_enabled: document.getElementById('editPushEnabled').checked,
         gap_alert_enabled: document.getElementById('editGapAlertEnabled').checked,
-        gap_alert_target_bvid: document.getElementById('editGapTargetBvid').value.trim() || null,
-        gap_alert_threshold: parseInt(document.getElementById('editGapThreshold').value) || 0,
+        gap_alert_target_bvid: JSON.stringify(gapBvids),
+        gap_alert_threshold: parseInt(document.getElementById('editGapThreshold').value)||0,
+        online_alert_enabled: document.getElementById('editOnlineAlertEnabled').checked,
+        online_alert_bvids: JSON.stringify(onlineBvids),
+        online_alert_condition: document.getElementById('editOnlineAlertCondition').value,
+        online_alert_threshold: parseInt(document.getElementById('editOnlineAlertThreshold').value)||0,
       };
-      // 开始时间被修改 → 重置 current_hour = 0，监控按新开始时间重新开始
-      if (editingOriginalStartTime && newStartTime && editingOriginalStartTime.trim() !== newStartTime.trim()) {
-        updated.current_hour = 0;
-        if (!confirm(`检测到开始时间已修改：\n  旧：${editingOriginalStartTime}\n  新：${newStartTime}\n\n将自动重置已推送小时为 0，监控将按新的开始时间重新开始。确认保存？`)) return;
-      }
-      const { error } = await supabase.from('videos').update(updated).eq('id', editingId);
-      if (error) { alert('更新失败：' + error.message); return; }
+      await supabase.from('videos').update(upd).eq('id', editingId);
       alert('已更新'); closeModal('editModal'); loadVideos();
     }
 
+    // ========== 查看历史 ==========
     async function viewHistory() {
-      const ids = getSelectedIds();
-      if (ids.length !== 1) return alert('请选择一个视频');
-      const { data, error } = await supabase.from('history').select('*').eq('video_id', ids[0]).order('hour', { ascending: true });
-      if (error) { alert('加载失败'); return; }
-      if (!data || data.length === 0) { alert('暂无历史'); return; }
-      const text = data.map(r => `${r.hour}h  播放:${formatView(r.view)}  在看:${r.online_total}`).join('\n');
-      document.getElementById('historyText').value = text;
+      const ids = getSelected();
+      if (ids.length !== 1) return alert('请选一个');
+      const { data } = await supabase.from('history').select('*').eq('video_id',ids[0]).order('hour',{ascending:true});
+      if (!data?.length) return alert('暂无');
+      document.getElementById('historyText').value = data.map(r=>`${r.hour}h  播放:${formatView(r.view)}  在线:${r.online_total}`).join('\n');
       document.getElementById('historyModal').style.display = 'block';
     }
 
-    // ========== 共青团 ==========
-    async function loadGqtVideos() {
-      try {
-        const { data, error } = await supabase.from('videos').select('*').eq('category', 'gqt').order('created_at', { ascending: false });
-        if (error) { console.error(error); return; }
-        const tbody = document.getElementById('gqt-video-tbody');
-        tbody.innerHTML = (data || []).map(v => {
-          const isReached = v.view >= 80000;
-          const isAlertDisabled = !v.alert_enabled;
-          let statusText = '监控中', badgeClass = 'badge-pending', rowClass = '';
-          if (isReached && isAlertDisabled) { statusText = '✅ 已达标'; badgeClass = 'badge-done'; rowClass = 'done'; }
-          else if (isReached) { statusText = '🔔 达标推送中'; badgeClass = 'badge-error'; rowClass = 'warn'; }
-          return `<tr class="${rowClass}">
-            <td><input type="checkbox" value="${v.id}" class="gqt-check"></td>
-            <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
-            <td>${v.title || '<span style="color:#999">获取中...</span>'}</td>
-            <td>${v.up_name || '-'}</td>
-            <td class="view-num">${formatView(v.view)}</td>
-            <td><span class="badge ${badgeClass}">${statusText}</span></td>
-            <td class="time-text">${formatTime(v.created_at)}</td>
-          </tr>`;
-        }).join('');
-      } catch(e) { console.error(e); }
+    // ========== 刷新列表 ==========
+    async function refreshList() {
+      await supabase.from('push_requests').insert([{action:'refresh_stats',video_id:0,status:'pending'}]);
+      alert('刷新请求已发送，稍后更新');
+      setTimeout(loadVideos, 10000);
     }
 
-    async function addGqtVideo() {
+    // ========== 突出显示 ==========
+    async function toggleHighlight(id, cur) {
+      await supabase.from('videos').update({highlight:!cur}).eq('id',id);
+      loadVideos();
+    }
+
+    // ========== 共青团操作 ==========
+    async function addGqt() {
       const bv = document.getElementById('gqtBvInput').value.trim();
-      if (!bv || !bv.startsWith('BV')) return alert('请输入正确的BV号（以BV开头）');
-      const entry = {
-        bvid: bv, category: 'gqt', cid: null,
-        alert_enabled: true, alert_milestone: 80000,
-        alert_interval_minutes: 30, alert_only: true,
-        start_time: formatLocalDateTime(), monitored_hours: 0, current_hour: 0,
-        monitor_hours: 48, group_name: '共青团搬运', notify_interval: 1.0,
-        window_start: 0, window_end: 24, view: 0,
-        title: '', up_name: '', last_push_time: null, alert_online_threshold: 0
-      };
-      const { data, error } = await supabase.from('videos').insert([entry]).select();
-      if (error) { alert('添加失败：' + error.message); return; }
-      if (data && data.length > 0) {
-        await supabase.from('push_requests').insert([{ action: 'new_video', video_id: data[0].id, status: 'pending' }]);
-      }
-      alert('共青团视频已添加，后台将自动补全CID并开始监控');
-      closeModal('gqtAddModal'); loadGqtVideos(); loadLogs();
+      if (!bv.startsWith('BV')) return alert('请输入BV号');
+      await supabase.from('videos').insert([{bvid:bv,category:'gqt',alert_enabled:true,alert_milestone:80000,alert_only:true,start_time:formatLocalDateTime(),current_hour:0,monitor_hours:48,group_name:'共青团',push_enabled:false,view:0}]);
+      closeModal('gqtAddModal'); loadGqtVideos();
     }
-
-    async function pushGqtSelected() {
-      const ids = [...document.querySelectorAll('.gqt-check:checked')].map(cb => parseInt(cb.value));
-      if (!ids.length) return alert('请勾选视频');
-      const { data, error } = await supabase.from('push_requests').insert(ids.map(video_id => ({ action: 'push', video_id, status: 'pending' }))).select();
-      if (error) { alert('推送请求提交失败：' + error.message); return; }
-      if (data && data.length > 0) { showProgress('共青团手动推送进度'); pollPushStatus(data[0].id); }
+    async function pushGqt() {
+      const ids = [...document.querySelectorAll('.gqt-check:checked')].map(c=>parseInt(c.value));
+      if (!ids.length) return alert('请勾选');
+      await supabase.from('push_requests').insert(ids.map(vid=>({action:'push',video_id:vid,status:'pending'})));
+      alert('已提交');
     }
-
-    async function refreshGqtStatus() {
-      const { error } = await supabase.from('push_requests').insert([{ action: 'gqt_refresh', video_id: 0, status: 'pending' }]);
-      if (error) alert('刷新请求失败：' + error.message);
-      else { alert('手动刷新已发送，稍后将更新播放量'); setTimeout(loadGqtVideos, 5000); }
+    async function refreshGqt() {
+      await supabase.from('push_requests').insert([{action:'gqt_refresh',video_id:0,status:'pending'}]);
+      alert('已发送');
+      setTimeout(loadGqtVideos, 5000);
     }
-
-    async function deleteGqtSelected() {
-      const ids = [...document.querySelectorAll('.gqt-check:checked')].map(cb => parseInt(cb.value));
-      if (!ids.length) return alert('请勾选视频');
-      if (!confirm(`确定删除选中的 ${ids.length} 个共青团视频？`)) return;
-      const { error } = await supabase.from('videos').delete().in('id', ids);
-      if (error) alert('删除失败'); else { loadGqtVideos(); loadLogs(); }
-    }
-
-    // ========== 粉丝监控 ==========
-    async function loadFansSettings() {
-      try {
-        const { data, error } = await supabase.from('fans_monitor').select('*').limit(1);
-        if (error) { console.error('加载粉丝设置失败:', error); return; }
-        if (data && data.length > 0) {
-          const fm = data[0];
-          if (fm.cctv_news_uid) document.getElementById('newsUid').value = fm.cctv_news_uid;
-          if (fm.cctv_military_uid) document.getElementById('militaryUid').value = fm.cctv_military_uid;
-          if (fm.monday_base_news) document.getElementById('mondayNews').value = fm.monday_base_news;
-          if (fm.monday_base_military) document.getElementById('mondayMilitary').value = fm.monday_base_military;
-          if (fm.webhook_url) document.getElementById('webhookUrl').value = fm.webhook_url;
-          document.getElementById('fansEnabled').checked = fm.enabled || false;
-          if (fm.daily_base_news || fm.monday_base_news) {
-            document.getElementById('fans-display').style.display = 'block';
-            document.getElementById('fd-news').innerText = '-';
-            document.getElementById('fd-military').innerText = '-';
-            if (fm.daily_base_news) {
-              document.getElementById('fd-dnews').innerText = `基准: ${fm.daily_base_news}`;
-              document.getElementById('fd-dmil').innerText = `基准: ${fm.daily_base_military || 0}`;
-            }
-            if (fm.monday_base_news) {
-              document.getElementById('fd-wnews').innerText = `基准: ${fm.monday_base_news}`;
-              document.getElementById('fd-wmil').innerText = `基准: ${fm.monday_base_military || 0}`;
-            }
-          }
-        }
-      } catch(e) { console.error('加载粉丝设置异常:', e); }
-    }
-
-    async function saveFansSettings() {
-      const fm = {
-        cctv_news_uid: document.getElementById('newsUid').value,
-        cctv_military_uid: document.getElementById('militaryUid').value,
-        monday_base_news: parseInt(document.getElementById('mondayNews').value) || 0,
-        monday_base_military: parseInt(document.getElementById('mondayMilitary').value) || 0,
-        webhook_url: document.getElementById('webhookUrl').value,
-        enabled: document.getElementById('fansEnabled').checked,
-      };
-      const { data: existing } = await supabase.from('fans_monitor').select('id').limit(1);
-      if (existing && existing.length > 0) await supabase.from('fans_monitor').update(fm).eq('id', existing[0].id);
-      else await supabase.from('fans_monitor').insert(fm);
-      alert('粉丝监控设置已保存');
-    }
-
-    async function triggerFansPush() {
-      await saveFansSettings();
-      const { error } = await supabase.from('push_requests').insert([{ action: 'fans_push', video_id: 0, status: 'pending' }]);
-      if (error) alert('请求失败');
-      else alert('推送请求已发送，后台将立即执行粉丝数据推送');
+    async function deleteGqt() {
+      const ids = [...document.querySelectorAll('.gqt-check:checked')].map(c=>parseInt(c.value));
+      if (!ids.length) return alert('请勾选');
+      await supabase.from('videos').delete().in('id',ids);
+      loadGqtVideos();
     }
 
     // ========== 日志 ==========
-    const ACTION_MAP = {
-      'push': '📤 推送', 'new_video': '🎬 新视频', 'gqt_refresh': '🔄 共青团刷新', 'fans_push': '📊 粉丝推送',
-      'scheduled_push': '⏰ 定时推送', 'gqt_check': '🚩 共青团检查', 'gqt_scan': '🔍 共青团扫描',
-      'gqt_alert': '🔔 达标提醒', 'push_result': '📋 推送结果'
-    };
     async function loadLogs() {
-      const tbody = document.getElementById('log-tbody');
       try {
-        const { data: logData, error: logError } = await supabase.from('monitor_logs')
-          .select('*').order('created_at', { ascending: false }).limit(50);
-        if (!logError && logData && logData.length > 0) {
-          tbody.innerHTML = logData.map(r => {
-            const levelClass = r.level === 'ERROR' ? 'log-level-ERROR' : r.level === 'WARNING' ? 'log-level-WARNING' : 'log-level-INFO';
-            return `<tr><td class="time-text">${formatTime(r.created_at)}</td>
-              <td>${ACTION_MAP[r.action] || r.action || '-'}</td>
-              <td class="${levelClass}">${r.level || 'INFO'}</td>
-              <td>${r.message || ''}</td></tr>`;
+        const { data } = await supabase.from('monitor_logs').select('*').order('created_at',{ascending:false}).limit(50);
+        if (data?.length) {
+          document.getElementById('log-tbody').innerHTML = data.map(r => {
+            const lc = r.level==='ERROR'?'log-level-ERROR':r.level==='WARNING'?'log-level-WARNING':'log-level-INFO';
+            return `<tr><td class="time-text">${formatTime(r.created_at)}</td><td>${r.action||'-'}</td><td class="${lc}">${r.level}</td><td>${r.message||''}</td><td><button class="danger" onclick="this.closest('tr').remove();supabase.from('monitor_logs').delete().eq('id',${r.id})" style="font-size:11px;padding:2px 6px;">删</button></td></tr>`;
           }).join('');
           return;
         }
       } catch(e) {}
-      try {
-        const { data, error } = await supabase.from('push_requests')
-          .select('*').order('created_at', { ascending: false }).limit(30);
-        if (error) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">暂无日志数据</td></tr>'; return; }
-        const statusMap = {
-          'pending': '<span class="badge badge-pending">等待中</span>',
-          'processing': '<span class="badge badge-processing">处理中</span>',
-          'fetching_cid': '<span class="badge badge-processing">获取CID</span>',
-          'pushing': '<span class="badge badge-processing">推送中</span>',
-          'done': '<span class="badge badge-done">✅ 完成</span>',
-          'error': '<span class="badge badge-error">❌ 失败</span>',
-          'cancelled': '<span class="badge badge-pending">已取消</span>'
-        };
-        tbody.innerHTML = (data || []).map(r => `<tr>
-          <td class="time-text">${formatTime(r.created_at)}</td>
-          <td>${ACTION_MAP[r.action] || r.action || '-'}</td>
-          <td>${statusMap[r.status] || r.status}</td>
-          <td>视频ID: ${r.video_id || '-'}</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:#999;">暂无日志数据</td></tr>';
-      } catch(e) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">日志加载失败</td></tr>'; }
+      document.getElementById('log-tbody').innerHTML = '<tr><td colspan="5">暂无</td></tr>';
+    }
+    async function clearLogs() {
+      if (!confirm('清空全部日志？')) return;
+      await supabase.from('monitor_logs').delete().not('id','is',null);
+      loadLogs();
     }
 
-    // ========== 弹窗 ==========
-    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    // ========== 编辑整组 ==========
+    let editingGroup = null;
+    async function openGroupEdit(gn) {
+      editingGroup = gn;
+      const { data } = await supabase.from('videos').select('*').neq('category','gqt');
+      const gv = (data||[]).filter(v=>(v.group_name||'未分组')===gn);
+      if (!gv.length) return alert('无视频');
+      const f = gv[0];
+      document.getElementById('grpGroupName').value = gn;
+      document.getElementById('grpStartTime').value = f.start_time||'';
+      document.getElementById('grpMonitorHours').value = f.monitor_hours||48;
+      document.getElementById('grpNotifyInterval').value = f.notify_interval||1;
+      document.getElementById('grpWinStart').value = f.window_start||0;
+      document.getElementById('grpWinEnd').value = f.window_end||24;
+      document.getElementById('grpPushEnabled').checked = f.push_enabled||false;
+      document.getElementById('groupEditModal').style.display = 'block';
+    }
+    async function saveGroupEdit() {
+      if (!editingGroup) return;
+      const upd = {
+        start_time: document.getElementById('grpStartTime').value,
+        monitor_hours: parseInt(document.getElementById('grpMonitorHours').value)||48,
+        notify_interval: parseFloat(document.getElementById('grpNotifyInterval').value)||1,
+        window_start: parseInt(document.getElementById('grpWinStart').value)||0,
+        window_end: parseInt(document.getElementById('grpWinEnd').value)||24,
+        push_enabled: document.getElementById('grpPushEnabled').checked,
+      };
+      await supabase.from('videos').update(upd).eq('group_name',editingGroup).neq('category','gqt');
+      alert('已更新整组');
+      closeModal('groupEditModal'); loadVideos();
+    }
 
-    // ========== 事件绑定（addEventListener，不依赖 onclick 全局作用域）==========
-    document.getElementById('btn-add').addEventListener('click', () => { document.getElementById('addModal').style.display = 'block'; });
-    document.getElementById('btn-submit-add').addEventListener('click', addVideos);
-    document.getElementById('btn-cancel-add').addEventListener('click', () => closeModal('addModal'));
-    document.getElementById('btn-push-sel').addEventListener('click', pushSelected);
-    document.getElementById('btn-push-all').addEventListener('click', pushAll);
-    document.getElementById('btn-del-sel').addEventListener('click', deleteSelected);
-    document.getElementById('btn-edit').addEventListener('click', openEditModal);
-    document.getElementById('btn-submit-edit').addEventListener('click', saveEdit);
-    document.getElementById('btn-cancel-edit').addEventListener('click', () => closeModal('editModal'));
-    document.getElementById('btn-history').addEventListener('click', viewHistory);
-    document.getElementById('btn-cancel-history').addEventListener('click', () => closeModal('historyModal'));
-    document.getElementById('btn-copy-history').addEventListener('click', () => {
-      const ta = document.getElementById('historyText');
-      ta.select();
-      try { document.execCommand('copy'); alert('已复制到剪贴板'); }
-      catch(e) { alert('复制失败，请手动选中复制'); }
-    });
-    document.getElementById('btn-refresh').addEventListener('click', refreshListWithStats);
-    document.getElementById('video-tbody').addEventListener('click', (e) => {
-      const btn = e.target.closest('.hl-btn');
-      if (!btn) return;
-      const id = parseInt(btn.dataset.id);
-      const cur = btn.dataset.hl === '1';
-      toggleHighlight(id, cur);
-    });
-    document.getElementById('selectAll').addEventListener('change', function() {
-      document.querySelectorAll('.video-check').forEach(c => c.checked = this.checked);
-    });
+    // ========== 历史稿件查询 ==========
+    async function loadManuscriptHistory() {
+      const kw = (document.getElementById('mhSearch').value||'').trim().toLowerCase();
+      const sf = document.getElementById('mhStatus').value;
+      const mf = document.getElementById('mhMonth').value;
+      let { data } = await supabase.from('manuscript_history').select('*').order('added_at',{ascending:false});
+      let list = data||[];
+      if (sf) list = list.filter(r=>(r.status||'active')===sf);
+      if (mf) list = list.filter(r=>r.added_at&&r.added_at.startsWith(mf));
+      if (kw) list = list.filter(r=>(r.bvid||''+r.title||''+r.up_name||''+r.group_name||'').toLowerCase().includes(kw));
+      document.getElementById('mhCount').textContent = `共 ${list.length} 条`;
+      document.getElementById('mh-tbody').innerHTML = list.length ? list.map(r => `
+        <tr><td><a href="https://www.bilibili.com/video/${r.bvid}" target="_blank">${r.bvid}</a></td>
+        <td>${r.title||'-'}</td><td>${r.up_name||'-'}</td><td>${r.group_name||'-'}</td>
+        <td>${r.status==='removed'?'<span class="badge badge-error">已删除</span>':'<span class="badge badge-done">在监控</span>'}</td>
+        <td class="time-text">${formatTime(r.added_at)}</td><td class="time-text">${formatTime(r.removed_at)}</td></tr>`).join('') : '<tr><td colspan="7">暂无</td></tr>';
+    }
 
-    document.getElementById('btn-gqt-add').addEventListener('click', () => { document.getElementById('gqtAddModal').style.display = 'block'; });
-    document.getElementById('btn-submit-gqt').addEventListener('click', addGqtVideo);
-    document.getElementById('btn-cancel-gqt').addEventListener('click', () => closeModal('gqtAddModal'));
-    document.getElementById('btn-gqt-push').addEventListener('click', pushGqtSelected);
-    document.getElementById('btn-gqt-refresh').addEventListener('click', refreshGqtStatus);
-    document.getElementById('btn-gqt-del').addEventListener('click', deleteGqtSelected);
-    document.getElementById('selectAllGqt').addEventListener('change', function() {
-      document.querySelectorAll('.gqt-check').forEach(c => c.checked = this.checked);
-    });
+    function fillMonthOptions() {
+      const sel = document.getElementById('mhMonth');
+      let html = '<option value="">全部时间</option>';
+      const now = new Date();
+      for (let i = 0; i < 12; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+        const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        html += `<option value="${val}">${val}</option>`;
+      }
+      sel.innerHTML = html;
+    }
 
-    document.getElementById('btn-save-fans').addEventListener('click', saveFansSettings);
-    document.getElementById('btn-push-fans').addEventListener('click', triggerFansPush);
-    document.getElementById('btn-refresh-log').addEventListener('click', loadLogs);
+    async function exportExcel() {
+      const kw = (document.getElementById('mhSearch').value||'').trim().toLowerCase();
+      const sf = document.getElementById('mhStatus').value;
+      const mf = document.getElementById('mhMonth').value;
+      let { data } = await supabase.from('manuscript_history').select('*').order('added_at',{ascending:false});
+      let list = data||[];
+      if (sf) list = list.filter(r=>(r.status||'active')===sf);
+      if (mf) list = list.filter(r=>r.added_at&&r.added_at.startsWith(mf));
+      if (kw) list = list.filter(r=>(r.bvid||''+r.title||''+r.up_name||''+r.group_name||'').toLowerCase().includes(kw));
+      let csv = '\uFEFFBV号,标题,UP主,组名,状态,加入时间,删除时间\n';
+      list.forEach(r => csv += `${r.bvid},${r.title||''},${r.up_name||''},${r.group_name||''},${r.status||'active'},${r.added_at||''},${r.removed_at||''}\n`);
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `稿件历史_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    }
+
+    // ========== 事件绑定 ==========
+    document.getElementById('btn-add').onclick = () => {
+      document.getElementById('addModal').style.display = 'block';
+      // 填充已有组名
+      supabase.from('videos').select('group_name').neq('category','gqt').then(({data}) => {
+        const names = [...new Set((data||[]).map(v=>v.group_name).filter(Boolean))];
+        document.getElementById('groupList').innerHTML = names.map(n=>`<option value="${n}">`).join('');
+      });
+    };
+    document.getElementById('btn-submit-add').onclick = addVideos;
+    document.getElementById('btn-cancel-add').onclick = () => closeModal('addModal');
+    document.getElementById('btn-now-time').onclick = () => document.getElementById('startTime').value = formatLocalDateTime();
+    document.getElementById('btn-push-sel').onclick = pushSelected;
+    document.getElementById('btn-push-all').onclick = pushAll;
+    document.getElementById('btn-del-sel').onclick = deleteSelected;
+    document.getElementById('btn-edit').onclick = openEdit;
+    document.getElementById('btn-submit-edit').onclick = saveEdit;
+    document.getElementById('btn-cancel-edit').onclick = () => closeModal('editModal');
+    document.getElementById('btn-history').onclick = viewHistory;
+    document.getElementById('btn-cancel-history').onclick = () => closeModal('historyModal');
+    document.getElementById('btn-copy-history').onclick = () => { const t=document.getElementById('historyText'); t.select(); document.execCommand('copy'); alert('已复制'); };
+    document.getElementById('btn-refresh').onclick = refreshList;
+    document.getElementById('selectAll').onchange = function() { document.querySelectorAll('.video-check').forEach(c=>c.checked=this.checked); };
+    document.getElementById('video-tbody').onclick = function(e) {
+      if (e.target.classList.contains('group-edit-btn')) { openGroupEdit(e.target.dataset.group); return; }
+      if (e.target.classList.contains('hl-btn')) { toggleHighlight(parseInt(e.target.dataset.id), e.target.dataset.hl==='1'); }
+    };
+    document.getElementById('btn-submit-grp-edit').onclick = saveGroupEdit;
+    document.getElementById('btn-cancel-grp-edit').onclick = () => closeModal('groupEditModal');
+    document.getElementById('btn-grp-now').onclick = () => document.getElementById('grpStartTime').value = formatLocalDateTime();
+
+    document.getElementById('btn-gqt-add').onclick = () => document.getElementById('gqtAddModal').style.display='block';
+    document.getElementById('btn-submit-gqt').onclick = addGqt;
+    document.getElementById('btn-cancel-gqt').onclick = () => closeModal('gqtAddModal');
+    document.getElementById('btn-gqt-push').onclick = pushGqt;
+    document.getElementById('btn-gqt-refresh').onclick = refreshGqt;
+    document.getElementById('btn-gqt-del').onclick = deleteGqt;
+    document.getElementById('selectAllGqt').onchange = function() { document.querySelectorAll('.gqt-check').forEach(c=>c.checked=this.checked); };
+
+    document.getElementById('btn-refresh-log').onclick = loadLogs;
+    document.getElementById('btn-clear-log').onclick = clearLogs;
+    document.getElementById('btn-mh-search').onclick = loadManuscriptHistory;
+    document.getElementById('btn-mh-refresh').onclick = loadManuscriptHistory;
+    document.getElementById('btn-mh-export').onclick = exportExcel;
+    document.getElementById('mhSearch').onkeydown = e => { if(e.key==='Enter') loadManuscriptHistory(); };
+    document.getElementById('mhStatus').onchange = loadManuscriptHistory;
+    document.getElementById('mhMonth').onchange = loadManuscriptHistory;
 
     // ========== 自动刷新 ==========
     setInterval(loadVideos, 300000);
@@ -823,10 +610,11 @@
     // ========== 初始化 ==========
     loadVideos();
     loadGqtVideos();
-    loadFansSettings();
     loadLogs();
+    fillMonthOptions();
+    loadManuscriptHistory();
 
-    console.log('[B站监控] 页面初始化完成，所有按钮已绑定');
+    console.log('[B站监控] 页面初始化完成');
   </script>
 </body>
 </html>
