@@ -6,7 +6,7 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
     table { border-collapse: collapse; width: 100%; margin-bottom: 20px; background: white; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+    th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 13px; }
     th { background: #4CAF50; color: white; }
     tr:nth-child(even) { background: #f9f9f9; }
     .warn { background-color: #ffe0e0; font-weight: bold; }
@@ -25,12 +25,10 @@
     .section { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; background: white; border-radius: 8px; }
     .section h2 { margin-top: 0; }
     .badge { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold; white-space: nowrap; }
-    .badge-success { background: #4CAF50; color: white; }
     .badge-error { background: #f44336; color: white; }
     .badge-info { background: #00BCD4; color: white; }
     .badge-pending { background: #FF9800; color: white; }
     .badge-done { background: #4CAF50; color: white; }
-    .badge-processing { background: #2196F3; color: white; }
     .view-num { color: #e83e8c; font-weight: bold; }
     .online-num { color: #007bff; }
     .time-text { color: #888; font-size: 12px; }
@@ -42,10 +40,9 @@
     .log-section table { font-size: 12px; }
     .log-level-INFO { color: #2196F3; }
     .log-level-ERROR { color: #f44336; font-weight: bold; }
-    .log-level-WARNING { color: #FF9800; }
     .hl-btn { padding:2px 8px; font-size:12px; border:1px solid #ff9800; background:#fff; color:#ff9800; border-radius:4px; cursor:pointer; }
     .hl-btn.on { background:#ff9800; color:#fff; }
-    select[multiple] { height: 120px; width: 220px; }
+    select[multiple] { height: 120px; width: 260px; }
   </style>
 </head>
 <body>
@@ -66,9 +63,9 @@
       <thead>
         <tr>
           <th style="width:30px"><input type="checkbox" id="selectAll"></th>
-          <th style="width:110px">BV号</th><th>标题</th><th style="width:100px">UP主</th><th style="width:100px">分组</th>
-          <th style="width:85px">播放量</th><th style="width:75px">在线</th><th style="width:130px">开始时间</th>
-          <th style="width:55px">已推</th><th style="width:70px">进度</th><th style="width:85px">上次推送</th><th style="width:50px">推送</th><th style="width:55px">突出</th>
+          <th style="width:115px">BV号</th><th>标题</th><th style="width:90px">UP主</th><th style="width:95px">分组</th>
+          <th style="width:70px">播放量</th><th style="width:50px">在线</th><th style="width:135px">开始时间</th>
+          <th style="width:40px">已推</th><th style="width:65px">进度</th><th style="width:80px">上次推送</th><th style="width:40px">推送</th><th style="width:45px">突出</th>
         </tr>
       </thead>
       <tbody id="video-tbody"></tbody>
@@ -113,12 +110,11 @@
       <span id="mhCount" style="color:#888;font-size:13px;margin-left:8px;"></span>
     </div>
     <table>
-      <thead><tr><th>BV号</th><th>标题</th><th>UP主</th><th>组名</th><th>状态</th><th>加入时间</th><th>删除时间</th></tr></thead>
+      <thead><tr><th>BV号</th><th>标题</th><th>UP主</th><th>组名</th><th>状态</th><th>日期</th><th>时间</th></tr></thead>
       <tbody id="mh-tbody"><tr><td colspan="7" style="text-align:center;color:#999;">加载中...</td></tr></tbody>
     </table>
   </div>
 
-  <!-- 添加普通视频弹窗 -->
   <div id="addModal" class="modal">
     <div class="modal-content">
       <h3>添加 BV</h3>
@@ -131,7 +127,6 @@
     </div>
   </div>
 
-  <!-- 编辑视频弹窗 -->
   <div id="editModal" class="modal">
     <div class="modal-content">
       <h3>编辑视频</h3>
@@ -141,8 +136,8 @@
       <div class="form-row"><label>总监控时长:</label><input id="editMonitorHours" type="number"></div>
       <div class="form-row"><label>推送频率(h):</label><input id="editNotifyInterval" type="number" step="0.5"></div>
       <div class="form-row"><label>组名:</label><input id="editGroupName"></div>
-      <div class="form-row"><label>窗口开始:</label><input id="editWinStart" type="number"> <span style="color:#888;font-size:12px">(推送允许时间段开始小时)</span></div>
-      <div class="form-row"><label>窗口结束:</label><input id="editWinEnd" type="number"> <span style="color:#888;font-size:12px">(推送允许时间段结束小时)</span></div>
+      <div class="form-row"><label>窗口开始:</label><input id="editWinStart" type="number"> <span style="color:#888;font-size:12px">(推送允许时间段)</span></div>
+      <div class="form-row"><label>窗口结束:</label><input id="editWinEnd" type="number"></div>
       <div class="form-row"><label>突出显示:</label><input type="checkbox" id="editHighlight"></div>
       <hr>
       <div class="form-row"><label>推送开关:</label><input type="checkbox" id="editPushEnabled"> <span style="color:#888;font-size:12px">开启后才推送企微</span></div>
@@ -166,7 +161,7 @@
       <button id="btn-cancel-edit" class="danger">取消</button>
     </div>
   </div>
-    <!-- 编辑整组弹窗 -->
+
   <div id="groupEditModal" class="modal">
     <div class="modal-content">
       <h3>编辑整组</h3>
@@ -183,7 +178,6 @@
     </div>
   </div>
 
-  <!-- 添加共青团视频弹窗 -->
   <div id="gqtAddModal" class="modal">
     <div class="modal-content">
       <h3>添加共青团搬运视频</h3>
@@ -193,7 +187,6 @@
     </div>
   </div>
 
-  <!-- 历史数据弹窗 -->
   <div id="historyModal" class="modal">
     <div class="modal-content">
       <h3>历史监控数据</h3>
@@ -204,29 +197,23 @@
 
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-    const SUPABASE_URL = 'https://erzjcvsbrkmukswkqfss.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g';
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabase = createClient('https://erzjcvsbrkmukswkqfss.supabase.co', 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g');
 
     function formatLocalDateTime(d) {
       d = d || new Date();
       const pad = n => String(n).padStart(2, '0');
       return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
-    function formatView(n) {
-      if (!n) return '0';
-      if (n >= 10000) return (n/10000).toFixed(1).replace(/\.0$/,'')+'w';
-      return String(n);
-    }
+    function formatView(n) { if (!n) return '0'; if (n >= 10000) return (n/10000).toFixed(1).replace(/\.0$/,'')+'w'; return String(n); }
     function formatTime(iso) {
       if (!iso) return '-';
       try { const d = new Date(iso); return `${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
       catch { return iso; }
     }
-
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function getSelected() { return [...document.querySelectorAll('.video-check:checked')].map(c => parseInt(c.value)); }
 
-    // ========== 加载视频列表 ==========
+    // ========== 加载视频 ==========
     async function loadVideos() {
       try {
         const { data } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
@@ -244,13 +231,13 @@
             const hl = v.highlight ? ' highlighted' : '';
             html += `<tr class="${hl}"${h>48?' style="opacity:0.5"':''}>
               <td><input type="checkbox" value="${v.id}" class="video-check"></td>
-              <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank">${v.bvid}</a></td>
+              <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
               <td>${v.title||'<span style="color:#999">获取中...</span>'}</td>
               <td>${v.up_name||'-'}</td><td>${v.group_name||'-'}</td>
               <td class="view-num">${formatView(v.view)}</td>
               <td class="online-num">${v.online_total||'-'}</td>
               <td class="time-text">${v.start_time||'-'}</td><td>${h}h</td>
-              <td><div style="background:#e0e0e0;border-radius:4px;height:12px;width:60px;display:inline-block"><div style="height:100%;width:${p}%;background:#4CAF50;border-radius:4px"></div></div> ${h}/48</td>
+              <td><div style="background:#e0e0e0;border-radius:3px;height:10px;width:50px;display:inline-block"><div style="height:100%;width:${p}%;background:#4CAF50;border-radius:3px"></div></div> ${h}/48</td>
               <td class="time-text">${formatTime(v.last_push_time)}</td>
               <td>${v.push_enabled?'<span style="color:#4CAF50">开</span>':'<span style="color:#f44336">关</span>'}</td>
               <td><button class="hl-btn ${v.highlight?'on':''}" data-id="${v.id}" data-hl="${v.highlight?1:0}">${v.highlight?'★':'☆'}</button></td>
@@ -261,7 +248,7 @@
       } catch(e) { console.error(e); }
     }
 
-    // ========== 加载共青团列表 ==========
+    // ========== 加载共青团 ==========
     async function loadGqtVideos() {
       try {
         const { data } = await supabase.from('videos').select('*').eq('category','gqt').order('created_at',{ascending:false});
@@ -271,16 +258,13 @@
           if (reached && !v.alert_enabled) { st = '✅已达标'; bc = 'badge-done'; }
           else if (reached) { st = '🔔达标'; bc = 'badge-error'; }
           return `<tr class="${reached?'done':''}"><td><input type="checkbox" value="${v.id}" class="gqt-check"></td>
-            <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank">${v.bvid}</a></td>
+            <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
             <td>${v.title||'获取中...'}</td><td>${v.up_name||'-'}</td>
             <td class="view-num">${formatView(v.view)}</td><td><span class="badge ${bc}">${st}</span></td>
             <td class="time-text">${formatTime(v.created_at)}</td></tr>`;
         }).join('') || '<tr><td colspan="7">暂无</td></tr>';
       } catch(e) { console.error(e); }
     }
-
-    // ========== 获取选中ID ==========
-    function getSelected() { return [...document.querySelectorAll('.video-check:checked')].map(c => parseInt(c.value)); }
 
     // ========== 添加视频 ==========
     async function addVideos() {
@@ -295,8 +279,8 @@
         alert_only: ao, category: null, notify_interval: 1, window_start: 0, window_end: 24,
         alert_enabled: false, alert_milestone: null, alert_interval_minutes: 15,
         view: 0, title: '', up_name: '', push_enabled: false,
-        gap_alert_enabled: false, gap_alert_target_bvid: null, gap_alert_threshold: 0,
-        online_alert_enabled: false, online_alert_bvids: null, online_alert_condition: 'double', online_alert_threshold: 0
+        gap_alert_enabled: false, gap_alert_target_bvid: '[]', gap_alert_threshold: 0,
+        online_alert_enabled: false, online_alert_bvids: '[]', online_alert_condition: 'double', online_alert_threshold: 0
       }));
       const { data: newVids, error } = await supabase.from('videos').insert(entries).select();
       if (error) { alert('添加失败: '+error.message); return; }
@@ -307,18 +291,15 @@
           added_at: new Date().toISOString()
         })), {onConflict:'bvid'});
       }
-      alert(`已添加 ${bvs.length} 个视频`);
-      closeModal('addModal'); loadVideos();
+      alert(`已添加 ${bvs.length} 个视频`); closeModal('addModal'); loadVideos();
     }
 
     // ========== 推送 ==========
     async function pushSelected() {
-      const ids = getSelected();
-      if (!ids.length) return alert('请勾选');
+      const ids = getSelected(); if (!ids.length) return alert('请勾选');
       await supabase.from('push_requests').insert(ids.map(vid=>({action:'push',video_id:vid,status:'pending'})));
-      alert('已提交推送请求，后台将逐个推送');
+      alert('已提交推送请求');
     }
-
     async function pushAll() {
       const { data } = await supabase.from('videos').select('id').neq('category','gqt').eq('alert_only',false);
       if (!data?.length) return alert('无视频');
@@ -329,8 +310,7 @@
 
     // ========== 删除选中 ==========
     async function deleteSelected() {
-      const ids = getSelected();
-      if (!ids.length) return alert('请勾选');
+      const ids = getSelected(); if (!ids.length) return alert('请勾选');
       if (!confirm(`删除${ids.length}个视频？`)) return;
       const { data: toDel } = await supabase.from('videos').select('bvid').in('id', ids);
       const bvids = (toDel||[]).map(v=>v.bvid).filter(Boolean);
@@ -342,8 +322,7 @@
     // ========== 编辑视频 ==========
     let editingId = null;
     async function openEdit() {
-      const ids = getSelected();
-      if (ids.length !== 1) return alert('请选一个');
+      const ids = getSelected(); if (ids.length !== 1) return alert('请选一个');
       editingId = ids[0];
       const { data: v } = await supabase.from('videos').select('*').eq('id',editingId).single();
       if (!v) return alert('未找到');
@@ -362,14 +341,17 @@
       document.getElementById('editOnlineAlertEnabled').checked = v.online_alert_enabled||false;
       document.getElementById('editOnlineAlertCondition').value = v.online_alert_condition||'double';
       document.getElementById('editOnlineAlertThreshold').value = v.online_alert_threshold||'';
+
       // 填充组内其他稿件下拉框
-      const gn = v.group_name||'未分组';
-      const { data: groupVids } = await supabase.from('videos').select('bvid,title').neq('category','gqt');
-      const sameGroup = (groupVids||[]).filter(x => (x.group_name||'未分组')===gn && x.bvid!==v.bvid);
-      const opts = sameGroup.map(x => `<option value="${x.bvid}">${x.bvid} ${x.title||''}</option>`).join('');
-      document.getElementById('editGapTargetBvids').innerHTML = opts;
-      document.getElementById('editOnlineAlertBvids').innerHTML = opts;
-      // 选中已有值
+      const gn = (v.group_name || '未分组').trim();
+      const { data: allVids } = await supabase.from('videos').select('bvid,title,group_name').neq('category','gqt');
+      const sameGroup = (allVids||[]).filter(x => (x.group_name||'未分组').trim() === gn && x.bvid !== v.bvid);
+
+      let gapOpts = '<option value="">-- 无 --</option>';
+      sameGroup.forEach(x => gapOpts += `<option value="${x.bvid}">${x.bvid} - ${x.title||'获取中...'}</option>`);
+      document.getElementById('editGapTargetBvids').innerHTML = gapOpts;
+      document.getElementById('editOnlineAlertBvids').innerHTML = gapOpts;
+
       try {
         const gapBvids = JSON.parse(v.gap_alert_target_bvid||'[]');
         const onlineBvids = JSON.parse(v.online_alert_bvids||'[]');
@@ -381,9 +363,9 @@
 
     async function saveEdit() {
       if (!editingId) return;
-      const gapBvids = [...document.getElementById('editGapTargetBvids').selectedOptions].map(o=>o.value);
-      const onlineBvids = [...document.getElementById('editOnlineAlertBvids').selectedOptions].map(o=>o.value);
-      const upd = {
+      const gapBvids = [...document.getElementById('editGapTargetBvids').selectedOptions].map(o=>o.value).filter(Boolean);
+      const onlineBvids = [...document.getElementById('editOnlineAlertBvids').selectedOptions].map(o=>o.value).filter(Boolean);
+      await supabase.from('videos').update({
         cid: document.getElementById('editCid').value,
         start_time: document.getElementById('editStartTime').value,
         current_hour: parseInt(document.getElementById('editCurrentHour').value)||0,
@@ -401,33 +383,25 @@
         online_alert_bvids: JSON.stringify(onlineBvids),
         online_alert_condition: document.getElementById('editOnlineAlertCondition').value,
         online_alert_threshold: parseInt(document.getElementById('editOnlineAlertThreshold').value)||0,
-      };
-      await supabase.from('videos').update(upd).eq('id', editingId);
+      }).eq('id', editingId);
       alert('已更新'); closeModal('editModal'); loadVideos();
     }
 
     // ========== 查看历史 ==========
     async function viewHistory() {
-      const ids = getSelected();
-      if (ids.length !== 1) return alert('请选一个');
+      const ids = getSelected(); if (ids.length !== 1) return alert('请选一个');
       const { data } = await supabase.from('history').select('*').eq('video_id',ids[0]).order('hour',{ascending:true});
       if (!data?.length) return alert('暂无');
       document.getElementById('historyText').value = data.map(r=>`${r.hour}h  播放:${formatView(r.view)}  在线:${r.online_total}`).join('\n');
       document.getElementById('historyModal').style.display = 'block';
     }
 
-    // ========== 刷新列表 ==========
     async function refreshList() {
       await supabase.from('push_requests').insert([{action:'refresh_stats',video_id:0,status:'pending'}]);
-      alert('刷新请求已发送，稍后更新');
-      setTimeout(loadVideos, 10000);
+      alert('刷新请求已发送'); setTimeout(loadVideos, 10000);
     }
 
-    // ========== 突出显示 ==========
-    async function toggleHighlight(id, cur) {
-      await supabase.from('videos').update({highlight:!cur}).eq('id',id);
-      loadVideos();
-    }
+    async function toggleHighlight(id, cur) { await supabase.from('videos').update({highlight:!cur}).eq('id',id); loadVideos(); }
 
     // ========== 共青团操作 ==========
     async function addGqt() {
@@ -444,14 +418,12 @@
     }
     async function refreshGqt() {
       await supabase.from('push_requests').insert([{action:'gqt_refresh',video_id:0,status:'pending'}]);
-      alert('已发送');
-      setTimeout(loadGqtVideos, 5000);
+      alert('已发送'); setTimeout(loadGqtVideos, 5000);
     }
     async function deleteGqt() {
       const ids = [...document.querySelectorAll('.gqt-check:checked')].map(c=>parseInt(c.value));
       if (!ids.length) return alert('请勾选');
-      await supabase.from('videos').delete().in('id',ids);
-      loadGqtVideos();
+      await supabase.from('videos').delete().in('id',ids); loadGqtVideos();
     }
 
     // ========== 日志 ==========
@@ -460,8 +432,8 @@
         const { data } = await supabase.from('monitor_logs').select('*').order('created_at',{ascending:false}).limit(50);
         if (data?.length) {
           document.getElementById('log-tbody').innerHTML = data.map(r => {
-            const lc = r.level==='ERROR'?'log-level-ERROR':r.level==='WARNING'?'log-level-WARNING':'log-level-INFO';
-            return `<tr><td class="time-text">${formatTime(r.created_at)}</td><td>${r.action||'-'}</td><td class="${lc}">${r.level}</td><td>${r.message||''}</td><td><button class="danger" onclick="this.closest('tr').remove();supabase.from('monitor_logs').delete().eq('id',${r.id})" style="font-size:11px;padding:2px 6px;">删</button></td></tr>`;
+            const lc = r.level==='ERROR'?'log-level-ERROR':r.level==='WARNING'?'':'log-level-INFO';
+            return `<tr><td class="time-text">${formatTime(r.created_at)}</td><td>${r.action||'-'}</td><td class="${lc}">${r.level}</td><td>${r.message||''}</td><td><button class="danger" style="font-size:11px;padding:2px 6px;">删</button></td></tr>`;
           }).join('');
           return;
         }
@@ -478,9 +450,13 @@
     let editingGroup = null;
     async function openGroupEdit(gn) {
       editingGroup = gn;
-      const { data } = await supabase.from('videos').select('*').neq('category','gqt');
-      const gv = (data||[]).filter(v=>(v.group_name||'未分组')===gn);
-      if (!gv.length) return alert('无视频');
+      const { data } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
+      const gv = (data||[]).filter(v => (v.group_name || '未分组').trim() === gn.trim());
+      if (!gv.length) {
+        const allGroups = [...new Set((data||[]).map(v=>v.group_name||'未分组'))];
+        alert(`未找到组"${gn}"的视频。\n数据库中的组名: ${allGroups.join(', ')}`);
+        return;
+      }
       const f = gv[0];
       document.getElementById('grpGroupName').value = gn;
       document.getElementById('grpStartTime').value = f.start_time||'';
@@ -493,17 +469,15 @@
     }
     async function saveGroupEdit() {
       if (!editingGroup) return;
-      const upd = {
+      await supabase.from('videos').update({
         start_time: document.getElementById('grpStartTime').value,
         monitor_hours: parseInt(document.getElementById('grpMonitorHours').value)||48,
         notify_interval: parseFloat(document.getElementById('grpNotifyInterval').value)||1,
         window_start: parseInt(document.getElementById('grpWinStart').value)||0,
         window_end: parseInt(document.getElementById('grpWinEnd').value)||24,
         push_enabled: document.getElementById('grpPushEnabled').checked,
-      };
-      await supabase.from('videos').update(upd).eq('group_name',editingGroup).neq('category','gqt');
-      alert('已更新整组');
-      closeModal('groupEditModal'); loadVideos();
+      }).eq('group_name', editingGroup).neq('category','gqt');
+      alert('已更新整组'); closeModal('groupEditModal'); loadVideos();
     }
 
     // ========== 历史稿件查询 ==========
@@ -517,11 +491,16 @@
       if (mf) list = list.filter(r=>r.added_at&&r.added_at.startsWith(mf));
       if (kw) list = list.filter(r=>(r.bvid||''+r.title||''+r.up_name||''+r.group_name||'').toLowerCase().includes(kw));
       document.getElementById('mhCount').textContent = `共 ${list.length} 条`;
-      document.getElementById('mh-tbody').innerHTML = list.length ? list.map(r => `
-        <tr><td><a href="https://www.bilibili.com/video/${r.bvid}" target="_blank">${r.bvid}</a></td>
+      document.getElementById('mh-tbody').innerHTML = list.length ? list.map(r => {
+        let date = '', time = '';
+        if (r.added_at) {
+          try { const d = new Date(r.added_at); date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; } catch(e) {}
+        }
+        return `<tr><td><a href="https://www.bilibili.com/video/${r.bvid}" target="_blank" style="color:#2196F3">${r.bvid}</a></td>
         <td>${r.title||'-'}</td><td>${r.up_name||'-'}</td><td>${r.group_name||'-'}</td>
         <td>${r.status==='removed'?'<span class="badge badge-error">已删除</span>':'<span class="badge badge-done">在监控</span>'}</td>
-        <td class="time-text">${formatTime(r.added_at)}</td><td class="time-text">${formatTime(r.removed_at)}</td></tr>`).join('') : '<tr><td colspan="7">暂无</td></tr>';
+        <td>${date||'-'}</td><td>${time||'-'}</td></tr>`;
+      }).join('') : '<tr><td colspan="7">暂无</td></tr>';
     }
 
     function fillMonthOptions() {
@@ -530,8 +509,7 @@
       const now = new Date();
       for (let i = 0; i < 12; i++) {
         const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-        const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-        html += `<option value="${val}">${val}</option>`;
+        html += `<option value="${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}">${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}</option>`;
       }
       sel.innerHTML = html;
     }
@@ -545,19 +523,21 @@
       if (sf) list = list.filter(r=>(r.status||'active')===sf);
       if (mf) list = list.filter(r=>r.added_at&&r.added_at.startsWith(mf));
       if (kw) list = list.filter(r=>(r.bvid||''+r.title||''+r.up_name||''+r.group_name||'').toLowerCase().includes(kw));
-      let csv = '\uFEFFBV号,标题,UP主,组名,状态,加入时间,删除时间\n';
-      list.forEach(r => csv += `${r.bvid},${r.title||''},${r.up_name||''},${r.group_name||''},${r.status||'active'},${r.added_at||''},${r.removed_at||''}\n`);
+      let csv = '\uFEFFBV号,标题,UP主,组名,状态,日期,时间\n';
+      list.forEach(r => {
+        let date = '', time = '';
+        if (r.added_at) {
+          try { const d = new Date(r.added_at); date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`; } catch(e) {}
+        }
+        csv += `${r.bvid},${(r.title||'').replace(/,/g,'，')},${(r.up_name||'').replace(/,/g,'，')},${(r.group_name||'').replace(/,/g,'，')},${r.status||'active'},${date},${time}\n`;
+      });
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `稿件历史_${new Date().toISOString().slice(0,10)}.csv`;
-      a.click();
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `稿件历史_${new Date().toISOString().slice(0,10)}.csv`; a.click();
     }
 
     // ========== 事件绑定 ==========
     document.getElementById('btn-add').onclick = () => {
       document.getElementById('addModal').style.display = 'block';
-      // 填充已有组名
       supabase.from('videos').select('group_name').neq('category','gqt').then(({data}) => {
         const names = [...new Set((data||[]).map(v=>v.group_name).filter(Boolean))];
         document.getElementById('groupList').innerHTML = names.map(n=>`<option value="${n}">`).join('');
@@ -602,12 +582,10 @@
     document.getElementById('mhStatus').onchange = loadManuscriptHistory;
     document.getElementById('mhMonth').onchange = loadManuscriptHistory;
 
-    // ========== 自动刷新 ==========
     setInterval(loadVideos, 300000);
     setInterval(loadGqtVideos, 300000);
     setInterval(loadLogs, 30000);
 
-    // ========== 初始化 ==========
     loadVideos();
     loadGqtVideos();
     loadLogs();
