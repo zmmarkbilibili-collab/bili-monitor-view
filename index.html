@@ -444,43 +444,60 @@
     let editingGroup = null;
     async function openGroupEdit(gn) {
       editingGroup = gn;
+      console.log('点击编辑整组, 传入组名:', JSON.stringify(gn));
+      
       const { data } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
-      const gv = (data||[]).filter(v => (v.group_name || '未分组').trim() === gn.trim());
+      const allVids = data || [];
+      
+      const gv = allVids.filter(v => {
+        const vg = (v.group_name || '未分组');
+        return vg === gn || vg.trim() === gn.trim() || vg.includes(gn) || gn.includes(vg);
+      }).filter(v => v.category !== 'gqt');
+      
+      console.log('匹配到的视频:', gv.length, '个');
+      
       if (!gv.length) {
-        const allGroups = [...new Set((data||[]).map(v=>v.group_name||'未分组'))];
-        alert(`未找到组"${gn}"的视频。\n数据库中的组名: ${allGroups.join(', ')}`);
+        const allGroups = [...new Set(allVids.filter(v => v.category !== 'gqt').map(v => v.group_name || '未分组'))];
+        alert(`未找到组"${gn}"的视频。\n\n数据库中所有组名: ${allGroups.join(', ')}`);
         return;
       }
+      
       const f = gv[0];
       document.getElementById('grpGroupName').value = gn;
-      document.getElementById('grpStartTime').value = f.start_time||'';
-      document.getElementById('grpMonitorHours').value = f.monitor_hours||48;
-      document.getElementById('grpNotifyInterval').value = f.notify_interval||1;
-      document.getElementById('grpWinStart').value = f.window_start||0;
-      document.getElementById('grpWinEnd').value = f.window_end||24;
-      document.getElementById('grpPushEnabled').checked = f.push_enabled||false;
+      document.getElementById('grpStartTime').value = f.start_time || '';
+      document.getElementById('grpMonitorHours').value = f.monitor_hours || 48;
+      document.getElementById('grpNotifyInterval').value = f.notify_interval || 1;
+      document.getElementById('grpWinStart').value = f.window_start || 0;
+      document.getElementById('grpWinEnd').value = f.window_end || 24;
+      document.getElementById('grpPushEnabled').checked = f.push_enabled || false;
       document.getElementById('groupEditModal').style.display = 'block';
     }
+
     async function saveGroupEdit() {
       if (!editingGroup) return;
       
-      const { data: allVids } = await supabase.from('videos').select('id,group_name').neq('category','gqt');
-      const ids = (allVids||[]).filter(v => (v.group_name||'未分组').trim() === editingGroup.trim()).map(v=>v.id);
+      const { data: allVids } = await supabase.from('videos').select('*').neq('category', 'gqt');
+      const ids = (allVids || []).filter(v => {
+        const vg = (v.group_name || '未分组');
+        return vg === editingGroup || vg.trim() === editingGroup.trim() || vg.includes(editingGroup) || editingGroup.includes(vg);
+      }).map(v => v.id);
       
-      console.log('编辑整组:', editingGroup, '匹配到ids:', ids);
+      console.log('保存整组, 组名:', JSON.stringify(editingGroup), '匹配到ids:', ids);
       
-      if (!ids.length) { alert('未找到该组视频，请刷新页面后重试'); return; }
+      if (!ids.length) {
+        const allGroups = [...new Set((allVids || []).map(v => v.group_name || '未分组'))];
+        alert(`未找到组"${editingGroup}"的视频。\n数据库中所有组名: ${allGroups.join(', ')}`);
+        return;
+      }
       
       const upd = {
         start_time: document.getElementById('grpStartTime').value,
-        monitor_hours: parseInt(document.getElementById('grpMonitorHours').value)||48,
-        notify_interval: parseFloat(document.getElementById('grpNotifyInterval').value)||1,
-        window_start: parseInt(document.getElementById('grpWinStart').value)||0,
-        window_end: parseInt(document.getElementById('grpWinEnd').value)||24,
+        monitor_hours: parseInt(document.getElementById('grpMonitorHours').value) || 48,
+        notify_interval: parseFloat(document.getElementById('grpNotifyInterval').value) || 1,
+        window_start: parseInt(document.getElementById('grpWinStart').value) || 0,
+        window_end: parseInt(document.getElementById('grpWinEnd').value) || 24,
         push_enabled: document.getElementById('grpPushEnabled').checked,
       };
-      
-      console.log('更新数据:', upd);
       
       let successCount = 0;
       for (const id of ids) {
@@ -489,12 +506,7 @@
         else { successCount++; }
       }
       
-      if (successCount > 0) {
-        alert(`已更新 ${successCount}/${ids.length} 个视频`);
-      } else {
-        alert('保存失败，请检查F12控制台日志');
-      }
-      
+      alert(`已更新 ${successCount}/${ids.length} 个视频`);
       closeModal('groupEditModal');
       loadVideos();
     }
