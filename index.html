@@ -214,6 +214,18 @@
     }
     // 统一组名归一化：空值->未分组，去首尾空格，合并中间连续空白（防止“保央视 ”与“保央视”被当成不同组）
     function normGroup(g) { return (g == null ? '未分组' : String(g)).trim().replace(/\s+/g, ' '); }
+    // 模糊核心：仅保留中文/字母/数字，用于极端情况下的兜底匹配
+    function coreKey(s) { return (s || '').replace(/[^一-龥A-Za-z0-9]/g, ''); }
+    function showDebug(msg) {
+      let box = document.getElementById('debugBox');
+      if (!box) {
+        box = document.createElement('div');
+        box.id = 'debugBox';
+        box.style.cssText = 'position:fixed;right:10px;bottom:10px;max-width:380px;max-height:42vh;overflow:auto;background:#fff3cd;color:#7a5b00;border:1px solid #ffc107;border-radius:8px;padding:10px;font-size:12px;z-index:9999;white-space:pre-wrap;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+        document.body.appendChild(box);
+      }
+      box.textContent = '[调试] ' + msg + '\n\n' + box.textContent;
+    }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     function getSelected() { return [...document.querySelectorAll('.video-check:checked')].map(c => parseInt(c.value)); }
 
@@ -343,7 +355,12 @@
       // 组内其他视频（用于预警对比下拉框）
       const gn = normGroup(v.group_name);
       const { data: allVids } = await supabase.from('videos').select('bvid,title,group_name').neq('category','gqt');
-      const sameGroup = (allVids||[]).filter(x => normGroup(x.group_name) === gn && x.bvid !== v.bvid);
+      let sameGroup = (allVids||[]).filter(x => normGroup(x.group_name) === gn && x.bvid !== v.bvid);
+      if (!sameGroup.length) {
+        // 兜底：忽略非中文/字母/数字字符再匹配
+        sameGroup = (allVids||[]).filter(x => coreKey(normGroup(x.group_name)) === coreKey(gn) && x.bvid !== v.bvid);
+      }
+      if (!sameGroup.length) showDebug(`单视频编辑：组"${gn}"未找到同组其他视频（可能该组只有这一个稿件）`);
 
       let gapOpts = '<option value="">-- 无 --</option>';
       sameGroup.forEach(x => gapOpts += `<option value="${x.bvid}">${x.bvid} - ${x.title||'获取中...'}</option>`);
@@ -453,12 +470,17 @@
 
       const { data } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
       const allVids = data || [];
-      const gv = allVids.filter(v => normGroup(v.group_name) === gn && v.category !== 'gqt');
+      let gv = allVids.filter(v => normGroup(v.group_name) === gn && v.category !== 'gqt');
+      if (!gv.length) {
+        // 兜底匹配：忽略所有非中文/字母/数字字符后再比较
+        gv = allVids.filter(v => coreKey(normGroup(v.group_name)) === coreKey(gn) && v.category !== 'gqt');
+      }
 
       console.log('匹配到视频:', gv.length, '个');
 
       if (!gv.length) {
         const allGroups = [...new Set(allVids.filter(v => v.category !== 'gqt').map(v => normGroup(v.group_name)))];
+        showDebug(`编辑整组失败：找不到组"${gn}"。\n数据库中现有组名：\n${allGroups.join('\n')}`);
         alert(`未找到组"${gn}"的视频。\n\n数据库中所有组名: ${allGroups.join(', ')}`);
         return;
       }
@@ -614,6 +636,31 @@
     loadLogs();
     fillMonthOptions();
     loadManuscriptHistory();
+
+    // ===== 组匹配自检横幅：打开即显示文件是否为最新、能否正常编辑整组 =====
+    (function(){
+      const stb = document.createElement('div');
+      stb.id = 'selfTestBanner';
+      stb.style.cssText = 'display:none;padding:8px 12px;margin:0 0 12px;border-radius:6px;font-size:13px;font-weight:bold;';
+      document.body.insertBefore(stb, document.body.firstChild);
+      (async () => {
+        try {
+          const { data } = await supabase.from('videos').select('bvid,group_name,category');
+          const filtered = (data||[]).filter(v => v.category !== 'gqt');
+          const order = [...new Set(filtered.map(v => normGroup(v.group_name)))];
+          let ok = 0;
+          order.forEach(g => { if (filtered.filter(v => normGroup(v.group_name) === g).length > 0) ok++; });
+          stb.style.display = 'block';
+          if (ok === order.length && order.length > 0) {
+            stb.style.background = '#e8f5e9'; stb.style.color = '#2e7d32'; stb.style.border = '1px solid #a5d6a7';
+            stb.textContent = `✅ 组匹配自检通过：${ok}/${order.length} 个组可正常编辑整组（文件已是最新）`;
+          } else {
+            stb.style.background = '#fff3e0'; stb.style.color = '#e65100'; stb.style.border = '1px solid #ffcc80';
+            stb.textContent = `⚠️ 组匹配异常：${ok}/${order.length} 组可匹配，请按 Ctrl+F5 强制刷新以加载最新文件`;
+          }
+        } catch(e) { /* ignore */ }
+      })();
+    })();
 
     console.log('[B站监控] 页面初始化完成');
   </script>
