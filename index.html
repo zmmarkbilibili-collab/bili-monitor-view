@@ -154,10 +154,16 @@
       <div class="form-row"><label>对比稿件:</label><select id="editGapTargetBvids" style="width:280px;"><option value="">-- 无 --</option></select></div>
       <div class="form-row"><label>差距阈值:</label><input id="editGapThreshold" type="number" placeholder="播放量差距在此值内时提醒"></div>
       <hr>
-      <h4>📈 在线人数差距预警</h4>
+      <h4>📈 在线人数预警</h4>
       <div class="form-row"><label>启用在线预警:</label><input type="checkbox" id="editOnlineAlertEnabled"></div>
       <div class="form-row"><label>对比稿件:</label><select id="editOnlineAlertBvids" style="width:280px;"><option value="">-- 无 --</option></select></div>
-      <div class="form-row"><label>差距阈值:</label><input id="editOnlineAlertThreshold" type="number" placeholder="在线人数差距在此值内时提醒"></div>
+      <div class="form-row"><label>条件:</label>
+        <select id="editOnlineAlertCondition" style="width:200px;">
+          <option value="double">在线人数超半小时前1倍</option>
+          <option value="threshold">在线人数超过指定值</option>
+        </select>
+      </div>
+      <div class="form-row"><label>超过阈值:</label><input id="editOnlineAlertThreshold" type="number" placeholder="如 1000"></div>
       <button id="btn-submit-edit">保存</button>
       <button id="btn-cancel-edit" class="danger">取消</button>
     </div>
@@ -452,6 +458,7 @@
       document.getElementById('editGapAlertEnabled').checked = v.gap_alert_enabled||false;
       document.getElementById('editGapThreshold').value = v.gap_alert_threshold||'';
       document.getElementById('editOnlineAlertEnabled').checked = v.online_alert_enabled||false;
+      document.getElementById('editOnlineAlertCondition').value = v.online_alert_condition||'double';
       document.getElementById('editOnlineAlertThreshold').value = v.online_alert_threshold||'';
 
       // 组内其他视频（用于预警对比下拉框）—— 优先用渲染时缓存的ID映射
@@ -505,6 +512,7 @@
         gap_alert_threshold: parseInt(document.getElementById('editGapThreshold').value)||0,
         online_alert_enabled: document.getElementById('editOnlineAlertEnabled').checked,
         online_alert_bvids: onlineVal ? JSON.stringify([onlineVal]) : '[]',
+        online_alert_condition: document.getElementById('editOnlineAlertCondition').value,
         online_alert_threshold: parseInt(document.getElementById('editOnlineAlertThreshold').value)||0,
       }).eq('id', editingId);
       if (error) { alert('保存失败: '+error.message); return; }
