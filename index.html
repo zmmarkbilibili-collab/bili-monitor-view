@@ -225,7 +225,7 @@
         order.forEach(g => {
           const vids = groups[g];
           vids.sort((a,b) => { const ah = a.highlight?1:0, bh = b.highlight?1:0; if(ah!==bh) return bh-ah; return (Number(b.view)||0)-(Number(a.view)||0); });
-          html += `<tr class="group-header"><td colspan="13">📁 ${g} (${vids.length}个) <button class="group-edit-btn" data-group="${g}" style="float:right;padding:3px 12px;font-size:12px;">编辑整组</button></td></tr>`;
+          html += `<tr class="group-header"><td colspan="13">📁 ${g} (${vids.length}个) <button class="group-edit-btn" data-group="${encodeURIComponent(g)}" style="float:right;padding:3px 12px;font-size:12px;">编辑整组</button></td></tr>`;
           vids.forEach(v => {
             const h = v.current_hour ?? 0;
             const p = Math.min(h/48*100, 100);
@@ -443,21 +443,23 @@
 
     let editingGroup = null;
     async function openGroupEdit(gn) {
+      gn = decodeURIComponent(gn);
       editingGroup = gn;
-      console.log('点击编辑整组, 传入组名:', JSON.stringify(gn));
+      console.log('编辑整组, 组名:', JSON.stringify(gn));
       
       const { data } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
       const allVids = data || [];
+      const allGroups = [...new Set(allVids.filter(v => v.category !== 'gqt').map(v => v.group_name || '未分组'))];
+      console.log('数据库中所有组名:', allGroups.map(g => JSON.stringify(g)));
       
       const gv = allVids.filter(v => {
         const vg = (v.group_name || '未分组');
-        return vg === gn || vg.trim() === gn.trim() || vg.includes(gn) || gn.includes(vg);
+        return vg === gn || vg.trim() === gn.trim();
       }).filter(v => v.category !== 'gqt');
       
-      console.log('匹配到的视频:', gv.length, '个');
+      console.log('匹配到视频:', gv.length, '个');
       
       if (!gv.length) {
-        const allGroups = [...new Set(allVids.filter(v => v.category !== 'gqt').map(v => v.group_name || '未分组'))];
         alert(`未找到组"${gn}"的视频。\n\n数据库中所有组名: ${allGroups.join(', ')}`);
         return;
       }
@@ -479,16 +481,12 @@
       const { data: allVids } = await supabase.from('videos').select('*').neq('category', 'gqt');
       const ids = (allVids || []).filter(v => {
         const vg = (v.group_name || '未分组');
-        return vg === editingGroup || vg.trim() === editingGroup.trim() || vg.includes(editingGroup) || editingGroup.includes(vg);
+        return vg === editingGroup || vg.trim() === editingGroup.trim();
       }).map(v => v.id);
       
-      console.log('保存整组, 组名:', JSON.stringify(editingGroup), '匹配到ids:', ids);
+      console.log('保存整组, ids:', ids);
       
-      if (!ids.length) {
-        const allGroups = [...new Set((allVids || []).map(v => v.group_name || '未分组'))];
-        alert(`未找到组"${editingGroup}"的视频。\n数据库中所有组名: ${allGroups.join(', ')}`);
-        return;
-      }
+      if (!ids.length) { alert('未找到视频'); return; }
       
       const upd = {
         start_time: document.getElementById('grpStartTime').value,
