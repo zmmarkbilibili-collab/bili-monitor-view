@@ -217,13 +217,18 @@
     </div>
   </div>
 
+  <!-- 机器名/管理员配置由 bili_monitor_web.py 启动时写入（file:// 直接打开也能用） -->
+  <script src="panel_config.js"></script>
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
     const supabase = createClient('https://erzjcvsbrkmukswkqfss.supabase.co', 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g');
 
     // ===== 本机身份与权限配置（按需修改）=====
-    const MACHINE_NAME = '1';                 // 本机名称，会写入本机操作日志，例如 "1"
-    const ADMIN_MACHINES = ['1'];             // 拥有“彻底删除”权限的机器名列表
+    // 机器名/管理员配置由 bili_monitor_web.py 写入 panel_config.js 提供（py 是唯一维护处）。
+    // 若 py 未运行导致该文件缺失，则回退到下面的默认值，保证网页仍可打开。
+    const _CFG = (typeof window.BILI_PANEL_CONFIG !== 'undefined') ? window.BILI_PANEL_CONFIG : null;
+    const MACHINE_NAME = (_CFG && _CFG.MACHINE_NAME) ? _CFG.MACHINE_NAME : '未命名';
+    const ADMIN_MACHINES = (_CFG && Array.isArray(_CFG.ADMIN_MACHINES)) ? _CFG.ADMIN_MACHINES : [];
     const IS_ADMIN = ADMIN_MACHINES.includes(MACHINE_NAME);
 
     function formatLocalDateTime(d) {
