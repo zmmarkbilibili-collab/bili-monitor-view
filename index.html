@@ -212,6 +212,8 @@
       try { const d = new Date(iso); return `${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
       catch { return iso; }
     }
+    // 统一组名归一化：空值->未分组，去首尾空格，合并中间连续空白（防止“保央视 ”与“保央视”被当成不同组）
+    function normGroup(g) { return (g == null ? '未分组' : String(g)).trim().replace(/\s+/g, ' '); }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     function getSelected() { return [...document.querySelectorAll('.video-check:checked')].map(c => parseInt(c.value)); }
 
@@ -220,7 +222,7 @@
         const { data } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
         const filtered = (data||[]).filter(v => v.category !== 'gqt');
         const groups = {}; const order = [];
-        filtered.forEach(v => { const g = v.group_name || '未分组'; if (!groups[g]) { groups[g] = []; order.push(g); } groups[g].push(v); });
+        filtered.forEach(v => { const g = normGroup(v.group_name); if (!groups[g]) { groups[g] = []; order.push(g); } groups[g].push(v); });
         let html = '';
         order.forEach(g => {
           const vids = groups[g];
@@ -338,9 +340,10 @@
       document.getElementById('editOnlineAlertCondition').value = v.online_alert_condition||'double';
       document.getElementById('editOnlineAlertThreshold').value = v.online_alert_threshold||'';
 
-      const gn = (v.group_name || '未分组').trim();
+      // 组内其他视频（用于预警对比下拉框）
+      const gn = normGroup(v.group_name);
       const { data: allVids } = await supabase.from('videos').select('bvid,title,group_name').neq('category','gqt');
-      const sameGroup = (allVids||[]).filter(x => (x.group_name||'未分组').trim() === gn && x.bvid !== v.bvid);
+      const sameGroup = (allVids||[]).filter(x => normGroup(x.group_name) === gn && x.bvid !== v.bvid);
 
       let gapOpts = '<option value="">-- 无 --</option>';
       sameGroup.forEach(x => gapOpts += `<option value="${x.bvid}">${x.bvid} - ${x.title||'获取中...'}</option>`);
@@ -443,27 +446,23 @@
 
     let editingGroup = null;
     async function openGroupEdit(gn) {
-      gn = decodeURIComponent(gn);
+      gn = normGroup(decodeURIComponent(gn || ''));
+      if (!gn) return alert('组名为空');
       editingGroup = gn;
       console.log('编辑整组, 组名:', JSON.stringify(gn));
-      
+
       const { data } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
       const allVids = data || [];
-      const allGroups = [...new Set(allVids.filter(v => v.category !== 'gqt').map(v => v.group_name || '未分组'))];
-      console.log('数据库中所有组名:', allGroups.map(g => JSON.stringify(g)));
-      
-      const gv = allVids.filter(v => {
-        const vg = (v.group_name || '未分组');
-        return vg === gn || vg.trim() === gn.trim();
-      }).filter(v => v.category !== 'gqt');
-      
+      const gv = allVids.filter(v => normGroup(v.group_name) === gn && v.category !== 'gqt');
+
       console.log('匹配到视频:', gv.length, '个');
-      
+
       if (!gv.length) {
+        const allGroups = [...new Set(allVids.filter(v => v.category !== 'gqt').map(v => normGroup(v.group_name)))];
         alert(`未找到组"${gn}"的视频。\n\n数据库中所有组名: ${allGroups.join(', ')}`);
         return;
       }
-      
+
       const f = gv[0];
       document.getElementById('grpGroupName').value = gn;
       document.getElementById('grpStartTime').value = f.start_time || '';
@@ -477,17 +476,14 @@
 
     async function saveGroupEdit() {
       if (!editingGroup) return;
-      
+
       const { data: allVids } = await supabase.from('videos').select('*').neq('category', 'gqt');
-      const ids = (allVids || []).filter(v => {
-        const vg = (v.group_name || '未分组');
-        return vg === editingGroup || vg.trim() === editingGroup.trim();
-      }).map(v => v.id);
-      
+      const ids = (allVids || []).filter(v => normGroup(v.group_name) === editingGroup).map(v => v.id);
+
       console.log('保存整组, ids:', ids);
-      
+
       if (!ids.length) { alert('未找到视频'); return; }
-      
+
       const upd = {
         start_time: document.getElementById('grpStartTime').value,
         monitor_hours: parseInt(document.getElementById('grpMonitorHours').value) || 48,
@@ -496,14 +492,14 @@
         window_end: parseInt(document.getElementById('grpWinEnd').value) || 24,
         push_enabled: document.getElementById('grpPushEnabled').checked,
       };
-      
+
       let successCount = 0;
       for (const id of ids) {
         const { error } = await supabase.from('videos').update(upd).eq('id', id);
         if (error) { console.error('更新视频', id, '失败:', error); }
         else { successCount++; }
       }
-      
+
       alert(`已更新 ${successCount}/${ids.length} 个视频`);
       closeModal('groupEditModal');
       loadVideos();
@@ -517,7 +513,7 @@
       let list = data||[];
       if (sf) list = list.filter(r=>(r.status||'active')===sf);
       if (mf) list = list.filter(r=>r.added_at&&r.added_at.startsWith(mf));
-      if (kw) list = list.filter(r=>(r.bvid||''+r.title||''+r.up_name||''+r.group_name||'').toLowerCase().includes(kw));
+      if (kw) { const hay = r => ((r.bvid||'')+(r.title||'')+(r.up_name||'')+(r.group_name||'')).toLowerCase(); list = list.filter(r => hay(r).includes(kw)); }
       document.getElementById('mhCount').textContent = `共 ${list.length} 条`;
       document.getElementById('mh-tbody').innerHTML = list.length ? list.map(r => {
         let date = '', time = '';
@@ -550,7 +546,7 @@
       let list = data||[];
       if (sf) list = list.filter(r=>(r.status||'active')===sf);
       if (mf) list = list.filter(r=>r.added_at&&r.added_at.startsWith(mf));
-      if (kw) list = list.filter(r=>(r.bvid||''+r.title||''+r.up_name||''+r.group_name||'').toLowerCase().includes(kw));
+      if (kw) { const hay = r => ((r.bvid||'')+(r.title||'')+(r.up_name||'')+(r.group_name||'')).toLowerCase(); list = list.filter(r => hay(r).includes(kw)); }
       let csv = '\uFEFFBV号,标题,UP主,组名,状态,日期,时间\n';
       list.forEach(r => {
         let date = '', time = '';
