@@ -234,7 +234,8 @@
         const { data } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
         const filtered = (data||[]).filter(v => v.category !== 'gqt');
         const groups = {}; const order = [];
-        filtered.forEach(v => { const g = normGroup(v.group_name); if (!groups[g]) { groups[g] = []; order.push(g); } groups[g].push(v); });
+        groupVideoIds = {};
+        filtered.forEach(v => { const g = normGroup(v.group_name); if (!groups[g]) { groups[g] = []; order.push(g); } groups[g].push(v); (groupVideoIds[g] = groupVideoIds[g] || []).push(v.id); });
         let html = '';
         order.forEach(g => {
           const vids = groups[g];
@@ -352,13 +353,18 @@
       document.getElementById('editOnlineAlertCondition').value = v.online_alert_condition||'double';
       document.getElementById('editOnlineAlertThreshold').value = v.online_alert_threshold||'';
 
-      // 组内其他视频（用于预警对比下拉框）
+      // 组内其他视频（用于预警对比下拉框）—— 优先用渲染时缓存的ID映射
       const gn = normGroup(v.group_name);
-      const { data: allVids } = await supabase.from('videos').select('bvid,title,group_name').neq('category','gqt');
-      let sameGroup = (allVids||[]).filter(x => normGroup(x.group_name) === gn && x.bvid !== v.bvid);
+      let sameGroup = [];
+      const cachedIds = (groupVideoIds[gn] || []).filter(id => id !== v.id);
+      if (cachedIds.length) {
+        const { data: rows } = await supabase.from('videos').select('bvid,title,group_name').in('id', cachedIds);
+        sameGroup = rows || [];
+      }
       if (!sameGroup.length) {
-        // 兜底：忽略非中文/字母/数字字符再匹配
-        sameGroup = (allVids||[]).filter(x => coreKey(normGroup(x.group_name)) === coreKey(gn) && x.bvid !== v.bvid);
+        const { data: allVids } = await supabase.from('videos').select('bvid,title,group_name').neq('category','gqt');
+        sameGroup = (allVids||[]).filter(x => normGroup(x.group_name) === gn && x.bvid !== v.bvid);
+        if (!sameGroup.length) sameGroup = (allVids||[]).filter(x => coreKey(normGroup(x.group_name)) === coreKey(gn) && x.bvid !== v.bvid);
       }
       if (!sameGroup.length) showDebug(`单视频编辑：组"${gn}"未找到同组其他视频（可能该组只有这一个稿件）`);
 
@@ -462,24 +468,33 @@
     }
 
     let editingGroup = null;
+    let groupVideoIds = {};
     async function openGroupEdit(gn) {
       gn = normGroup(decodeURIComponent(gn || ''));
       if (!gn) return alert('组名为空');
       editingGroup = gn;
-      console.log('编辑整组, 组名:', JSON.stringify(gn));
+      console.log('[编辑整组] 组名:', JSON.stringify(gn), ' 内存映射ID数:', (groupVideoIds[gn]||[]).length);
 
-      const { data } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
-      const allVids = data || [];
-      let gv = allVids.filter(v => normGroup(v.group_name) === gn && v.category !== 'gqt');
+      // 优先用渲染时缓存的视频ID（绝不依赖字符串匹配）
+      let ids = groupVideoIds[gn] || [];
+      let gv = [];
+      if (ids.length) {
+        const { data } = await supabase.from('videos').select('*').in('id', ids);
+        gv = data || [];
+      }
+      // 兜底：缓存为空时退回按组名查询
       if (!gv.length) {
-        // 兜底匹配：忽略所有非中文/字母/数字字符后再比较
-        gv = allVids.filter(v => coreKey(normGroup(v.group_name)) === coreKey(gn) && v.category !== 'gqt');
+        const { data } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
+        const allVids = data || [];
+        gv = allVids.filter(v => normGroup(v.group_name) === gn && v.category !== 'gqt');
+        if (!gv.length) gv = allVids.filter(v => coreKey(normGroup(v.group_name)) === coreKey(gn) && v.category !== 'gqt');
       }
 
-      console.log('匹配到视频:', gv.length, '个');
+      console.log('[编辑整组] 匹配到视频:', gv.length, '个');
 
       if (!gv.length) {
-        const allGroups = [...new Set(allVids.filter(v => v.category !== 'gqt').map(v => normGroup(v.group_name)))];
+        const { data: gdata } = await supabase.from('videos').select('group_name').neq('category','gqt');
+        const allGroups = [...new Set((gdata||[]).map(v => normGroup(v.group_name)))];
         showDebug(`编辑整组失败：找不到组"${gn}"。\n数据库中现有组名：\n${allGroups.join('\n')}`);
         alert(`未找到组"${gn}"的视频。\n\n数据库中所有组名: ${allGroups.join(', ')}`);
         return;
@@ -499,8 +514,11 @@
     async function saveGroupEdit() {
       if (!editingGroup) return;
 
-      const { data: allVids } = await supabase.from('videos').select('*').neq('category', 'gqt');
-      const ids = (allVids || []).filter(v => normGroup(v.group_name) === editingGroup).map(v => v.id);
+      const ids = groupVideoIds[editingGroup] || [];
+      if (!ids.length) {
+        const { data: allVids } = await supabase.from('videos').select('*').neq('category', 'gqt');
+        ids.push(...(allVids || []).filter(v => normGroup(v.group_name) === editingGroup).map(v => v.id));
+      }
 
       console.log('保存整组, ids:', ids);
 
@@ -645,18 +663,21 @@
       document.body.insertBefore(stb, document.body.firstChild);
       (async () => {
         try {
-          const { data } = await supabase.from('videos').select('bvid,group_name,category');
+          const { data } = await supabase.from('videos').select('bvid,group_name,category,id');
           const filtered = (data||[]).filter(v => v.category !== 'gqt');
           const order = [...new Set(filtered.map(v => normGroup(v.group_name)))];
+          // 用与渲染相同的逻辑重建映射，验证点按钮时能取到视频
+          const map = {};
+          filtered.forEach(v => { const g = normGroup(v.group_name); (map[g] = map[g]||[]).push(v.id); });
           let ok = 0;
-          order.forEach(g => { if (filtered.filter(v => normGroup(v.group_name) === g).length > 0) ok++; });
+          order.forEach(g => { if ((map[g]||[]).length > 0) ok++; });
           stb.style.display = 'block';
           if (ok === order.length && order.length > 0) {
             stb.style.background = '#e8f5e9'; stb.style.color = '#2e7d32'; stb.style.border = '1px solid #a5d6a7';
-            stb.textContent = `✅ 组匹配自检通过：${ok}/${order.length} 个组可正常编辑整组（文件已是最新）`;
+            stb.textContent = `✅ 已加载 ${order.length} 个组 / ${filtered.length} 个视频，编辑整组可用（点任意组的"编辑整组"试试）`;
           } else {
             stb.style.background = '#fff3e0'; stb.style.color = '#e65100'; stb.style.border = '1px solid #ffcc80';
-            stb.textContent = `⚠️ 组匹配异常：${ok}/${order.length} 组可匹配，请按 Ctrl+F5 强制刷新以加载最新文件`;
+            stb.textContent = `⚠️ 组加载异常：${ok}/${order.length} 组有视频，请按 Ctrl+F5 强制刷新`;
           }
         } catch(e) { /* ignore */ }
       })();
