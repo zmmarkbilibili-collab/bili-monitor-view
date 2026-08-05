@@ -48,7 +48,7 @@
 <body>
   <h1>B站视频监控管理</h1>
   <div style="margin:-6px 0 14px;font-size:13px;color:#555;">
-    🖥️ 本机：<b id="machineTag">?</b> <span id="adminTag"></span>
+    🖥️ 本机：<b id="machineTag">?</b> <span id="adminTag"></span> <button id="btn-rename" class="secondary" style="padding:2px 8px;font-size:12px;">✏️ 改名</button>
   </div>
 
   <div class="section">
@@ -225,11 +225,33 @@
 
     // ===== 本机身份与权限配置（按需修改）=====
     // 机器名/管理员配置由 bili_monitor_web.py 写入 panel_config.js 提供（py 是唯一维护处）。
-    // 若 py 未运行导致该文件缺失，则回退到下面的默认值，保证网页仍可打开。
+    // 配置优先级：网页 localStorage 自定义名 > py 生成的 panel_config.js > 默认值。
+    // 这样即使 panel_config.js 没加载成功，也能在网页上直接自定义（支持中文）。
+    const LS_NAME_KEY = 'bili_panel_machine_name';
+    const LS_ADMIN_KEY = 'bili_panel_is_admin';
     const _CFG = (typeof window.BILI_PANEL_CONFIG !== 'undefined') ? window.BILI_PANEL_CONFIG : null;
-    const MACHINE_NAME = (_CFG && _CFG.MACHINE_NAME) ? _CFG.MACHINE_NAME : '未命名';
-    const ADMIN_MACHINES = (_CFG && Array.isArray(_CFG.ADMIN_MACHINES)) ? _CFG.ADMIN_MACHINES : [];
-    const IS_ADMIN = ADMIN_MACHINES.includes(MACHINE_NAME);
+    const _PY_NAME = (_CFG && _CFG.MACHINE_NAME) ? _CFG.MACHINE_NAME : null;
+    const _PY_ADMIN_LIST = (_CFG && Array.isArray(_CFG.ADMIN_MACHINES)) ? _CFG.ADMIN_MACHINES : [];
+    const _PY_IS_ADMIN = _PY_NAME ? _PY_ADMIN_LIST.includes(_PY_NAME) : false;
+    const _LS_NAME = (localStorage.getItem(LS_NAME_KEY) || '').trim();
+    const MACHINE_NAME = _LS_NAME || _PY_NAME || '未命名';
+    // 管理员身份：py 识别出本机是管理员时记住它（存 localStorage），之后改名也不丢权限
+    let _isAdmin;
+    if (_PY_IS_ADMIN) { localStorage.setItem(LS_ADMIN_KEY, '1'); _isAdmin = true; }
+    else { _isAdmin = localStorage.getItem(LS_ADMIN_KEY) === '1'; }
+    const IS_ADMIN = _isAdmin;
+
+    function renameMachine() {
+      const cur = (MACHINE_NAME && MACHINE_NAME !== '未命名') ? MACHINE_NAME : '';
+      const name = prompt('设置本机名称（支持中文，将作为审计日志署名）：', cur);
+      if (name === null) return;
+      const n = name.trim();
+      if (!n) { alert('名称不能为空'); return; }
+      localStorage.setItem(LS_NAME_KEY, n);
+      if (IS_ADMIN) localStorage.setItem(LS_ADMIN_KEY, '1');
+      alert(`已设置本机名称为「${n}」，刷新后生效。`);
+      location.reload();
+    }
 
     function formatLocalDateTime(d) {
       d = d || new Date();
@@ -754,6 +776,7 @@
     document.getElementById('machineTag').textContent = MACHINE_NAME;
     document.getElementById('adminTag').textContent = IS_ADMIN ? '🛡️ 管理员（可彻底删除）' : '（普通用户）';
     document.getElementById('btn-hard-del').style.display = IS_ADMIN ? '' : 'none';
+    document.getElementById('btn-rename').onclick = renameMachine;
 
     // ===== 组匹配自检横幅：打开即显示文件是否为最新、能否正常编辑整组 =====
     (function(){
