@@ -47,6 +47,9 @@
 </head>
 <body>
   <h1>B站视频监控管理</h1>
+  <div style="margin:-6px 0 14px;font-size:13px;color:#555;">
+    🖥️ 本机：<b id="machineTag">?</b> <span id="adminTag"></span>
+  </div>
 
   <div class="section">
     <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
@@ -55,6 +58,7 @@
     <button id="btn-push-sel" class="secondary">手动推送选中</button>
     <button id="btn-push-all" class="secondary">一键推送全部</button>
     <button id="btn-del-sel" class="danger">删除选中</button>
+    <button id="btn-hard-del" class="danger">彻底删除选中</button>
     <button id="btn-edit">编辑选中</button>
     <button id="btn-history">查看历史</button>
     <button id="btn-refresh">刷新列表</button>
@@ -93,6 +97,7 @@
     <div class="toolbar" style="position:sticky;top:0;z-index:10;">
     <button id="btn-refresh-log">刷新日志</button>
     <button id="btn-clear-log" class="danger">清空日志</button>
+    <button id="btn-audit" class="secondary">📝 本机操作日志</button>
     </div>
     <table>
       <thead><tr><th style="width:150px">时间</th><th style="width:100px">类型</th><th style="width:70px">级别</th><th>详情</th><th style="width:70px">操作</th></tr></thead>
@@ -197,9 +202,29 @@
     </div>
   </div>
 
+  <div id="auditModal" class="modal">
+    <div class="modal-content">
+      <h3>📝 本机操作日志 <span style="font-size:12px;color:#888;">（仅存本机浏览器，不占网站空间）</span></h3>
+      <div style="margin-bottom:10px;">
+        <button id="btn-export-audit" class="secondary">📥 导出CSV</button>
+        <button id="btn-clear-audit" class="danger">清空本机日志</button>
+        <button id="btn-cancel-audit" class="danger">关闭</button>
+      </div>
+      <table>
+        <thead><tr><th style="width:150px">时间</th><th style="width:60px">机器</th><th style="width:120px">操作</th><th>详情</th></tr></thead>
+        <tbody id="audit-tbody"><tr><td colspan="4" style="text-align:center;color:#999;">加载中...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
     const supabase = createClient('https://erzjcvsbrkmukswkqfss.supabase.co', 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g');
+
+    // ===== 本机身份与权限配置（按需修改）=====
+    const MACHINE_NAME = '1';                 // 本机名称，会写入本机操作日志，例如 "1"
+    const ADMIN_MACHINES = ['1'];             // 拥有“彻底删除”权限的机器名列表
+    const IS_ADMIN = ADMIN_MACHINES.includes(MACHINE_NAME);
 
     function formatLocalDateTime(d) {
       d = d || new Date();
@@ -228,6 +253,38 @@
     }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     function getSelected() { return [...document.querySelectorAll('.video-check:checked')].map(c => parseInt(c.value)); }
+
+    // ===== 本机操作审计日志：仅存浏览器本地(localStorage)，不占用 Supabase 免费额度 =====
+    const AUDIT_KEY = 'bili_audit_log_v1';
+    function audit(action, detail) {
+      try {
+        const arr = JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]');
+        arr.push({ t: new Date().toISOString(), who: MACHINE_NAME, action, detail: detail || '' });
+        if (arr.length > 2000) arr.splice(0, arr.length - 2000);
+        localStorage.setItem(AUDIT_KEY, JSON.stringify(arr));
+      } catch (e) { /* localStorage 不可用时静默忽略 */ }
+    }
+    function auditRowsHtml() {
+      let arr = [];
+      try { arr = JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]'); } catch (e) {}
+      if (!arr.length) return '<tr><td colspan="4" style="text-align:center;color:#999">暂无本机操作记录</td></tr>';
+      return arr.slice().reverse().map(r =>
+        `<tr><td class="time-text">${formatTime(r.t)}</td><td><b>${r.who}</b></td><td>${r.action}</td><td>${(r.detail||'').replace(/</g,'&lt;')}</td></tr>`
+      ).join('');
+    }
+    function exportAudit() {
+      let arr = [];
+      try { arr = JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]'); } catch (e) {}
+      const lines = arr.map(r => `${r.t}\t${r.who}\t${r.action}\t${(r.detail||'').replace(/\t/g,' ')}`).join('\n');
+      const blob = new Blob(['﻿时间\t机器\t操作\t详情\n' + lines], {type:'text/csv;charset=utf-8'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `本机操作日志_${MACHINE_NAME}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+    }
+    function clearAudit() {
+      if (!confirm('清空本机操作日志？（仅清空本地记录，不影响网站数据）')) return;
+      localStorage.removeItem(AUDIT_KEY);
+      document.getElementById('audit-tbody').innerHTML = auditRowsHtml();
+    }
 
     async function loadVideos() {
       try {
@@ -305,12 +362,15 @@
           added_at: new Date().toISOString()
         })), {onConflict:'bvid'});
       }
-      alert(`已添加 ${bvs.length} 个视频`); closeModal('addModal'); loadVideos();
+      alert(`已添加 ${bvs.length} 个视频`);
+      audit('添加视频', `组=${gn||'(默认)'} BV=${bvs.join(', ')}`);
+      closeModal('addModal'); loadVideos();
     }
 
     async function pushSelected() {
       const ids = getSelected(); if (!ids.length) return alert('请勾选');
       await supabase.from('push_requests').insert(ids.map(vid=>({action:'push',video_id:vid,status:'pending'})));
+      audit('手动推送(选中)', `id=${ids.join(',')}`);
       alert('已提交推送请求');
     }
     async function pushAll() {
@@ -318,6 +378,7 @@
       if (!data?.length) return alert('无视频');
       if (!confirm(`推送全部${data.length}个？`)) return;
       await supabase.from('push_requests').insert(data.map(v=>({action:'push',video_id:v.id,status:'pending'})));
+      audit('一键推送全部', `共 ${data.length} 个`);
       alert('已提交');
     }
 
@@ -328,15 +389,35 @@
       const bvids = (toDel||[]).map(v=>v.bvid).filter(Boolean);
       if (bvids.length) await supabase.from('manuscript_history').update({status:'removed',removed_at:new Date().toISOString()}).in('bvid',bvids);
       await supabase.from('videos').delete().in('id', ids);
+      audit('删除视频', `id=${ids.join(',')} BV=${bvids.join(', ')}（网站记录标记为已移除）`);
       loadVideos();
     }
 
+    // 管理员：彻底删除——连 manuscript_history 记录一起清掉，网站不留任何痕迹
+    async function hardDeleteSelected() {
+      if (!IS_ADMIN) return alert('无权限：本机不是管理员，无法彻底删除');
+      const ids = getSelected(); if (!ids.length) return alert('请勾选');
+      if (!confirm(`[管理员] 彻底删除 ${ids.length} 个视频？\n将从网站完全移除，且不保留任何历史记录，不可恢复！`)) return;
+      const { data: toDel } = await supabase.from('videos').select('bvid').in('id', ids);
+      const bvids = (toDel||[]).map(v=>v.bvid).filter(Boolean);
+      if (bvids.length) {
+        await supabase.from('manuscript_history').delete().in('bvid', bvids);
+        await supabase.from('push_requests').delete().in('video_id', ids);
+      }
+      const { error } = await supabase.from('videos').delete().in('id', ids);
+      if (error) { alert('彻底删除失败: '+error.message); return; }
+      audit('彻底删除(管理员)', `id=${ids.join(',')} BV=${bvids.join(', ')}（已从网站完全清除）`);
+      alert(`已彻底删除 ${ids.length} 个视频（网站不留记录）`); loadVideos();
+    }
+
     let editingId = null;
+    let editingBvid = null;
     async function openEdit() {
       const ids = getSelected(); if (ids.length !== 1) return alert('请选一个');
       editingId = ids[0];
       const { data: v } = await supabase.from('videos').select('*').eq('id',editingId).single();
       if (!v) return alert('未找到');
+      editingBvid = v.bvid;
       document.getElementById('editCid').value = v.cid||'';
       document.getElementById('editStartTime').value = v.start_time||'';
       document.getElementById('editCurrentHour').value = v.current_hour??0;
@@ -408,7 +489,8 @@
         online_alert_threshold: parseInt(document.getElementById('editOnlineAlertThreshold').value)||0,
       }).eq('id', editingId);
       if (error) { alert('保存失败: '+error.message); return; }
-      alert('已更新'); closeModal('editModal'); loadVideos();
+      audit('编辑单视频', `BV=${editingBvid||editingId} 组=${(document.getElementById('editGroupName').value||'')}`);
+      alert('已更新并写入数据库'); closeModal('editModal'); loadVideos();
     }
 
     async function viewHistory() {
@@ -421,15 +503,17 @@
 
     async function refreshList() {
       await supabase.from('push_requests').insert([{action:'refresh_stats',video_id:0,status:'pending'}]);
+      audit('请求刷新播放量', '');
       alert('刷新请求已发送'); setTimeout(loadVideos, 10000);
     }
 
-    async function toggleHighlight(id, cur) { await supabase.from('videos').update({highlight:!cur}).eq('id',id); loadVideos(); }
+    async function toggleHighlight(id, cur) { await supabase.from('videos').update({highlight:!cur}).eq('id',id); audit('切换突出显示', `id=${id}`); loadVideos(); }
 
     async function addGqt() {
       const bv = document.getElementById('gqtBvInput').value.trim();
       if (!bv.startsWith('BV')) return alert('请输入BV号');
       await supabase.from('videos').insert([{bvid:bv,category:'gqt',alert_enabled:true,alert_milestone:80000,alert_only:true,start_time:formatLocalDateTime(),current_hour:0,monitor_hours:48,group_name:'共青团',push_enabled:false,view:0}]);
+      audit('添加共青团视频', `BV=${bv}`);
       closeModal('gqtAddModal'); loadGqtVideos();
     }
     async function pushGqt() {
@@ -445,7 +529,7 @@
     async function deleteGqt() {
       const ids = [...document.querySelectorAll('.gqt-check:checked')].map(c=>parseInt(c.value));
       if (!ids.length) return alert('请勾选');
-      await supabase.from('videos').delete().in('id',ids); loadGqtVideos();
+      await supabase.from('videos').delete().in('id',ids); audit('删除共青团视频', `id=${ids.join(',')}`); loadGqtVideos();
     }
 
     async function loadLogs() {
@@ -541,6 +625,7 @@
       }
 
       alert(`已更新 ${successCount}/${ids.length} 个视频`);
+      audit('编辑整组', `组=${editingGroup} 共 ${ids.length} 个视频`);
       closeModal('groupEditModal');
       loadVideos();
     }
@@ -638,6 +723,11 @@
 
     document.getElementById('btn-refresh-log').onclick = loadLogs;
     document.getElementById('btn-clear-log').onclick = clearLogs;
+    document.getElementById('btn-audit').onclick = () => { document.getElementById('audit-tbody').innerHTML = auditRowsHtml(); document.getElementById('auditModal').style.display = 'block'; };
+    document.getElementById('btn-export-audit').onclick = exportAudit;
+    document.getElementById('btn-clear-audit').onclick = clearAudit;
+    document.getElementById('btn-cancel-audit').onclick = () => closeModal('auditModal');
+    document.getElementById('btn-hard-del').onclick = hardDeleteSelected;
     document.getElementById('btn-mh-search').onclick = loadManuscriptHistory;
     document.getElementById('btn-mh-refresh').onclick = loadManuscriptHistory;
     document.getElementById('btn-mh-export').onclick = exportExcel;
@@ -654,6 +744,11 @@
     loadLogs();
     fillMonthOptions();
     loadManuscriptHistory();
+
+    // 本机身份与权限展示
+    document.getElementById('machineTag').textContent = MACHINE_NAME;
+    document.getElementById('adminTag').textContent = IS_ADMIN ? '🛡️ 管理员（可彻底删除）' : '（普通用户）';
+    document.getElementById('btn-hard-del').style.display = IS_ADMIN ? '' : 'none';
 
     // ===== 组匹配自检横幅：打开即显示文件是否为最新、能否正常编辑整组 =====
     (function(){
