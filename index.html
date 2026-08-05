@@ -362,7 +362,7 @@
       if (!editingId) return;
       const gapVal = document.getElementById('editGapTargetBvids').value;
       const onlineVal = document.getElementById('editOnlineAlertBvids').value;
-      await supabase.from('videos').update({
+      const { error } = await supabase.from('videos').update({
         cid: document.getElementById('editCid').value,
         start_time: document.getElementById('editStartTime').value,
         current_hour: parseInt(document.getElementById('editCurrentHour').value)||0,
@@ -381,6 +381,7 @@
         online_alert_condition: document.getElementById('editOnlineAlertCondition').value,
         online_alert_threshold: parseInt(document.getElementById('editOnlineAlertThreshold').value)||0,
       }).eq('id', editingId);
+      if (error) { alert('保存失败: '+error.message); return; }
       alert('已更新'); closeModal('editModal'); loadVideos();
     }
 
@@ -462,20 +463,40 @@
     }
     async function saveGroupEdit() {
       if (!editingGroup) return;
+      
       const { data: allVids } = await supabase.from('videos').select('id,group_name').neq('category','gqt');
       const ids = (allVids||[]).filter(v => (v.group_name||'未分组').trim() === editingGroup.trim()).map(v=>v.id);
-      if (!ids.length) { alert('未找到该组视频'); return; }
-      const { error } = await supabase.from('videos').update({
+      
+      console.log('编辑整组:', editingGroup, '匹配到ids:', ids);
+      
+      if (!ids.length) { alert('未找到该组视频，请刷新页面后重试'); return; }
+      
+      const upd = {
         start_time: document.getElementById('grpStartTime').value,
         monitor_hours: parseInt(document.getElementById('grpMonitorHours').value)||48,
         notify_interval: parseFloat(document.getElementById('grpNotifyInterval').value)||1,
         window_start: parseInt(document.getElementById('grpWinStart').value)||0,
         window_end: parseInt(document.getElementById('grpWinEnd').value)||24,
         push_enabled: document.getElementById('grpPushEnabled').checked,
-      }).in('id', ids);
-      if (error) { alert('保存失败: '+error.message); return; }
-      alert(`已更新 ${ids.length} 个视频`);
-      closeModal('groupEditModal'); loadVideos();
+      };
+      
+      console.log('更新数据:', upd);
+      
+      let successCount = 0;
+      for (const id of ids) {
+        const { error } = await supabase.from('videos').update(upd).eq('id', id);
+        if (error) { console.error('更新视频', id, '失败:', error); }
+        else { successCount++; }
+      }
+      
+      if (successCount > 0) {
+        alert(`已更新 ${successCount}/${ids.length} 个视频`);
+      } else {
+        alert('保存失败，请检查F12控制台日志');
+      }
+      
+      closeModal('groupEditModal');
+      loadVideos();
     }
 
     async function loadManuscriptHistory() {
@@ -532,7 +553,6 @@
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `稿件历史_${new Date().toISOString().slice(0,10)}.csv`; a.click();
     }
 
-    // ========== 事件绑定 ==========
     document.getElementById('btn-add').onclick = () => {
       document.getElementById('addModal').style.display = 'block';
       supabase.from('videos').select('group_name').neq('category','gqt').then(({data}) => {
