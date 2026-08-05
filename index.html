@@ -7,7 +7,7 @@
     body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
     table { border-collapse: collapse; width: 100%; margin-bottom: 20px; background: white; }
     th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 13px; }
-    th { background: #4CAF50; color: white; }
+    th { background: #4CAF50; color: white; position: sticky; top: 0; z-index: 1; }
     tr:nth-child(even) { background: #f9f9f9; }
     .warn { background-color: #ffe0e0; font-weight: bold; }
     .done { background-color: #e0ffe0; }
@@ -34,15 +34,15 @@
     .time-text { color: #888; font-size: 12px; }
     .group-header td { background: #e3f2fd !important; font-weight: bold; color: #1565c0; }
     tr.highlighted > td { background: #fff3cd !important; }
-    .toolbar { position: sticky; top: 0; z-index: 10; background: white; padding: 8px 0; margin-bottom: 5px; }
+    .toolbar { position: sticky; top: 0; z-index: 10; background: white; padding: 8px 0; margin-bottom: 5px; border-bottom: 1px solid #eee; }
     .auto-refresh-hint { color: gray; font-size: 0.9em; margin-left: 10px; }
-    .log-section { max-height: 300px; overflow-y: auto; }
+    .log-section { max-height: 400px; overflow-y: auto; }
     .log-section table { font-size: 12px; }
     .log-level-INFO { color: #2196F3; }
     .log-level-ERROR { color: #f44336; font-weight: bold; }
     .hl-btn { padding:2px 8px; font-size:12px; border:1px solid #ff9800; background:#fff; color:#ff9800; border-radius:4px; cursor:pointer; }
     .hl-btn.on { background:#ff9800; color:#fff; }
-    select[multiple] { height: 120px; width: 260px; }
+    .history-section { max-height: 500px; overflow-y: auto; }
   </style>
 </head>
 <body>
@@ -90,17 +90,19 @@
 
   <div class="section log-section">
     <h2>📋 操作日志 <span class="auto-refresh-hint">(每30秒自动刷新)</span></h2>
+    <div class="toolbar" style="position:sticky;top:0;z-index:10;">
     <button id="btn-refresh-log">刷新日志</button>
     <button id="btn-clear-log" class="danger">清空日志</button>
+    </div>
     <table>
       <thead><tr><th style="width:150px">时间</th><th style="width:100px">类型</th><th style="width:70px">级别</th><th>详情</th><th style="width:70px">操作</th></tr></thead>
       <tbody id="log-tbody"><tr><td colspan="5" style="text-align:center;color:#999;">加载中...</td></tr></tbody>
     </table>
   </div>
 
-  <div class="section">
+  <div class="section history-section">
     <h2>🗂️ 历史稿件查询</h2>
-    <div class="toolbar" style="position:static;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+    <div class="toolbar" style="position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
       <input id="mhSearch" placeholder="搜索 BV号/标题/UP/组名" style="width:200px;">
       <select id="mhStatus" style="width:130px;"><option value="">全部状态</option><option value="active">在监控中</option><option value="removed">已删除</option></select>
       <select id="mhMonth" style="width:150px;"><option value="">全部时间</option></select>
@@ -144,12 +146,12 @@
       <hr>
       <h4>📊 播放量差距预警</h4>
       <div class="form-row"><label>启用差距预警:</label><input type="checkbox" id="editGapAlertEnabled"></div>
-      <div class="form-row"><label>对比稿件:</label><select id="editGapTargetBvids" multiple></select></div>
+      <div class="form-row"><label>对比稿件:</label><select id="editGapTargetBvids" style="width:280px;"><option value="">-- 无 --</option></select></div>
       <div class="form-row"><label>差距阈值:</label><input id="editGapThreshold" type="number" placeholder="播放量差距在此值内时提醒"></div>
       <hr>
       <h4>📈 在线人数预警</h4>
       <div class="form-row"><label>启用在线预警:</label><input type="checkbox" id="editOnlineAlertEnabled"></div>
-      <div class="form-row"><label>对比稿件:</label><select id="editOnlineAlertBvids" multiple></select></div>
+      <div class="form-row"><label>对比稿件:</label><select id="editOnlineAlertBvids" style="width:280px;"><option value="">-- 无 --</option></select></div>
       <div class="form-row"><label>条件:</label>
         <select id="editOnlineAlertCondition" style="width:200px;">
           <option value="double">在线人数超半小时前1倍</option>
@@ -213,7 +215,6 @@
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     function getSelected() { return [...document.querySelectorAll('.video-check:checked')].map(c => parseInt(c.value)); }
 
-    // ========== 加载视频 ==========
     async function loadVideos() {
       try {
         const { data } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
@@ -248,7 +249,6 @@
       } catch(e) { console.error(e); }
     }
 
-    // ========== 加载共青团 ==========
     async function loadGqtVideos() {
       try {
         const { data } = await supabase.from('videos').select('*').eq('category','gqt').order('created_at',{ascending:false});
@@ -266,7 +266,6 @@
       } catch(e) { console.error(e); }
     }
 
-    // ========== 添加视频 ==========
     async function addVideos() {
       const bvs = document.getElementById('bvInput').value.split(/[,，\s\n]+/).map(b=>b.trim()).filter(b=>b.startsWith('BV'));
       if (!bvs.length) return alert('请输入BV号');
@@ -294,7 +293,6 @@
       alert(`已添加 ${bvs.length} 个视频`); closeModal('addModal'); loadVideos();
     }
 
-    // ========== 推送 ==========
     async function pushSelected() {
       const ids = getSelected(); if (!ids.length) return alert('请勾选');
       await supabase.from('push_requests').insert(ids.map(vid=>({action:'push',video_id:vid,status:'pending'})));
@@ -308,7 +306,6 @@
       alert('已提交');
     }
 
-    // ========== 删除选中 ==========
     async function deleteSelected() {
       const ids = getSelected(); if (!ids.length) return alert('请勾选');
       if (!confirm(`删除${ids.length}个视频？`)) return;
@@ -319,7 +316,6 @@
       loadVideos();
     }
 
-    // ========== 编辑视频 ==========
     let editingId = null;
     async function openEdit() {
       const ids = getSelected(); if (ids.length !== 1) return alert('请选一个');
@@ -342,7 +338,6 @@
       document.getElementById('editOnlineAlertCondition').value = v.online_alert_condition||'double';
       document.getElementById('editOnlineAlertThreshold').value = v.online_alert_threshold||'';
 
-      // 填充组内其他稿件下拉框
       const gn = (v.group_name || '未分组').trim();
       const { data: allVids } = await supabase.from('videos').select('bvid,title,group_name').neq('category','gqt');
       const sameGroup = (allVids||[]).filter(x => (x.group_name||'未分组').trim() === gn && x.bvid !== v.bvid);
@@ -352,19 +347,21 @@
       document.getElementById('editGapTargetBvids').innerHTML = gapOpts;
       document.getElementById('editOnlineAlertBvids').innerHTML = gapOpts;
 
+      const gapSel = document.getElementById('editGapTargetBvids');
+      const onlineSel = document.getElementById('editOnlineAlertBvids');
       try {
         const gapBvids = JSON.parse(v.gap_alert_target_bvid||'[]');
         const onlineBvids = JSON.parse(v.online_alert_bvids||'[]');
-        [...document.getElementById('editGapTargetBvids').options].forEach(o => { if(gapBvids.includes(o.value)) o.selected=true; });
-        [...document.getElementById('editOnlineAlertBvids').options].forEach(o => { if(onlineBvids.includes(o.value)) o.selected=true; });
+        if (gapBvids.length > 0) gapSel.value = gapBvids[0];
+        if (onlineBvids.length > 0) onlineSel.value = onlineBvids[0];
       } catch(e) {}
       document.getElementById('editModal').style.display = 'block';
     }
 
     async function saveEdit() {
       if (!editingId) return;
-      const gapBvids = [...document.getElementById('editGapTargetBvids').selectedOptions].map(o=>o.value).filter(Boolean);
-      const onlineBvids = [...document.getElementById('editOnlineAlertBvids').selectedOptions].map(o=>o.value).filter(Boolean);
+      const gapVal = document.getElementById('editGapTargetBvids').value;
+      const onlineVal = document.getElementById('editOnlineAlertBvids').value;
       await supabase.from('videos').update({
         cid: document.getElementById('editCid').value,
         start_time: document.getElementById('editStartTime').value,
@@ -377,17 +374,16 @@
         highlight: document.getElementById('editHighlight').checked,
         push_enabled: document.getElementById('editPushEnabled').checked,
         gap_alert_enabled: document.getElementById('editGapAlertEnabled').checked,
-        gap_alert_target_bvid: JSON.stringify(gapBvids),
+        gap_alert_target_bvid: gapVal ? JSON.stringify([gapVal]) : '[]',
         gap_alert_threshold: parseInt(document.getElementById('editGapThreshold').value)||0,
         online_alert_enabled: document.getElementById('editOnlineAlertEnabled').checked,
-        online_alert_bvids: JSON.stringify(onlineBvids),
+        online_alert_bvids: onlineVal ? JSON.stringify([onlineVal]) : '[]',
         online_alert_condition: document.getElementById('editOnlineAlertCondition').value,
         online_alert_threshold: parseInt(document.getElementById('editOnlineAlertThreshold').value)||0,
       }).eq('id', editingId);
       alert('已更新'); closeModal('editModal'); loadVideos();
     }
 
-    // ========== 查看历史 ==========
     async function viewHistory() {
       const ids = getSelected(); if (ids.length !== 1) return alert('请选一个');
       const { data } = await supabase.from('history').select('*').eq('video_id',ids[0]).order('hour',{ascending:true});
@@ -403,7 +399,6 @@
 
     async function toggleHighlight(id, cur) { await supabase.from('videos').update({highlight:!cur}).eq('id',id); loadVideos(); }
 
-    // ========== 共青团操作 ==========
     async function addGqt() {
       const bv = document.getElementById('gqtBvInput').value.trim();
       if (!bv.startsWith('BV')) return alert('请输入BV号');
@@ -426,7 +421,6 @@
       await supabase.from('videos').delete().in('id',ids); loadGqtVideos();
     }
 
-    // ========== 日志 ==========
     async function loadLogs() {
       try {
         const { data } = await supabase.from('monitor_logs').select('*').order('created_at',{ascending:false}).limit(50);
@@ -446,7 +440,6 @@
       loadLogs();
     }
 
-    // ========== 编辑整组 ==========
     let editingGroup = null;
     async function openGroupEdit(gn) {
       editingGroup = gn;
@@ -469,18 +462,22 @@
     }
     async function saveGroupEdit() {
       if (!editingGroup) return;
-      await supabase.from('videos').update({
+      const { data: allVids } = await supabase.from('videos').select('id,group_name').neq('category','gqt');
+      const ids = (allVids||[]).filter(v => (v.group_name||'未分组').trim() === editingGroup.trim()).map(v=>v.id);
+      if (!ids.length) { alert('未找到该组视频'); return; }
+      const { error } = await supabase.from('videos').update({
         start_time: document.getElementById('grpStartTime').value,
         monitor_hours: parseInt(document.getElementById('grpMonitorHours').value)||48,
         notify_interval: parseFloat(document.getElementById('grpNotifyInterval').value)||1,
         window_start: parseInt(document.getElementById('grpWinStart').value)||0,
         window_end: parseInt(document.getElementById('grpWinEnd').value)||24,
         push_enabled: document.getElementById('grpPushEnabled').checked,
-      }).eq('group_name', editingGroup).neq('category','gqt');
-      alert('已更新整组'); closeModal('groupEditModal'); loadVideos();
+      }).in('id', ids);
+      if (error) { alert('保存失败: '+error.message); return; }
+      alert(`已更新 ${ids.length} 个视频`);
+      closeModal('groupEditModal'); loadVideos();
     }
 
-    // ========== 历史稿件查询 ==========
     async function loadManuscriptHistory() {
       const kw = (document.getElementById('mhSearch').value||'').trim().toLowerCase();
       const sf = document.getElementById('mhStatus').value;
