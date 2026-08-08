@@ -53,7 +53,7 @@
     .ms-option input { margin-right: 6px; vertical-align: middle; }
     .combobox { position: relative; display: inline-block; width: 200px; vertical-align: middle; }
     .combobox input { width: 100%; box-sizing: border-box; padding-right: 22px; }
-    .combo-arrow { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); color: #888; cursor: pointer; font-size: 11px; pointer-events: none; }
+    .combo-arrow { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); color: #888; cursor: pointer; font-size: 11px; }
     .combo-panel { display: none; position: absolute; top: 100%; left: 0; width: 100%; max-height: 240px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; z-index: 200; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
     .combo-panel.show { display: block; }
     .combo-opt { display: block; padding: 6px 8px; font-size: 13px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -624,6 +624,7 @@
       document.querySelectorAll('.ms-panel').forEach(p => p.style.display = 'none');
       panel.style.display = willOpen ? 'block' : 'none';
     }
+    window.toggleMS = toggleMS;  // 模块作用域下，HTML 内联 onclick 需显式挂到全局
     function getMSValues(panelId) {
       const panel = document.getElementById(panelId);
       return [...panel.querySelectorAll('input:checked')].map(c => c.value);
@@ -1024,11 +1025,16 @@
       else panel.classList.remove('show');
     }
     const groupInput = document.getElementById('groupName');
-    groupInput.addEventListener('focus', () => toggleGroupCombo(true));
+    const comboArrow = document.querySelector('.combo-arrow');
+    groupInput.addEventListener('focus', async () => { await loadAllGroupNames(); toggleGroupCombo(true); });
     groupInput.addEventListener('input', () => renderGroupCombo(groupInput.value));
+    if (comboArrow) comboArrow.addEventListener('click', async (e) => { e.stopPropagation(); await loadAllGroupNames(); toggleGroupCombo(); });
     async function loadAllGroupNames() {
-      const { data } = await supabase.from('videos').select('group_name,category');
-      allGroupNames = [...new Set((data||[]).filter(v => v.category !== 'gqt' && v.group_name).map(v=>v.group_name))];
+      try {
+        const { data, error } = await supabase.from('videos').select('group_name,category');
+        if (error) { console.error('[组名下拉] 加载失败:', error); allGroupNames = []; }
+        else allGroupNames = [...new Set((data||[]).filter(v => v.category !== 'gqt' && v.group_name).map(v=>v.group_name))];
+      } catch(e) { console.error('[组名下拉] 加载异常:', e); allGroupNames = []; }
       if (document.getElementById('groupComboPanel').classList.contains('show')) renderGroupCombo('');
     }
     document.getElementById('btn-add').onclick = () => {
