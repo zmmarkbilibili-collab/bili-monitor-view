@@ -43,6 +43,22 @@
     .hl-btn { padding:2px 8px; font-size:12px; border:1px solid #ff9800; background:#fff; color:#ff9800; border-radius:4px; cursor:pointer; }
     .hl-btn.on { background:#ff9800; color:#fff; }
     .history-section { max-height: 500px; overflow-y: auto; }
+    .ms { position: relative; display: inline-block; width: 280px; vertical-align: middle; }
+    .ms-control { padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; min-height: 18px; display: flex; justify-content: space-between; align-items: center; }
+    .ms-text { color: #333; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ms-arrow { color: #888; margin-left: 6px; }
+    .ms-panel { display: none; position: absolute; top: 100%; left: 0; width: 100%; max-height: 240px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; z-index: 200; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+    .ms-option { display: block; padding: 6px 8px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+    .ms-option:hover { background: #f0f7ff; }
+    .ms-option input { margin-right: 6px; vertical-align: middle; }
+    .combobox { position: relative; display: inline-block; width: 200px; vertical-align: middle; }
+    .combobox input { width: 100%; box-sizing: border-box; padding-right: 22px; }
+    .combo-arrow { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); color: #888; cursor: pointer; font-size: 11px; pointer-events: none; }
+    .combo-panel { display: none; position: absolute; top: 100%; left: 0; width: 100%; max-height: 240px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; z-index: 200; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+    .combo-panel.show { display: block; }
+    .combo-opt { display: block; padding: 6px 8px; font-size: 13px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .combo-opt:hover { background: #f0f7ff; }
+    .combo-empty { padding: 6px 8px; font-size: 12px; color: #999; }
   </style>
 </head>
 <body>
@@ -133,7 +149,13 @@
       <h3>添加 BV</h3>
       <div class="form-row"><label>BV号:</label><input id="bvInput" placeholder="BVxxx, BVyyy" style="width:300px;"></div>
       <div class="form-row"><label>开始时间:</label><input id="startTime" style="width:180px;"> <button id="btn-now-time">此刻</button></div>
-      <div class="form-row"><label>组名:</label><input id="groupName" list="groupList" style="width:200px;"><datalist id="groupList"></datalist></div>
+      <div class="form-row"><label>组名:</label>
+        <div class="combobox">
+          <input id="groupName" placeholder="输入或选择组名" style="width:200px;" autocomplete="off">
+          <span class="combo-arrow">▼</span>
+          <div class="combo-panel" id="groupComboPanel"></div>
+        </div>
+      </div>
       <div class="form-row"><label>仅预警:</label><input type="checkbox" id="alertOnlyAdd"></div>
       <button id="btn-submit-add">提交</button>
       <button id="btn-cancel-add" class="danger">取消</button>
@@ -157,12 +179,22 @@
       <hr>
       <h4>📊 播放量差距预警</h4>
       <div class="form-row"><label>启用差距预警:</label><input type="checkbox" id="editGapAlertEnabled"></div>
-      <div class="form-row"><label>对比稿件:</label><select id="editGapTargetBvids" style="width:280px;"><option value="">-- 无 --</option></select></div>
+      <div class="form-row"><label>对比稿件:</label>
+        <div class="ms" id="msGap">
+          <div class="ms-control" onclick="toggleMS('msGap', event)"><span class="ms-text" id="msGapText">-- 无 --</span><span class="ms-arrow">▾</span></div>
+          <div class="ms-panel" id="msGapPanel"></div>
+        </div>
+      </div>
       <div class="form-row"><label>差距阈值:</label><input id="editGapThreshold" type="number" placeholder="播放量差距在此值内时提醒"></div>
       <hr>
       <h4>📈 在线人数差距预警</h4>
       <div class="form-row"><label>启用在线预警:</label><input type="checkbox" id="editOnlineAlertEnabled"></div>
-      <div class="form-row"><label>对比稿件:</label><select id="editOnlineAlertBvids" style="width:280px;"><option value="">-- 无 --</option></select></div>
+      <div class="form-row"><label>对比稿件:</label>
+        <div class="ms" id="msOnline">
+          <div class="ms-control" onclick="toggleMS('msOnline', event)"><span class="ms-text" id="msOnlineText">-- 无 --</span><span class="ms-arrow">▾</span></div>
+          <div class="ms-panel" id="msOnlinePanel"></div>
+        </div>
+      </div>
       <div class="form-row"><label>差距阈值:</label><input id="editOnlineAlertThreshold" type="number" placeholder="在线人数差距在此值内时提醒"></div>
       <button id="btn-submit-edit">保存</button>
       <button id="btn-cancel-edit" class="danger">取消</button>
@@ -499,14 +531,22 @@
       if (bvids.length) {
         const now = new Date().toISOString();
         // 找出 manuscript_history 里已经存在的 bvid：存在则只更新状态，保留原 added_at（添加时间）
-        const { data: existing } = await supabase.from('manuscript_history').select('bvid').in('bvid', bvids);
+        const { data: existing } = await supabase.from('manuscript_history').select('bvid,title,up_name,group_name').in('bvid', bvids);
+        const existMap = {}; (existing||[]).forEach(r => existMap[r.bvid] = r);
         const existSet = new Set((existing||[]).map(r=>r.bvid));
         const existingBvids = bvids.filter(b=>existSet.has(b));
         // 不存在的 bvid（如早期添加/GQT自动加/写入被挡）：补建一条 removed 痕迹，added_at 取当前时间作为兜底
-        const missing = rows.filter(v=>!existSet.has(v.bvid)).map(v=>({
-          bvid: v.bvid, title: v.title||'', up_name: v.up_name||'', group_name: v.group_name||'',
-          status:'removed', added_at: now, removed_at: now
-        }));
+        // 标题优先用 videos 的，若 videos 还没刷出标题则回退到台账已存在的标题，避免空标题
+        const missing = rows.filter(v=>!existSet.has(v.bvid)).map(v=>{
+          const mh = existMap[v.bvid] || {};
+          return {
+            bvid: v.bvid,
+            title: v.title || mh.title || '',
+            up_name: v.up_name || mh.up_name || '',
+            group_name: v.group_name || mh.group_name || '',
+            status:'removed', added_at: now, removed_at: now
+          };
+        });
         if (existingBvids.length) {
           const { error: upErr } = await supabase.from('manuscript_history').update({status:'removed', removed_at:now}).in('bvid', existingBvids);
           if (upErr) alert('⚠️ 历史台账更新失败(删除): '+upErr.message+'\n多半是 Supabase 对 manuscript_history 表开了 RLS 且未放行匿名写入，请在 Supabase SQL 执行：\nALTER TABLE manuscript_history DISABLE ROW LEVEL SECURITY;');
@@ -553,6 +593,53 @@
 
     let editingId = null;
     let editingBvid = null;
+
+    // ===== 多选下拉（对比稿件：支持多个目标 + 显示 UP主）=====
+    function renderMultiSelect(panelId, items, selected) {
+      const panel = document.getElementById(panelId);
+      if (!items || !items.length) {
+        panel.innerHTML = '<div class="ms-option" style="color:#999">无同组其他稿件</div>';
+        updateMSText(panelId);
+        return;
+      }
+      panel.innerHTML = items.map(it =>
+        `<label class="ms-option"><input type="checkbox" value="${it.value}" ${selected.includes(it.value) ? 'checked' : ''}>${it.label}</label>`
+      ).join('');
+      updateMSText(panelId);
+    }
+    function updateMSText(panelId) {
+      const panel = document.getElementById(panelId);
+      const textEl = document.getElementById(panelId.replace('Panel', 'Text'));
+      if (!textEl) return;
+      const checked = [...panel.querySelectorAll('input:checked')];
+      if (!checked.length) textEl.textContent = '-- 无 --';
+      else if (checked.length <= 2) textEl.textContent = checked.map(c => c.value).join(', ');
+      else textEl.textContent = `已选 ${checked.length} 个`;
+    }
+    function toggleMS(id, ev) {
+      ev.stopPropagation();
+      const panel = document.getElementById(id + 'Panel');
+      const willOpen = panel.style.display !== 'block';
+      document.querySelectorAll('.ms-panel').forEach(p => p.style.display = 'none');
+      panel.style.display = willOpen ? 'block' : 'none';
+    }
+    function getMSValues(panelId) {
+      const panel = document.getElementById(panelId);
+      return [...panel.querySelectorAll('input:checked')].map(c => c.value);
+    }
+    document.addEventListener('change', (e) => {
+      const opt = e.target.closest('.ms-option input');
+      if (opt) {
+        const panel = opt.closest('.ms-panel');
+        if (panel) updateMSText(panel.id);
+      }
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.ms')) {
+        document.querySelectorAll('.ms-panel').forEach(p => p.style.display = 'none');
+      }
+    });
+
     async function openEdit() {
       const ids = getSelected(); if (ids.length !== 1) return alert('请选一个');
       editingId = ids[0];
@@ -579,36 +666,33 @@
       let sameGroup = [];
       const cachedIds = (groupVideoIds[gn] || []).filter(id => id !== v.id);
       if (cachedIds.length) {
-        const { data: rows } = await supabase.from('videos').select('bvid,title,group_name').in('id', cachedIds);
+        const { data: rows } = await supabase.from('videos').select('bvid,title,up_name,group_name').in('id', cachedIds);
         sameGroup = rows || [];
       }
       if (!sameGroup.length) {
-        const { data: allVids } = await supabase.from('videos').select('bvid,title,group_name').neq('category','gqt');
+        const { data: allVids } = await supabase.from('videos').select('bvid,title,up_name,group_name').neq('category','gqt');
         sameGroup = (allVids||[]).filter(x => normGroup(x.group_name) === gn && x.bvid !== v.bvid);
         if (!sameGroup.length) sameGroup = (allVids||[]).filter(x => coreKey(normGroup(x.group_name)) === coreKey(gn) && x.bvid !== v.bvid);
       }
       if (!sameGroup.length) showDebug(`单视频编辑：组"${gn}"未找到同组其他视频（可能该组只有这一个稿件）`);
 
-      let gapOpts = '<option value="">-- 无 --</option>';
-      sameGroup.forEach(x => gapOpts += `<option value="${x.bvid}">${x.bvid} - ${x.title||'获取中...'}</option>`);
-      document.getElementById('editGapTargetBvids').innerHTML = gapOpts;
-      document.getElementById('editOnlineAlertBvids').innerHTML = gapOpts;
-
-      const gapSel = document.getElementById('editGapTargetBvids');
-      const onlineSel = document.getElementById('editOnlineAlertBvids');
-      try {
-        const gapBvids = JSON.parse(v.gap_alert_target_bvid||'[]');
-        const onlineBvids = JSON.parse(v.online_alert_bvids||'[]');
-        if (gapBvids.length > 0) gapSel.value = gapBvids[0];
-        if (onlineBvids.length > 0) onlineSel.value = onlineBvids[0];
-      } catch(e) {}
+      // 多选下拉：选项显示 BV - 标题 - UP主
+      const cmpItems = sameGroup.map(x => ({
+        value: x.bvid,
+        label: `${x.bvid} - ${x.title||'获取中...'} - ${x.up_name||'未知UP'}`
+      }));
+      let gapBvids = [], onlineBvids = [];
+      try { gapBvids = JSON.parse(v.gap_alert_target_bvid||'[]'); } catch(e) {}
+      try { onlineBvids = JSON.parse(v.online_alert_bvids||'[]'); } catch(e) {}
+      renderMultiSelect('msGapPanel', cmpItems, gapBvids);
+      renderMultiSelect('msOnlinePanel', cmpItems, onlineBvids);
       document.getElementById('editModal').style.display = 'block';
     }
 
     async function saveEdit() {
       if (!editingId) return;
-      const gapVal = document.getElementById('editGapTargetBvids').value;
-      const onlineVal = document.getElementById('editOnlineAlertBvids').value;
+      const gapVals = getMSValues('msGapPanel');
+      const onlineVals = getMSValues('msOnlinePanel');
       const gn = document.getElementById('editGroupName').value||'';
       const { error } = await supabase.from('videos').update({
         cid: document.getElementById('editCid').value,
@@ -622,10 +706,10 @@
         highlight: document.getElementById('editHighlight').checked,
         push_enabled: document.getElementById('editPushEnabled').checked,
         gap_alert_enabled: document.getElementById('editGapAlertEnabled').checked,
-        gap_alert_target_bvid: gapVal ? JSON.stringify([gapVal]) : '[]',
+        gap_alert_target_bvid: JSON.stringify(gapVals),
         gap_alert_threshold: parseInt(document.getElementById('editGapThreshold').value)||0,
         online_alert_enabled: document.getElementById('editOnlineAlertEnabled').checked,
-        online_alert_bvids: onlineVal ? JSON.stringify([onlineVal]) : '[]',
+        online_alert_bvids: JSON.stringify(onlineVals),
         online_alert_threshold: parseInt(document.getElementById('editOnlineAlertThreshold').value)||0,
       }).eq('id', editingId);
       if (error) { alert('保存失败: '+error.message); return; }
@@ -917,13 +1001,40 @@
       loadManuscriptHistory();
     }
 
+    let allGroupNames = [];
+    function renderGroupCombo(filter) {
+      const panel = document.getElementById('groupComboPanel');
+      const kw = (filter||'').toLowerCase();
+      const list = allGroupNames.filter(n => n.toLowerCase().includes(kw));
+      if (!list.length) { panel.innerHTML = '<div class="combo-empty">无可选项</div>'; return; }
+      panel.innerHTML = list.map(n => `<div class="combo-opt" data-g="${n.replace(/"/g,'&quot;')}">${n}</div>`).join('');
+      panel.querySelectorAll('.combo-opt').forEach(o => {
+        o.onclick = () => {
+          document.getElementById('groupName').value = o.getAttribute('data-g');
+          panel.classList.remove('show');
+        };
+      });
+    }
+    function toggleGroupCombo(forceOpen) {
+      const panel = document.getElementById('groupComboPanel');
+      const willShow = forceOpen !== undefined ? forceOpen : !panel.classList.contains('show');
+      if (willShow) { renderGroupCombo(document.getElementById('groupName').value); panel.classList.add('show'); }
+      else panel.classList.remove('show');
+    }
+    const groupInput = document.getElementById('groupName');
+    groupInput.addEventListener('focus', () => toggleGroupCombo(true));
+    groupInput.addEventListener('input', () => renderGroupCombo(groupInput.value));
     document.getElementById('btn-add').onclick = () => {
       document.getElementById('addModal').style.display = 'block';
       supabase.from('videos').select('group_name').neq('category','gqt').then(({data}) => {
-        const names = [...new Set((data||[]).map(v=>v.group_name).filter(Boolean))];
-        document.getElementById('groupList').innerHTML = names.map(n=>`<option value="${n}">`).join('');
+        allGroupNames = [...new Set((data||[]).map(v=>v.group_name).filter(Boolean))];
+        if (document.getElementById('groupComboPanel').classList.contains('show')) renderGroupCombo('');
       });
     };
+    document.addEventListener('click', (e) => {
+      const cb = e.target.closest('.combobox');
+      if (!cb) toggleGroupCombo(false);
+    });
     document.getElementById('btn-submit-add').onclick = addVideos;
     document.getElementById('btn-cancel-add').onclick = () => closeModal('addModal');
     document.getElementById('btn-now-time').onclick = () => document.getElementById('startTime').value = formatLocalDateTime();
