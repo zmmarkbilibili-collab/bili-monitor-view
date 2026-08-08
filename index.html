@@ -512,12 +512,13 @@
       alert('已提交推送请求');
     }
     async function pushAll() {
-      const { data } = await supabase.from('videos').select('id').not('category','eq','gqt').eq('alert_only',false);
-      if (!data?.length) return alert('无视频');
-      if (!confirm(`推送全部${data.length}个？`)) return;
-      await supabase.from('push_requests').insert(data.map(v=>({action:'push',video_id:v.id,status:'pending'})));
-      audit('一键推送全部', `共 ${data.length} 个`);
-      await afterChange('一键推送全部', `共 ${data.length} 个`, '');
+      const { data } = await supabase.from('videos').select('id,category').eq('alert_only',false);
+      const vids = (data||[]).filter(v => v.category !== 'gqt');
+      if (!vids.length) return alert('无视频');
+      if (!confirm(`推送全部${vids.length}个？`)) return;
+      await supabase.from('push_requests').insert(vids.map(v=>({action:'push',video_id:v.id,status:'pending'})));
+      audit('一键推送全部', `共 ${vids.length} 个`);
+      await afterChange('一键推送全部', `共 ${vids.length} 个`, '');
       alert('已提交');
     }
 
@@ -670,9 +671,10 @@
         sameGroup = rows || [];
       }
       if (!sameGroup.length) {
-        const { data: allVids } = await supabase.from('videos').select('bvid,title,up_name,group_name').not('category','eq','gqt');
-        sameGroup = (allVids||[]).filter(x => normGroup(x.group_name) === gn && x.bvid !== v.bvid);
-        if (!sameGroup.length) sameGroup = (allVids||[]).filter(x => coreKey(normGroup(x.group_name)) === coreKey(gn) && x.bvid !== v.bvid);
+        const { data: allVids } = await supabase.from('videos').select('bvid,title,up_name,group_name,category');
+        const nonGqt = (allVids||[]).filter(x => x.category !== 'gqt');
+        sameGroup = nonGqt.filter(x => normGroup(x.group_name) === gn && x.bvid !== v.bvid);
+        if (!sameGroup.length) sameGroup = nonGqt.filter(x => coreKey(normGroup(x.group_name)) === coreKey(gn) && x.bvid !== v.bvid);
       }
       if (!sameGroup.length) showDebug(`单视频编辑：组"${gn}"未找到同组其他视频（可能该组只有这一个稿件）`);
 
@@ -806,8 +808,8 @@
       console.log('[编辑整组] 匹配到视频:', gv.length, '个');
 
       if (!gv.length) {
-        const { data: gdata } = await supabase.from('videos').select('group_name').not('category','eq','gqt');
-        const allGroups = [...new Set((gdata||[]).map(v => normGroup(v.group_name)))];
+        const { data: gdata } = await supabase.from('videos').select('group_name,category');
+        const allGroups = [...new Set((gdata||[]).filter(v => v.category !== 'gqt' && v.group_name).map(v => normGroup(v.group_name)))];
         showDebug(`编辑整组失败：找不到组"${gn}"。\n数据库中现有组名：\n${allGroups.join('\n')}`);
         alert(`未找到组"${gn}"的视频。\n\n数据库中所有组名: ${allGroups.join(', ')}`);
         return;
@@ -829,7 +831,7 @@
 
       const ids = groupVideoIds[editingGroup] || [];
       if (!ids.length) {
-        const { data: allVids } = await supabase.from('videos').select('*').neq('category', 'gqt');
+        const { data: allVids } = await supabase.from('videos').select('*');
         ids.push(...(allVids || []).filter(v => normGroup(v.group_name) === editingGroup).map(v => v.id));
       }
 
@@ -1024,13 +1026,16 @@
     const groupInput = document.getElementById('groupName');
     groupInput.addEventListener('focus', () => toggleGroupCombo(true));
     groupInput.addEventListener('input', () => renderGroupCombo(groupInput.value));
+    async function loadAllGroupNames() {
+      const { data } = await supabase.from('videos').select('group_name,category');
+      allGroupNames = [...new Set((data||[]).filter(v => v.category !== 'gqt' && v.group_name).map(v=>v.group_name))];
+      if (document.getElementById('groupComboPanel').classList.contains('show')) renderGroupCombo('');
+    }
     document.getElementById('btn-add').onclick = () => {
       document.getElementById('addModal').style.display = 'block';
-      supabase.from('videos').select('group_name').not('category','eq','gqt').then(({data}) => {
-        allGroupNames = [...new Set((data||[]).map(v=>v.group_name).filter(Boolean))];
-        if (document.getElementById('groupComboPanel').classList.contains('show')) renderGroupCombo('');
-      });
+      loadAllGroupNames();
     };
+    loadAllGroupNames();
     document.addEventListener('click', (e) => {
       const cb = e.target.closest('.combobox');
       if (!cb) toggleGroupCombo(false);
