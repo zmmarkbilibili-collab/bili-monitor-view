@@ -119,6 +119,7 @@
       <input id="mhRecover" placeholder="补录缺失的BV号" style="width:150px;">
       <button id="btn-mh-recover" class="secondary">补录已删稿件</button>
       <button id="btn-mh-backfill" class="secondary">补齐活跃台账</button>
+      <button id="btn-mh-fixtitle" class="secondary">🔄 补全缺失标题</button>
       <span id="mhCount" style="color:#888;font-size:13px;margin-left:8px;"></span>
     </div>
     <table>
@@ -779,17 +780,22 @@
       const mf = document.getElementById('mhMonth').value;
       let { data } = await supabase.from('manuscript_history').select('*').order('added_at',{ascending:false});
       let list = data||[];
+      // 合并 videos 表中真实存在的标题/UP主/监控开始时间（台账 title 常为空、added_at 批量聚集）
+      const { data: vrows } = await supabase.from('videos').select('bvid,title,up_name,start_time');
+      const vmap = {}; (vrows||[]).forEach(v => vmap[v.bvid] = v);
       if (sf) list = list.filter(r=>(r.status||'active')===sf);
-      if (mf) list = list.filter(r=>r.added_at&&r.added_at.startsWith(mf));
-      if (kw) { const hay = r => ((r.bvid||'')+(r.title||'')+(r.up_name||'')+(r.group_name||'')).toLowerCase(); list = list.filter(r => hay(r).includes(kw)); }
+      if (mf) list = list.filter(r=>{ const t=(vmap[r.bvid]&&vmap[r.bvid].start_time)||r.added_at; return t&&String(t).startsWith(mf); });
+      if (kw) { const hay = r => { const v=vmap[r.bvid]; return ((r.bvid||'')+(r.title||(v&&v.title)||'')+(r.up_name||(v&&v.up_name)||'')+(r.group_name||'')).toLowerCase(); }; list = list.filter(r => hay(r).includes(kw)); }
       document.getElementById('mhCount').textContent = `共 ${list.length} 条`;
       document.getElementById('mh-tbody').innerHTML = list.length ? list.map(r => {
+        const v = vmap[r.bvid];
+        const title = r.title || (v&&v.title) || '-';
+        const up = r.up_name || (v&&v.up_name) || '-';
+        const tsrc = (v&&v.start_time) || r.added_at;  // 优先 videos.start_time（真实监控开始时间）
         let date = '', time = '';
-        if (r.added_at) {
-          try { const d = new Date(r.added_at); date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; } catch(e) {}
-        }
+        if (tsrc) { try { const d = new Date(tsrc); date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; } catch(e) {} }
         return `<tr><td><a href="https://www.bilibili.com/video/${r.bvid}" target="_blank" style="color:#2196F3">${r.bvid}</a></td>
-        <td>${r.title||'-'}</td><td>${r.up_name||'-'}</td><td>${r.group_name||'-'}</td>
+        <td>${title}</td><td>${up}</td><td>${r.group_name||'-'}</td>
         <td>${r.status==='removed'?'<span class="badge badge-error">已删除</span>':'<span class="badge badge-done">在监控</span>'}</td>
         <td>${date||'-'}</td><td>${time||'-'}</td></tr>`;
       }).join('') : '<tr><td colspan="7">暂无</td></tr>';
@@ -812,19 +818,44 @@
       const mf = document.getElementById('mhMonth').value;
       let { data } = await supabase.from('manuscript_history').select('*').order('added_at',{ascending:false});
       let list = data||[];
+      const { data: vrows } = await supabase.from('videos').select('bvid,title,up_name,start_time');
+      const vmap = {}; (vrows||[]).forEach(v => vmap[v.bvid] = v);
       if (sf) list = list.filter(r=>(r.status||'active')===sf);
-      if (mf) list = list.filter(r=>r.added_at&&r.added_at.startsWith(mf));
-      if (kw) { const hay = r => ((r.bvid||'')+(r.title||'')+(r.up_name||'')+(r.group_name||'')).toLowerCase(); list = list.filter(r => hay(r).includes(kw)); }
+      if (mf) list = list.filter(r=>{ const t=(vmap[r.bvid]&&vmap[r.bvid].start_time)||r.added_at; return t&&String(t).startsWith(mf); });
+      if (kw) { const hay = r => { const v=vmap[r.bvid]; return ((r.bvid||'')+(r.title||(v&&v.title)||'')+(r.up_name||(v&&v.up_name)||'')+(r.group_name||'')).toLowerCase(); }; list = list.filter(r => hay(r).includes(kw)); }
       let csv = '\uFEFFBV号,标题,UP主,组名,状态,日期,时间\n';
       list.forEach(r => {
+        const v = vmap[r.bvid];
+        const title = r.title || (v&&v.title) || '';
+        const up = r.up_name || (v&&v.up_name) || '';
+        const tsrc = (v&&v.start_time) || r.added_at;
         let date = '', time = '';
-        if (r.added_at) {
-          try { const d = new Date(r.added_at); date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`; } catch(e) {}
-        }
-        csv += `${r.bvid},${(r.title||'').replace(/,/g,'，')},${(r.up_name||'').replace(/,/g,'，')},${(r.group_name||'').replace(/,/g,'，')},${r.status||'active'},${date},${time}\n`;
+        if (tsrc) { try { const d = new Date(tsrc); date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`; } catch(e) {} }
+        csv += `${r.bvid},${(title||'').replace(/,/g,'，')},${(up||'').replace(/,/g,'，')},${(r.group_name||'').replace(/,/g,'，')},${r.status||'active'},${date},${time}\n`;
       });
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `稿件历史_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+    }
+
+    // 对台账中 title 为空的记录（多为已删除视频），逐个从 B站接口取真实标题/UP主并回写
+    async function backfillMHInfo() {
+      let { data } = await supabase.from('manuscript_history').select('*');
+      const need = (data||[]).filter(r => !r.title);
+      if (!need.length) { alert('没有缺失标题的记录'); return; }
+      if (!confirm(`将对 ${need.length} 条缺失标题的记录，逐个从 B站获取标题/UP主（已删除的视频只能靠此补全）。继续？`)) return;
+      let ok=0, fail=0;
+      for (const r of need) {
+        try {
+          const res = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${r.bvid}`, { headers: { Referer: 'https://www.bilibili.com' } });
+          const j = await res.json();
+          if (j && j.code===0 && j.data) {
+            await supabase.from('manuscript_history').update({ title: j.data.title||'', up_name: (j.data.owner&&j.data.owner.name)||'' }).eq('bvid', r.bvid);
+            ok++;
+          } else fail++;
+        } catch(e) { fail++; }
+      }
+      alert(`补全完成：成功 ${ok} 条，失败 ${fail} 条（失败多为网络/CORS，可重试）`);
+      loadManuscriptHistory();
     }
 
     // 把各种时间格式归一为 ISO（兜底用）
@@ -929,6 +960,7 @@
     document.getElementById('btn-mh-export').onclick = exportExcel;
     document.getElementById('btn-mh-recover').onclick = recoverRemovedBV;
     document.getElementById('btn-mh-backfill').onclick = backfillActiveLedger;
+    document.getElementById('btn-mh-fixtitle').onclick = backfillMHInfo;
     document.getElementById('mhSearch').onkeydown = e => { if(e.key==='Enter') loadManuscriptHistory(); };
     document.getElementById('mhStatus').onchange = loadManuscriptHistory;
     document.getElementById('mhMonth').onchange = loadManuscriptHistory;
