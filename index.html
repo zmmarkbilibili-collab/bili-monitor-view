@@ -512,7 +512,7 @@
       alert('已提交推送请求');
     }
     async function pushAll() {
-      const { data } = await supabase.from('videos').select('id').neq('category','gqt').eq('alert_only',false);
+      const { data } = await supabase.from('videos').select('id').not('category','eq','gqt').eq('alert_only',false);
       if (!data?.length) return alert('无视频');
       if (!confirm(`推送全部${data.length}个？`)) return;
       await supabase.from('push_requests').insert(data.map(v=>({action:'push',video_id:v.id,status:'pending'})));
@@ -670,7 +670,7 @@
         sameGroup = rows || [];
       }
       if (!sameGroup.length) {
-        const { data: allVids } = await supabase.from('videos').select('bvid,title,up_name,group_name').neq('category','gqt');
+        const { data: allVids } = await supabase.from('videos').select('bvid,title,up_name,group_name').not('category','eq','gqt');
         sameGroup = (allVids||[]).filter(x => normGroup(x.group_name) === gn && x.bvid !== v.bvid);
         if (!sameGroup.length) sameGroup = (allVids||[]).filter(x => coreKey(normGroup(x.group_name)) === coreKey(gn) && x.bvid !== v.bvid);
       }
@@ -806,7 +806,7 @@
       console.log('[编辑整组] 匹配到视频:', gv.length, '个');
 
       if (!gv.length) {
-        const { data: gdata } = await supabase.from('videos').select('group_name').neq('category','gqt');
+        const { data: gdata } = await supabase.from('videos').select('group_name').not('category','eq','gqt');
         const allGroups = [...new Set((gdata||[]).map(v => normGroup(v.group_name)))];
         showDebug(`编辑整组失败：找不到组"${gn}"。\n数据库中现有组名：\n${allGroups.join('\n')}`);
         alert(`未找到组"${gn}"的视频。\n\n数据库中所有组名: ${allGroups.join(', ')}`);
@@ -1026,7 +1026,7 @@
     groupInput.addEventListener('input', () => renderGroupCombo(groupInput.value));
     document.getElementById('btn-add').onclick = () => {
       document.getElementById('addModal').style.display = 'block';
-      supabase.from('videos').select('group_name').neq('category','gqt').then(({data}) => {
+      supabase.from('videos').select('group_name').not('category','eq','gqt').then(({data}) => {
         allGroupNames = [...new Set((data||[]).map(v=>v.group_name).filter(Boolean))];
         if (document.getElementById('groupComboPanel').classList.contains('show')) renderGroupCombo('');
       });
