@@ -458,8 +458,10 @@
       if (error) { alert('添加失败: '+error.message); return; }
       if (newVids?.length) {
         await supabase.from('push_requests').insert(newVids.map(v=>({action:'new_video',video_id:v.id,status:'pending'})));
+        // 注意：台账 upsert 故意不写 title/up_name（留空由后端刷新回填），
+        // 避免重加视频时用空串覆盖掉已有的真实标题。
         const { error: mhErr } = await supabase.from('manuscript_history').upsert(bvs.map(bv=>({
-          bvid: bv, title:'', up_name:'', group_name: gn||'', status:'active',
+          bvid: bv, group_name: gn||'', status:'active',
           added_at: new Date().toISOString()
         })), {onConflict:'bvid'});
         if (mhErr) alert('⚠️ 历史台账写入失败(添加): '+mhErr.message+'\n多半是 Supabase 对 manuscript_history 表开了 RLS 且未放行匿名写入，请在 Supabase SQL 执行：\nALTER TABLE manuscript_history DISABLE ROW LEVEL SECURITY;');
@@ -837,24 +839,28 @@
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `稿件历史_${new Date().toISOString().slice(0,10)}.csv`; a.click();
     }
 
-    // 对台账中 title 为空的记录（多为已删除视频），逐个从 B站接口取真实标题/UP主并回写
+    // 对台账中 title/up_name 为空的记录，由后台服务端从 B站抓取并回写（浏览器直连 B站会被 CORS 拦，故走后端命令）
     async function backfillMHInfo() {
       let { data } = await supabase.from('manuscript_history').select('*');
-      const need = (data||[]).filter(r => !r.title);
-      if (!need.length) { alert('没有缺失标题的记录'); return; }
-      if (!confirm(`将对 ${need.length} 条缺失标题的记录，逐个从 B站获取标题/UP主（已删除的视频只能靠此补全）。继续？`)) return;
-      let ok=0, fail=0;
-      for (const r of need) {
-        try {
-          const res = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${r.bvid}`, { headers: { Referer: 'https://www.bilibili.com' } });
-          const j = await res.json();
-          if (j && j.code===0 && j.data) {
-            await supabase.from('manuscript_history').update({ title: j.data.title||'', up_name: (j.data.owner&&j.data.owner.name)||'' }).eq('bvid', r.bvid);
-            ok++;
-          } else fail++;
-        } catch(e) { fail++; }
+      const need = (data||[]).filter(r => !(r.title||'').trim() || !(r.up_name||'').trim());
+      if (!need.length) { alert('没有缺失标题/UP主的记录'); return; }
+      if (!confirm(`将对 ${need.length} 条缺失标题/UP主的记录，由后台服务端从 B站获取（不受浏览器 CORS 限制）。继续？`)) return;
+      const { data: ins } = await supabase.from('push_requests').insert([{action:'backfill_mh', video_id:0, status:'pending'}]).select();
+      if (!ins || !ins.length) { alert('提交补全请求失败，请确认后端是否在运行'); return; }
+      const reqId = ins[0].id;
+      const btn = document.getElementById('btn-mh-fixtitle');
+      btn.disabled = true; btn.textContent = '补全中…';
+      let status = 'pending';
+      for (let i=0; i<45; i++) {            // 最多等约 90 秒
+        await new Promise(r=>setTimeout(r,2000));
+        const { data: rd } = await supabase.from('push_requests').select('status').eq('id', reqId).single();
+        status = rd && rd.status;
+        if (status==='done' || status==='error') break;
       }
-      alert(`补全完成：成功 ${ok} 条，失败 ${fail} 条（失败多为网络/CORS，可重试）`);
+      btn.disabled = false; btn.textContent = '🔄 补全缺失标题';
+      if (status==='done') alert('后台已补全完成，下方标题/UP主已更新');
+      else if (status==='error') alert('后台补全失败，请查看后端日志或稍后重试');
+      else alert('补全仍在进行中，稍后刷新下方列表即可看到结果');
       loadManuscriptHistory();
     }
 
