@@ -352,19 +352,22 @@
     const LS_NAME_KEY = 'bili_panel_machine_name';
     const LS_ADMIN_KEY = 'bili_panel_is_admin';
     const _CFG = (typeof window.BILI_PANEL_CONFIG !== 'undefined') ? window.BILI_PANEL_CONFIG : null;
-    // GitHub Pages 等没有 panel_config.js 的部署场景下，回退到本部署所属机器的身份（即“马克其实是马斯克”）。
-    // 这样即使页面读不到后端生成的身份文件，也能正确显示🟢活跃、并让「成为活跃机器」按钮把租约抢回本机。
-    const PANEL_FALLBACK_NAME = "马克其实是马斯克";
-    const PANEL_FALLBACK_IS_ADMIN = true;  // 本部署归属机器是管理员机器
+    // 身份来源优先级：① 后端脚本 panel_config.js 指定的 MACHINE_NAME / MACHINE_ID
+    //                 ② 浏览器本地改名(localStorage)
+    //                 ③ 都没有 → 「未命名」（不偷填成别的机器）
+    // 这样每台机器网页都显示「自己脚本里设置的设备名」；没装脚本/没设名的设备就是「未命名」，
+    // 编辑框默认也是「未命名」，可在网页上改名成自己的设备名。
     const _PY_NAME = (_CFG && _CFG.MACHINE_NAME) ? _CFG.MACHINE_NAME : null;
+    const _PY_MID  = (_CFG && _CFG.MACHINE_ID)  ? _CFG.MACHINE_ID  : null;
     const _PY_ADMIN_LIST = (_CFG && Array.isArray(_CFG.ADMIN_MACHINES)) ? _CFG.ADMIN_MACHINES : [];
     const _PY_IS_ADMIN = _PY_NAME ? _PY_ADMIN_LIST.includes(_PY_NAME) : false;
     const _LS_NAME = (localStorage.getItem(LS_NAME_KEY) || '').trim();
-    const MACHINE_NAME = _LS_NAME || _PY_NAME || PANEL_FALLBACK_NAME;
-    // 管理员身份：py 识别出本机是管理员时记住它（存 localStorage），之后改名也不丢权限
+    const MACHINE_NAME = _LS_NAME || _PY_NAME || '未命名';
+    // 管理员身份【只由脚本 ADMIN_MACHINES 决定】：只有代码里把本机名加进管理员名单才外露按钮；
+    // 不再用 localStorage 残留放行，改名也不会变成管理员。
     let _isAdmin;
-    if (_PY_IS_ADMIN || PANEL_FALLBACK_IS_ADMIN) { localStorage.setItem(LS_ADMIN_KEY, '1'); _isAdmin = true; }
-    else { _isAdmin = localStorage.getItem(LS_ADMIN_KEY) === '1'; }
+    if (_PY_IS_ADMIN) { localStorage.setItem(LS_ADMIN_KEY, '1'); _isAdmin = true; }
+    else { localStorage.removeItem(LS_ADMIN_KEY); _isAdmin = false; }
     const IS_ADMIN = _isAdmin;
 
     // ===== 未命名设备：拒绝一切写入/操作，仅允许浏览（改名按钮除外）=====
@@ -405,14 +408,15 @@
     if (_ub) _ub.style.display = IS_UNNAMED ? 'block' : 'none';
 
     function renameMachine() {
-      const cur = (MACHINE_NAME && MACHINE_NAME !== '未命名') ? MACHINE_NAME : '';
-      const name = prompt('设置本机名称（支持中文，将作为审计日志署名）：', cur);
+      // 未命名设备默认显示「未命名」，用户可在网页上改成自己的设备名；已命名设备显示当前名
+      const cur = (MACHINE_NAME && MACHINE_NAME !== '未命名') ? MACHINE_NAME : '未命名';
+      const name = prompt('设置本机设备名（支持中文，将作为审计日志署名）：', cur);
       if (name === null) return;
       const n = name.trim();
       if (!n) { alert('名称不能为空'); return; }
       localStorage.setItem(LS_NAME_KEY, n);
-      if (IS_ADMIN) localStorage.setItem(LS_ADMIN_KEY, '1');
-      alert(`已设置本机名称为「${n}」，刷新后生效。`);
+      // 改名只改显示名与审计署名，不提升管理员身份（管理员仅由脚本 ADMIN_MACHINES 决定）
+      alert(`已设置本机设备名为「${n}」，刷新后生效。`);
       location.reload();
     }
 
@@ -446,8 +450,8 @@
 
     // ===== 本机操作审计日志：仅存浏览器本地(localStorage)，不占用 Supabase 免费额度 =====
     const AUDIT_KEY = 'bili_audit_log_v1';
-    // 固定机器身份（审计署名用，避免改名后对不上人）；回退到显示名
-    const _MID = (_CFG && _CFG.MACHINE_ID) ? _CFG.MACHINE_ID : PANEL_FALLBACK_NAME;
+    // 固定机器身份（审计署名 / 租约比对 / 接管用）：脚本指定 > 浏览器改名 > null(未命名)
+    const _MID = _PY_MID || _LS_NAME || null;
     async function auditCloud(action, detail) {
       try {
         await supabase.from('audit_log').insert([{
@@ -1306,8 +1310,8 @@
       }
     }
     document.getElementById('btn-take-lease').onclick = async () => {
-      const mid = _MID || MACHINE_NAME || PANEL_FALLBACK_NAME;
-      if (!mid) return alert('本机机器名未识别，无法接管');
+      const mid = _MID;
+      if (!mid) return alert('请先点击右上角「✏️ 改名」设置本机设备名，再接管监控');
       await supabase.from('push_requests').insert([{action:'switch_machine', target_machine:mid, video_id:0, status:'pending'}])
         .then(() => { alert('已发送「成为活跃机器」请求，本机将在数秒内接管监控'); setTimeout(refreshLeaseStatus, 3000); })
         .catch(err => alert('发送失败：' + err.message));
