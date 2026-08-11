@@ -63,6 +63,7 @@
     .combo-opt:hover { background: #f0f7ff; }
     .combo-opt mark { background: #fff2a8; color: inherit; }
     .combo-empty { padding: 8px; font-size: 12px; color: #999; }
+    .combo-new { color: #1a7f37; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -133,6 +134,7 @@
     <button id="btn-refresh-log">刷新日志</button>
     <button id="btn-clear-log" class="danger">清空日志</button>
     <button id="btn-audit" class="secondary">📝 本机操作日志</button>
+    <button id="btn-audit-cloud" class="secondary">📝 审计记录(全员)</button>
     </div>
     <table>
       <thead><tr><th style="width:150px">时间</th><th style="width:100px">类型</th><th style="width:70px">级别</th><th>详情</th><th style="width:70px">操作</th></tr></thead>
@@ -214,6 +216,16 @@
         </div>
       </div>
       <div class="form-row"><label>差距阈值:</label><input id="editOnlineAlertThreshold" type="number" placeholder="在线人数差距在此值内时提醒"></div>
+      <hr>
+      <h4>📶 在线人数预警（绝对值）</h4>
+      <div class="form-row"><label>启用:</label><input type="checkbox" id="editOnlineAbsEnabled"></div>
+      <div class="form-row"><label>条件:</label>
+        <select id="editOnlineAbsCond">
+          <option value=">">在线人数 ≥ 阈值时推送</option>
+          <option value="<">在线人数 ≤ 阈值时推送</option>
+        </select>
+      </div>
+      <div class="form-row"><label>阈值:</label><input id="editOnlineAbsThreshold" type="number" placeholder="在线人数达到/低于此值时推送"></div>
       <button id="btn-submit-edit">保存</button>
       <button id="btn-cancel-edit" class="danger">取消</button>
     </div>
@@ -274,6 +286,20 @@
       <table>
         <thead><tr><th style="width:150px">时间</th><th style="width:60px">机器</th><th style="width:120px">操作</th><th>详情</th></tr></thead>
         <tbody id="audit-tbody"><tr><td colspan="4" style="text-align:center;color:#999;">加载中...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="auditCloudModal" class="modal">
+    <div class="modal-content">
+      <h3>📝 审计记录（全员云端） <span style="font-size:12px;color:#888;">（所有设备操作，署名机器ID+机器名）</span></h3>
+      <div style="margin-bottom:10px;">
+        <button id="btn-audit-cloud-refresh" class="secondary">🔄 刷新</button>
+        <button id="btn-cancel-audit-cloud" class="danger">关闭</button>
+      </div>
+      <table>
+        <thead><tr><th style="width:150px">时间</th><th style="width:90px">机器</th><th style="width:120px">操作</th><th>详情</th></tr></thead>
+        <tbody id="audit-cloud-tbody"><tr><td colspan="4" style="text-align:center;color:#999;">加载中...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -344,6 +370,19 @@
 
     // ===== 本机操作审计日志：仅存浏览器本地(localStorage)，不占用 Supabase 免费额度 =====
     const AUDIT_KEY = 'bili_audit_log_v1';
+    // 固定机器身份（审计署名用，避免改名后对不上人）；回退到显示名
+    const _MID = (_CFG && _CFG.MACHINE_ID) ? _CFG.MACHINE_ID : null;
+    async function auditCloud(action, detail) {
+      try {
+        await supabase.from('audit_log').insert([{
+          machine_id: _MID || MACHINE_NAME,
+          machine_name: MACHINE_NAME,
+          action: String(action).slice(0, 100),
+          detail: String(detail || '').slice(0, 500),
+          created_at: new Date().toISOString()
+        }]);
+      } catch (e) { /* 云端审计失败不阻断主操作 */ }
+    }
     function audit(action, detail) {
       try {
         const arr = JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]');
@@ -351,6 +390,8 @@
         if (arr.length > 2000) arr.splice(0, arr.length - 2000);
         localStorage.setItem(AUDIT_KEY, JSON.stringify(arr));
       } catch (e) { /* localStorage 不可用时静默忽略 */ }
+      // 同时写入云端（全员可见），失败静默（fire-and-forget）
+      auditCloud(action, detail);
     }
     function auditRowsHtml() {
       let arr = [];
@@ -439,7 +480,8 @@
         alert_enabled: false, alert_milestone: null, alert_interval_minutes: 15,
         view: 0, title: '', up_name: '', push_enabled: false,
         gap_alert_enabled: false, gap_alert_target_bvid: '[]', gap_alert_threshold: 0,
-        online_alert_enabled: false, online_alert_bvids: '[]', online_alert_threshold: 0
+        online_alert_enabled: false, online_alert_bvids: '[]', online_alert_threshold: 0,
+        abs_online_alert_enabled: false, online_alert_condition: '>', alert_online_threshold: 0
       }));
       const { data: newVids, error } = await supabase.from('videos').insert(entries).select();
       if (error) { alert('添加失败: '+error.message); return; }
@@ -454,6 +496,8 @@
       }
       alert(`已添加 ${bvs.length} 个视频`);
       audit('添加视频', `组=${gn||'(默认)'} BV=${bvs.join(', ')}`);
+      // 通知活跃机重新加载 videos（带宽优化配合）
+      supabase.from('push_requests').insert([{action:'bump_version',video_id:0,status:'pending'}]).catch(()=>{});
       closeModal('addModal'); loadVideos();
     }
 
@@ -615,6 +659,9 @@
       document.getElementById('editGapThreshold').value = v.gap_alert_threshold||'';
       document.getElementById('editOnlineAlertEnabled').checked = v.online_alert_enabled||false;
       document.getElementById('editOnlineAlertThreshold').value = v.online_alert_threshold||'';
+      document.getElementById('editOnlineAbsEnabled').checked = v.abs_online_alert_enabled||false;
+      document.getElementById('editOnlineAbsCond').value = v.online_alert_condition||'>';
+      document.getElementById('editOnlineAbsThreshold').value = v.alert_online_threshold||'';
 
       // 组内其他视频（用于预警对比下拉框）—— 优先用渲染时缓存的ID映射
       const gn = normGroup(v.group_name);
@@ -671,9 +718,14 @@
         online_alert_enabled: document.getElementById('editOnlineAlertEnabled').checked,
         online_alert_bvids: JSON.stringify(onlineVals),
         online_alert_threshold: parseInt(document.getElementById('editOnlineAlertThreshold').value)||0,
+        online_alert_condition: document.getElementById('editOnlineAbsCond').value||'>',
+        alert_online_threshold: parseInt(document.getElementById('editOnlineAbsThreshold').value)||0,
+        abs_online_alert_enabled: document.getElementById('editOnlineAbsEnabled').checked,
       }).eq('id', editingId);
       if (error) { alert('保存失败: '+error.message); return; }
       audit('编辑单视频', `BV=${editingBvid||editingId} 组=${(document.getElementById('editGroupName').value||'')}`);
+      // 通知活跃机重新加载 videos（带宽优化配合）
+      supabase.from('push_requests').insert([{action:'bump_version',video_id:0,status:'pending'}]).catch(()=>{});
       alert('已更新并写入数据库'); closeModal('editModal'); loadVideos();
     }
 
@@ -965,12 +1017,20 @@
       const listEl = document.getElementById('groupComboList');
       const countEl = document.getElementById('groupComboCount');
       if (!listEl) return;
-      const kw = (filter||'').trim().toLowerCase();
+      const raw = (filter||'').trim();
+      const kw = raw.toLowerCase();
       const sorted = [...allGroupNames].sort((a,b)=>a.localeCompare(b,'zh-Hans-CN'));
       const list = kw ? sorted.filter(n => n.toLowerCase().includes(kw)) : sorted;
+      const exact = kw && allGroupNames.some(n => n.toLowerCase() === kw);
       countEl.textContent = `共 ${allGroupNames.length} 个组名` + (kw ? `，匹配 ${list.length} 个` : '');
-      if (!list.length) { listEl.innerHTML = '<div class="combo-empty">无匹配组名</div>'; return; }
-      listEl.innerHTML = list.map(n => `<div class="combo-opt" data-g="${n.replace(/"/g,'&quot;')}">${highlight(n, kw)}</div>`).join('');
+      let html = '';
+      // 输入了不存在的新组名 → 顶部显示「新建」选项，明确支持手动输入新组名
+      if (raw && !exact) {
+        html += `<div class="combo-opt combo-new" data-g="${raw.replace(/"/g,'&quot;')}">＋ 新建组名：<b>${highlight(raw, kw)}</b></div>`;
+      }
+      if (!list.length && !raw) { listEl.innerHTML = '<div class="combo-empty">无匹配组名</div>'; return; }
+      html += list.map(n => `<div class="combo-opt" data-g="${n.replace(/"/g,'&quot;')}">${highlight(n, kw)}</div>`).join('');
+      listEl.innerHTML = html;
       listEl.querySelectorAll('.combo-opt').forEach(o => {
         o.onclick = () => {
           document.getElementById('groupName').value = o.getAttribute('data-g');
@@ -1050,12 +1110,32 @@
     document.getElementById('btn-viewalert-del').onclick = deleteViewAlert;
     document.getElementById('selectAllViewAlert').onchange = function() { document.querySelectorAll('.va-check').forEach(c=>c.checked=this.checked); };
 
+    async function loadCloudAudit() {
+      const tbody = document.getElementById('audit-cloud-tbody');
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">加载中...</td></tr>';
+      document.getElementById('auditCloudModal').style.display = 'block';
+      try {
+        const { data, error } = await supabase.from('audit_log')
+          .select('created_at,machine_name,action,detail')
+          .order('created_at', { ascending: false })
+          .limit(200);
+        if (error) { tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#c00;">加载失败: ${error.message}</td></tr>`; return; }
+        if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">暂无全员审计记录</td></tr>'; return; }
+        tbody.innerHTML = data.map(r => `<tr><td>${formatTime(r.created_at)}</td><td>${escHtml(r.machine_name||'')}</td><td>${escHtml(r.action||'')}</td><td>${escHtml(r.detail||'')}</td></tr>`).join('');
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#c00;">加载异常: ${e.message||e}</td></tr>`;
+      }
+    }
+
     document.getElementById('btn-refresh-log').onclick = loadLogs;
     document.getElementById('btn-clear-log').onclick = clearLogs;
     document.getElementById('btn-audit').onclick = () => { document.getElementById('audit-tbody').innerHTML = auditRowsHtml(); document.getElementById('auditModal').style.display = 'block'; };
     document.getElementById('btn-export-audit').onclick = exportAudit;
     document.getElementById('btn-clear-audit').onclick = clearAudit;
     document.getElementById('btn-cancel-audit').onclick = () => closeModal('auditModal');
+    document.getElementById('btn-audit-cloud').onclick = loadCloudAudit;
+    document.getElementById('btn-audit-cloud-refresh').onclick = loadCloudAudit;
+    document.getElementById('btn-cancel-audit-cloud').onclick = () => closeModal('auditCloudModal');
     document.getElementById('btn-hard-del').onclick = hardDeleteSelected;
     document.getElementById('btn-mh-search').onclick = loadManuscriptHistory;
     document.getElementById('btn-mh-refresh').onclick = loadManuscriptHistory;
@@ -1065,10 +1145,14 @@
     document.getElementById('mhStatus').onchange = loadManuscriptHistory;
     document.getElementById('mhMonth').onchange = loadManuscriptHistory;
 
-    setInterval(loadVideos, 300000);
-    setInterval(loadGqtVideos, 300000);
-    setInterval(loadViewAlertVideos, 300000);
-    setInterval(loadLogs, 30000);
+    // 0-8 点静默：该时段不自动拉取视频数据（手动刷新仍可用），其余时段每 15 分钟自动刷新
+    function autoRefresh() {
+      const h = new Date().getHours();
+      if (h >= 0 && h < 8) return;
+      loadVideos(); loadGqtVideos(); loadViewAlertVideos();
+    }
+    setInterval(autoRefresh, 900000);   // 15 分钟
+    setInterval(loadLogs, 30000);        // 日志仍保持 30s（轻量）
 
     loadVideos();
     loadGqtVideos();
