@@ -355,6 +355,7 @@
     // GitHub Pages 等没有 panel_config.js 的部署场景下，回退到本部署所属机器的身份（即“马克其实是马斯克”）。
     // 这样即使页面读不到后端生成的身份文件，也能正确显示🟢活跃、并让「成为活跃机器」按钮把租约抢回本机。
     const PANEL_FALLBACK_NAME = "马克其实是马斯克";
+    const PANEL_FALLBACK_IS_ADMIN = true;  // 本部署归属机器是管理员机器
     const _PY_NAME = (_CFG && _CFG.MACHINE_NAME) ? _CFG.MACHINE_NAME : null;
     const _PY_ADMIN_LIST = (_CFG && Array.isArray(_CFG.ADMIN_MACHINES)) ? _CFG.ADMIN_MACHINES : [];
     const _PY_IS_ADMIN = _PY_NAME ? _PY_ADMIN_LIST.includes(_PY_NAME) : false;
@@ -362,7 +363,7 @@
     const MACHINE_NAME = _LS_NAME || _PY_NAME || PANEL_FALLBACK_NAME;
     // 管理员身份：py 识别出本机是管理员时记住它（存 localStorage），之后改名也不丢权限
     let _isAdmin;
-    if (_PY_IS_ADMIN) { localStorage.setItem(LS_ADMIN_KEY, '1'); _isAdmin = true; }
+    if (_PY_IS_ADMIN || PANEL_FALLBACK_IS_ADMIN) { localStorage.setItem(LS_ADMIN_KEY, '1'); _isAdmin = true; }
     else { _isAdmin = localStorage.getItem(LS_ADMIN_KEY) === '1'; }
     const IS_ADMIN = _isAdmin;
 
