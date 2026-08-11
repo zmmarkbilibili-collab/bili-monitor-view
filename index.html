@@ -7,7 +7,7 @@
     body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
     table { border-collapse: collapse; width: 100%; margin-bottom: 20px; background: white; }
     th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 13px; }
-    th { background: #4CAF50; color: white; position: sticky; top: 0; z-index: 1; }
+    th { background: #4CAF50; color: white; position: sticky; top: 46px; z-index: 1; }
     tr:nth-child(even) { background: #f9f9f9; }
     .warn { background-color: #ffe0e0; font-weight: bold; }
     .done { background-color: #e0ffe0; }
@@ -22,7 +22,11 @@
     input, select { padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; }
     .modal-content { background: white; margin: 3% auto; padding: 20px; width: 650px; border-radius: 8px; max-height: 85vh; overflow-y: auto; }
-    .section { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; background: white; border-radius: 8px; }
+    .section { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; background: white; border-radius: 8px; max-height: calc(100vh - 80px); overflow-y: auto; scrollbar-width: thin; }
+    .section::-webkit-scrollbar { width: 9px; }
+    .section::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 5px; }
+    .section::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+    .section::-webkit-scrollbar-track { background: #f0f0f0; }
     .section h2 { margin-top: 0; }
     .badge { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold; white-space: nowrap; }
     .badge-error { background: #f44336; color: white; }
@@ -58,7 +62,10 @@
     .combo-panel.show { display: block; }
     .combo-search { width: 100%; box-sizing: border-box; border: none; border-bottom: 1px solid #eee; padding: 8px; font-size: 13px; outline: none; }
     .combo-count { padding: 4px 8px; font-size: 11px; color: #999; background: #fafafa; }
-    .combo-list { max-height: 260px; overflow-y: auto; }
+    .combo-list { max-height: 300px; overflow-y: auto; scrollbar-width: thin; }
+    .combo-list::-webkit-scrollbar { width: 8px; }
+    .combo-list::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+    .combo-opt.active { background: #e3f2fd; }
     .combo-opt { display: block; padding: 6px 8px; font-size: 13px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .combo-opt:hover { background: #f0f7ff; }
     .combo-opt mark { background: #fff2a8; color: inherit; }
@@ -217,15 +224,15 @@
       </div>
       <div class="form-row"><label>差距阈值:</label><input id="editOnlineAlertThreshold" type="number" placeholder="在线人数差距在此值内时提醒"></div>
       <hr>
-      <h4>📶 在线人数预警（绝对值）</h4>
+      <h4>📶 在线人数预警</h4>
       <div class="form-row"><label>启用:</label><input type="checkbox" id="editOnlineAbsEnabled"></div>
-      <div class="form-row"><label>条件:</label>
-        <select id="editOnlineAbsCond">
-          <option value=">">在线人数 ≥ 阈值时推送</option>
-          <option value="<">在线人数 ≤ 阈值时推送</option>
-        </select>
+      <div class="form-row"><label>条件(可多选):</label>
+        <div class="ms" id="msOnlineAbs">
+          <div class="ms-control"><span class="ms-text" id="msOnlineAbsText">-- 无 --</span><span class="ms-arrow">▾</span></div>
+          <div class="ms-panel" id="msOnlineAbsPanel"></div>
+        </div>
       </div>
-      <div class="form-row"><label>阈值:</label><input id="editOnlineAbsThreshold" type="number" placeholder="在线人数达到/低于此值时推送"></div>
+      <div class="form-row"><label>阈值:</label><input id="editOnlineAbsThreshold" type="number" placeholder="选『高于阈值』时填写，在线人数达到此值推送"></div>
       <button id="btn-submit-edit">保存</button>
       <button id="btn-cancel-edit" class="danger">取消</button>
     </div>
@@ -481,7 +488,7 @@
         view: 0, title: '', up_name: '', push_enabled: false,
         gap_alert_enabled: false, gap_alert_target_bvid: '[]', gap_alert_threshold: 0,
         online_alert_enabled: false, online_alert_bvids: '[]', online_alert_threshold: 0,
-        abs_online_alert_enabled: false, online_alert_condition: '>', alert_online_threshold: 0
+        online_abs_enabled: false, online_abs_conditions: '[]', online_abs_threshold: 0
       }));
       const { data: newVids, error } = await supabase.from('videos').insert(entries).select();
       if (error) { alert('添加失败: '+error.message); return; }
@@ -618,7 +625,7 @@
       if (ev && ev.stopPropagation) ev.stopPropagation();
     }
     // type=module 下内联 onclick 不可靠，改为模块内 addEventListener 绑定，确保点击箭头能展开
-    ['msGap', 'msOnline'].forEach(id => {
+    ['msGap', 'msOnline', 'msOnlineAbs'].forEach(id => {
       const ctrl = document.querySelector(`#${id} .ms-control`);
       if (ctrl) ctrl.addEventListener('click', (e) => toggleMS(id, e));
     });
@@ -659,9 +666,8 @@
       document.getElementById('editGapThreshold').value = v.gap_alert_threshold||'';
       document.getElementById('editOnlineAlertEnabled').checked = v.online_alert_enabled||false;
       document.getElementById('editOnlineAlertThreshold').value = v.online_alert_threshold||'';
-      document.getElementById('editOnlineAbsEnabled').checked = v.abs_online_alert_enabled||false;
-      document.getElementById('editOnlineAbsCond').value = v.online_alert_condition||'>';
-      document.getElementById('editOnlineAbsThreshold').value = v.alert_online_threshold||'';
+      document.getElementById('editOnlineAbsEnabled').checked = v.online_abs_enabled||false;
+      document.getElementById('editOnlineAbsThreshold').value = v.online_abs_threshold||'';
 
       // 组内其他视频（用于预警对比下拉框）—— 优先用渲染时缓存的ID映射
       const gn = normGroup(v.group_name);
@@ -694,6 +700,14 @@
       try { onlineBvids = JSON.parse(v.online_alert_bvids||'[]'); } catch(e) {}
       renderMultiSelect('msGapPanel', cmpItems, gapBvids);
       renderMultiSelect('msOnlinePanel', cmpItems, onlineBvids);
+      // 在线人数预警条件（多选）：高于阈值 / 半小时环比≥1倍
+      const onlineAbsItems = [
+        {value:'threshold', label:'在线人数高于阈值（填下方阈值）'},
+        {value:'double', label:'在线人数 ≥ 半小时前1倍（环比翻倍）'}
+      ];
+      let onlineAbsSel = [];
+      try { onlineAbsSel = JSON.parse(v.online_abs_conditions||'[]'); } catch(e) {}
+      renderMultiSelect('msOnlineAbsPanel', onlineAbsItems, onlineAbsSel);
       document.getElementById('editModal').style.display = 'block';
     }
 
@@ -718,9 +732,9 @@
         online_alert_enabled: document.getElementById('editOnlineAlertEnabled').checked,
         online_alert_bvids: JSON.stringify(onlineVals),
         online_alert_threshold: parseInt(document.getElementById('editOnlineAlertThreshold').value)||0,
-        online_alert_condition: document.getElementById('editOnlineAbsCond').value||'>',
-        alert_online_threshold: parseInt(document.getElementById('editOnlineAbsThreshold').value)||0,
-        abs_online_alert_enabled: document.getElementById('editOnlineAbsEnabled').checked,
+        online_abs_enabled: document.getElementById('editOnlineAbsEnabled').checked,
+        online_abs_conditions: JSON.stringify(getMSValues('msOnlineAbsPanel')),
+        online_abs_threshold: parseInt(document.getElementById('editOnlineAbsThreshold').value)||0,
       }).eq('id', editingId);
       if (error) { alert('保存失败: '+error.message); return; }
       audit('编辑单视频', `BV=${editingBvid||editingId} 组=${(document.getElementById('editGroupName').value||'')}`);
@@ -1013,6 +1027,7 @@
       if(i<0) return escHtml(text);
       return escHtml(text.slice(0,i))+'<mark>'+escHtml(text.slice(i,i+kw.length))+'</mark>'+escHtml(text.slice(i+kw.length));
     }
+    let comboHi = -1;
     function renderGroupCombo(filter) {
       const listEl = document.getElementById('groupComboList');
       const countEl = document.getElementById('groupComboCount');
@@ -1023,21 +1038,35 @@
       const list = kw ? sorted.filter(n => n.toLowerCase().includes(kw)) : sorted;
       const exact = kw && allGroupNames.some(n => n.toLowerCase() === kw);
       countEl.textContent = `共 ${allGroupNames.length} 个组名` + (kw ? `，匹配 ${list.length} 个` : '');
-      let html = '';
-      // 输入了不存在的新组名 → 顶部显示「新建」选项，明确支持手动输入新组名
-      if (raw && !exact) {
-        html += `<div class="combo-opt combo-new" data-g="${raw.replace(/"/g,'&quot;')}">＋ 新建组名：<b>${highlight(raw, kw)}</b></div>`;
-      }
-      if (!list.length && !raw) { listEl.innerHTML = '<div class="combo-empty">无匹配组名</div>'; return; }
-      html += list.map(n => `<div class="combo-opt" data-g="${n.replace(/"/g,'&quot;')}">${highlight(n, kw)}</div>`).join('');
-      listEl.innerHTML = html;
+      // 组名很多时：输入不存在的组名 → 顶部显示「新建」选项，支持手动输入新组名
+      const items = [];
+      if (raw && !exact) items.push({g: raw, isNew: true});
+      list.forEach(n => items.push({g: n, isNew: false}));
+      if (!items.length && !raw) { listEl.innerHTML = '<div class="combo-empty">无匹配组名</div>'; comboHi = -1; return; }
+      if (comboHi >= items.length) comboHi = items.length - 1;
+      else if (comboHi < 0 && items.length) comboHi = 0;
+      listEl.innerHTML = items.map((it, idx) => {
+        const label = it.isNew ? `＋ 新建组名：<b>${highlight(it.g, kw)}</b>` : highlight(it.g, kw);
+        const cls = 'combo-opt' + (it.isNew ? ' combo-new' : '') + (idx === comboHi ? ' active' : '');
+        return `<div class="${cls}" data-idx="${idx}" data-g="${it.g.replace(/"/g,'&quot;')}">${label}</div>`;
+      }).join('');
       listEl.querySelectorAll('.combo-opt').forEach(o => {
-        o.onclick = () => {
-          document.getElementById('groupName').value = o.getAttribute('data-g');
-          document.getElementById('groupComboSearch').value = '';
-          document.getElementById('groupComboPanel').classList.remove('show');
-        };
+        o.onclick = () => selectGroup(o.getAttribute('data-g'));
       });
+    }
+    function selectGroup(g) {
+      document.getElementById('groupName').value = g;
+      document.getElementById('groupComboSearch').value = '';
+      document.getElementById('groupComboPanel').classList.remove('show');
+    }
+    function moveCombo(dir) {
+      const opts = [...document.querySelectorAll('#groupComboList .combo-opt')];
+      if (!opts.length) return;
+      comboHi = (comboHi < 0 ? 0 : comboHi) + dir;
+      if (comboHi < 0) comboHi = 0;
+      if (comboHi >= opts.length) comboHi = opts.length - 1;
+      opts.forEach((o, i) => o.classList.toggle('active', i === comboHi));
+      opts[comboHi].scrollIntoView({block: 'nearest'});
     }
     function toggleGroupCombo(forceOpen) {
       const panel = document.getElementById('groupComboPanel');
@@ -1052,10 +1081,18 @@
     const groupInput = document.getElementById('groupName');
     const comboArrow = document.querySelector('.combo-arrow');
     groupInput.addEventListener('focus', async () => { await loadAllGroupNames(); toggleGroupCombo(true); });
-    groupInput.addEventListener('input', () => { document.getElementById('groupComboSearch').value = groupInput.value; renderGroupCombo(groupInput.value); });
+    groupInput.addEventListener('input', () => { comboHi = -1; document.getElementById('groupComboSearch').value = groupInput.value; renderGroupCombo(groupInput.value); });
     if (comboArrow) comboArrow.addEventListener('click', async (e) => { e.stopPropagation(); await loadAllGroupNames(); toggleGroupCombo(); });
     const comboSearch = document.getElementById('groupComboSearch');
-    if (comboSearch) comboSearch.addEventListener('input', () => renderGroupCombo(comboSearch.value));
+    if (comboSearch) {
+      comboSearch.addEventListener('input', () => { comboHi = -1; renderGroupCombo(comboSearch.value); });
+      comboSearch.addEventListener('keydown', (e) => {
+        const opts = [...document.querySelectorAll('#groupComboList .combo-opt')];
+        if (e.key === 'ArrowDown') { e.preventDefault(); moveCombo(1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); moveCombo(-1); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (comboHi >= 0 && opts[comboHi]) selectGroup(opts[comboHi].getAttribute('data-g')); }
+      });
+    }
     async function loadAllGroupNames() {
       try {
         const { data, error } = await supabase.from('videos').select('group_name,category');
