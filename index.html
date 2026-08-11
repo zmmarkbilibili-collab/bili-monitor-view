@@ -489,7 +489,7 @@
 
     async function loadVideos() {
       try {
-        const { data } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
+        const { data } = await supabase.from('videos').select('*').eq('alert_only', false).order('created_at', { ascending: false });
         const filtered = (data||[]).filter(v => v.category !== 'gqt');
         const groups = {}; const order = [];
         groupVideoIds = {};
