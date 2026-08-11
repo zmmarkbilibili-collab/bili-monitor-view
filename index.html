@@ -25,6 +25,8 @@
     #viewAlertAddModal .modal-content, #viewAlertEditModal .modal-content { min-height: 380px; margin: 1.5% auto; }
     .mini-btn { padding: 3px 12px; font-size: 12px; cursor: pointer; border: 1px solid #2196F3; background: #fff; color: #2196F3; border-radius: 4px; }
     .mini-btn:hover { background: #2196F3; color: #fff; }
+    .lease-bar { background: #f5f7fa; border: 1px solid #e3e8ee; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; font-size: 13px; color: #333; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .lease-bar b { color: #222; }
     .section { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; background: white; border-radius: 8px; max-height: calc(100vh - 80px); overflow-y: auto; scrollbar-width: thin; }
     .section::-webkit-scrollbar { width: 9px; }
     .section::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 5px; }
@@ -82,8 +84,20 @@
     🖥️ 本机：<b id="machineTag">?</b> <span id="adminTag"></span> <button id="btn-rename" class="secondary" style="padding:2px 8px;font-size:12px;">✏️ 改名</button>
   </div>
 
+  <div id="leaseBar" class="lease-bar">
+    <span>当前活跃机器：<b id="activeMachine">查询中…</b></span>
+    <span id="amStatus" class="badge badge-pending">本机：?</span>
+    <button id="btn-take-lease" class="secondary" style="padding:2px 10px;font-size:12px;">🔓 成为活跃机器（本机接管监控）</button>
+    <span style="color:#888;font-size:12px;">若显示别的机器名，说明监控在另一台电脑上跑，点此把监控切回本机</span>
+  </div>
+
+  <div id="unnamedBanner" style="display:none;margin:0 0 14px;padding:10px 14px;background:#fff3cd;color:#7a5b00;border:1px solid #ffc107;border-radius:8px;font-size:13px;line-height:1.6;">
+    ⚠️ 当前为「未命名」设备。为防止误操作，<b>所有写入与操作（添加 / 编辑 / 删除 / 推送 / 抢活跃机器 / 清空日志等）已禁用</b>，仅可浏览数据。
+    请点击右上角 <b>✏️ 改名</b> 设置本机名称后再操作。
+  </div>
+
   <div class="section">
-    <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
+    <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每1分钟自动刷新)</span></h2>
     <div class="toolbar">
     <button id="btn-add">批量添加 BV</button>
     <button id="btn-push-sel" class="secondary">手动推送选中</button>
@@ -108,7 +122,7 @@
   </div>
 
   <div class="section">
-    <h2>🚩 共青团搬运监控（达标 80000 自动推送） <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
+    <h2>🚩 共青团搬运监控（达标 80000 自动推送） <span class="auto-refresh-hint">(每1分钟自动刷新)</span></h2>
     <div class="toolbar">
     <button id="btn-gqt-add">添加共青团视频</button>
     <button id="btn-gqt-push" class="secondary">手动推送选中</button>
@@ -348,6 +362,43 @@
     if (_PY_IS_ADMIN) { localStorage.setItem(LS_ADMIN_KEY, '1'); _isAdmin = true; }
     else { _isAdmin = localStorage.getItem(LS_ADMIN_KEY) === '1'; }
     const IS_ADMIN = _isAdmin;
+
+    // ===== 未命名设备：拒绝一切写入/操作，仅允许浏览（改名按钮除外）=====
+    const IS_UNNAMED = (MACHINE_NAME === '未命名');
+    function requireNamed() {
+      if (IS_UNNAMED) {
+        alert('⚠️ 操作被拒绝：当前设备未命名。\n请先点击右上角「✏️ 改名」设置本机名称后再操作。');
+        return false;
+      }
+      return true;
+    }
+    // 兜底：即使有人绕过按钮直接调用，也从 Supabase 客户端层面拦截所有写入
+    if (IS_UNNAMED) {
+      const _origFrom = supabase.from.bind(supabase);
+      supabase.from = function(table) {
+        const q = _origFrom(table);
+        ['insert', 'update', 'delete', 'upsert'].forEach(fn => {
+          if (typeof q[fn] === 'function') {
+            q[fn] = function() {
+              alert('⚠️ 操作被拒绝：当前设备未命名，仅可浏览。\n请点击右上角「✏️ 改名」设置本机名称后再操作。');
+              // 返回可链式调用的占位对象，避免 .select()/.eq()/.catch() 等链式调用报错
+              const stub = new Proxy(function(){}, {
+                get(_t, prop) {
+                  if (prop === 'then') return (res) => res({ error: { message: 'unnamed-device-blocked' } });
+                  if (prop === 'catch') return (cb) => Promise.resolve({ error: { message: 'unnamed-device-blocked' } }).catch(cb);
+                  return () => stub;
+                }
+              });
+              return stub;
+            };
+          }
+        });
+        return q;
+      };
+    }
+    // 显示未命名提示条
+    const _ub = document.getElementById('unnamedBanner');
+    if (_ub) _ub.style.display = IS_UNNAMED ? 'block' : 'none';
 
     function renameMachine() {
       const cur = (MACHINE_NAME && MACHINE_NAME !== '未命名') ? MACHINE_NAME : '';
@@ -1223,14 +1274,40 @@
     document.getElementById('mhStatus').onchange = loadManuscriptHistory;
     document.getElementById('mhMonth').onchange = loadManuscriptHistory;
 
-    // 0-8 点静默：该时段不自动拉取视频数据（手动刷新仍可用），其余时段每 15 分钟自动刷新
+    // 0-8 点静默：该时段不自动拉取视频数据（手动刷新仍可用），其余时段每 1 分钟自动刷新
     function autoRefresh() {
       const h = new Date().getHours();
       if (h >= 0 && h < 8) return;
       loadVideos(); loadGqtVideos(); loadViewAlertVideos();
     }
-    setInterval(autoRefresh, 900000);   // 15 分钟
-    setInterval(loadLogs, 30000);        // 日志仍保持 30s（轻量）
+    setInterval(autoRefresh, 60000);   // 1 分钟（让「到达状态」尽快显示在网页上）
+
+    // 活跃机器状态：读取 lease 表，显示当前由哪台机器监控，并支持一键把监控切回本机
+    async function refreshLeaseStatus() {
+      try {
+        const { data } = await supabase.from('lease').select('holder,holder_name').eq('id', 1).maybeSingle();
+        const holder = (data && (data.holder_name || data.holder)) || '未设置';
+        document.getElementById('activeMachine').textContent = holder;
+        const amActive = !!(data && (_MID === data.holder || _MID === data.holder_name));
+        const st = document.getElementById('amStatus');
+        if (amActive) {
+          st.textContent = '本机：🟢 活跃（正在监控）';
+          st.className = 'badge badge-done';
+        } else {
+          st.textContent = '本机：🟡 待机（监控在别的机器）';
+          st.className = 'badge badge-pending';
+        }
+      } catch (e) {
+        document.getElementById('activeMachine').textContent = '查询失败';
+      }
+    }
+    document.getElementById('btn-take-lease').onclick = async () => {
+      if (!_MID) return alert('本机机器名未识别，无法接管');
+      await supabase.from('push_requests').insert([{action:'switch_machine', target_machine:_MID, video_id:0, status:'pending'}])
+        .then(() => { alert('已发送「成为活跃机器」请求，本机将在数秒内接管监控'); setTimeout(refreshLeaseStatus, 3000); })
+        .catch(err => alert('发送失败：' + err.message));
+    };
+    setInterval(refreshLeaseStatus, 10000);  // 每 10 秒刷新活跃机器状态
 
     loadVideos();
     loadGqtVideos();
@@ -1238,6 +1315,7 @@
     loadLogs();
     fillMonthOptions();
     loadManuscriptHistory();
+    refreshLeaseStatus();
 
     // 本机身份与权限展示
     document.getElementById('machineTag').textContent = MACHINE_NAME;
