@@ -920,9 +920,10 @@
       const hours = parseInt(document.getElementById('vaEditHours').value) || 48;
       const target = parseInt(document.getElementById('vaEditTarget').value);
       if (!target || target <= 0) return alert('请输入目标播放量');
-      await supabase.from('videos').update({ monitor_hours: hours, alert_milestone: target }).eq('id', editVaId);
+      const { error } = await supabase.from('videos').update({ monitor_hours: hours, alert_milestone: target }).eq('id', editVaId);
+      if (error) { alert('保存失败: ' + error.message); return; }
       audit('编辑播放量预警', `id=${editVaId} 目标=${target} 时长=${hours}h`);
-      closeModal('viewAlertEditModal'); loadViewAlertVideos();
+      alert('已更新并写入数据库'); closeModal('viewAlertEditModal'); loadViewAlertVideos();
     }
 
     async function loadLogs() {
