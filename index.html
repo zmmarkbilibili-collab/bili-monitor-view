@@ -22,6 +22,9 @@
     input, select { padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; }
     .modal-content { background: white; margin: 3% auto; padding: 20px; width: 650px; border-radius: 8px; max-height: 85vh; overflow-y: auto; }
+    #viewAlertAddModal .modal-content, #viewAlertEditModal .modal-content { min-height: 380px; margin: 1.5% auto; }
+    .mini-btn { padding: 3px 12px; font-size: 12px; cursor: pointer; border: 1px solid #2196F3; background: #fff; color: #2196F3; border-radius: 4px; }
+    .mini-btn:hover { background: #2196F3; color: #fff; }
     .section { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; background: white; border-radius: 8px; max-height: calc(100vh - 80px); overflow-y: auto; scrollbar-width: thin; }
     .section::-webkit-scrollbar { width: 9px; }
     .section::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 5px; }
@@ -129,7 +132,7 @@
     </div>
     <table>
       <thead>
-        <tr><th style="width:30px"><input type="checkbox" id="selectAllViewAlert"></th><th>BV号</th><th>标题</th><th>UP主</th><th>当前播放量</th><th>目标播放量</th><th>进度</th><th>状态</th><th>加入时间</th></tr>
+        <tr><th style="width:30px"><input type="checkbox" id="selectAllViewAlert"></th><th>BV号</th><th>标题</th><th>UP主</th><th>当前播放量</th><th>目标播放量</th><th>进度</th><th>状态</th><th>加入时间</th><th style="width:60px">操作</th></tr>
       </thead>
       <tbody id="viewalert-tbody"></tbody>
     </table>
@@ -271,6 +274,17 @@
       <div class="form-row"><label>目标播放量:</label><input id="vaTarget" type="number" placeholder="如 100000"></div>
       <button id="btn-submit-viewalert">提交</button>
       <button id="btn-cancel-viewalert" class="danger">取消</button>
+    </div>
+  </div>
+
+  <div id="viewAlertEditModal" class="modal">
+    <div class="modal-content">
+      <h3>编辑播放量预警</h3>
+      <div class="form-row"><label>BV号:</label><input id="vaEditBv" readonly style="background:#f0f0f0;color:#666"></div>
+      <div class="form-row"><label>监控时长(小时):</label><input id="vaEditHours" type="number" style="width:120px;"> <span style="color:#888;font-size:12px">超过此时长未达标自动关闭</span></div>
+      <div class="form-row"><label>目标播放量:</label><input id="vaEditTarget" type="number" placeholder="如 100000"></div>
+      <button id="btn-save-viewalert">保存</button>
+      <button id="btn-cancel-viewalertedit" class="danger">取消</button>
     </div>
   </div>
 
@@ -801,8 +815,9 @@
             <td class="view-num">${formatView(target)}</td>
             <td><div style="background:#eee;border-radius:4px;height:14px;width:100px;overflow:hidden;"><div style="background:#4caf50;height:100%;width:${pct}%"></div></div><span style="font-size:12px;color:#888"> ${pct}%</span></td>
             <td><span class="badge ${bc}">${st}</span></td>
-            <td class="time-text">${formatTime(v.created_at)}</td></tr>`;
-        }).join('') || '<tr><td colspan="9">暂无</td></tr>';
+            <td class="time-text">${formatTime(v.created_at)}</td>
+            <td><button class="mini-btn" data-va-edit="${v.id}">编辑</button></td></tr>`;
+        }).join('') || '<tr><td colspan="10">暂无</td></tr>';
       } catch(e) { console.error(e); }
     }
 
@@ -829,6 +844,26 @@
     async function refreshViewAlert() {
       await supabase.from('push_requests').insert([{action:'view_alert_refresh',video_id:0,status:'pending'}]);
       alert('已发送'); setTimeout(loadViewAlertVideos, 5000);
+    }
+
+    let editVaId = null;
+    async function openEditViewAlert(id) {
+      const { data } = await supabase.from('videos').select('*').eq('id', id).maybeSingle();
+      if (!data) return alert('未找到该记录');
+      editVaId = id;
+      document.getElementById('vaEditBv').value = data.bvid || '';
+      document.getElementById('vaEditHours').value = data.monitor_hours || 48;
+      document.getElementById('vaEditTarget').value = data.alert_milestone || 0;
+      document.getElementById('viewAlertEditModal').style.display = 'block';
+    }
+    async function saveEditViewAlert() {
+      if (!editVaId) return;
+      const hours = parseInt(document.getElementById('vaEditHours').value) || 48;
+      const target = parseInt(document.getElementById('vaEditTarget').value);
+      if (!target || target <= 0) return alert('请输入目标播放量');
+      await supabase.from('videos').update({ monitor_hours: hours, alert_milestone: target }).eq('id', editVaId);
+      audit('编辑播放量预警', `id=${editVaId} 目标=${target} 时长=${hours}h`);
+      closeModal('viewAlertEditModal'); loadViewAlertVideos();
     }
 
     async function loadLogs() {
@@ -1146,6 +1181,12 @@
     document.getElementById('btn-viewalert-refresh').onclick = refreshViewAlert;
     document.getElementById('btn-viewalert-del').onclick = deleteViewAlert;
     document.getElementById('selectAllViewAlert').onchange = function() { document.querySelectorAll('.va-check').forEach(c=>c.checked=this.checked); };
+    document.getElementById('btn-save-viewalert').onclick = saveEditViewAlert;
+    document.getElementById('btn-cancel-viewalertedit').onclick = () => closeModal('viewAlertEditModal');
+    document.getElementById('viewalert-tbody').addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-va-edit]');
+      if (btn) await openEditViewAlert(parseInt(btn.dataset.vaEdit));
+    });
 
     async function loadCloudAudit() {
       const tbody = document.getElementById('audit-cloud-tbody');
