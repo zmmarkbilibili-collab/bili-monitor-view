@@ -51,14 +51,18 @@
     .ms-option { display: block; padding: 6px 8px; font-size: 13px; cursor: pointer; white-space: nowrap; }
     .ms-option:hover { background: #f0f7ff; }
     .ms-option input { margin-right: 6px; vertical-align: middle; }
-    .combobox { position: relative; display: inline-block; width: 200px; vertical-align: middle; }
+    .combobox { position: relative; display: inline-block; width: 220px; vertical-align: middle; }
     .combobox input { width: 100%; box-sizing: border-box; padding-right: 22px; }
     .combo-arrow { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); color: #888; cursor: pointer; font-size: 11px; }
-    .combo-panel { display: none; position: absolute; top: 100%; left: 0; width: 100%; max-height: 240px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 4px; z-index: 200; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+    .combo-panel { display: none; position: absolute; top: 100%; left: 0; width: 260px; background: white; border: 1px solid #ccc; border-radius: 4px; z-index: 200; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
     .combo-panel.show { display: block; }
+    .combo-search { width: 100%; box-sizing: border-box; border: none; border-bottom: 1px solid #eee; padding: 8px; font-size: 13px; outline: none; }
+    .combo-count { padding: 4px 8px; font-size: 11px; color: #999; background: #fafafa; }
+    .combo-list { max-height: 260px; overflow-y: auto; }
     .combo-opt { display: block; padding: 6px 8px; font-size: 13px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .combo-opt:hover { background: #f0f7ff; }
-    .combo-empty { padding: 6px 8px; font-size: 12px; color: #999; }
+    .combo-opt mark { background: #fff2a8; color: inherit; }
+    .combo-empty { padding: 8px; font-size: 12px; color: #999; }
   </style>
 </head>
 <body>
@@ -68,7 +72,7 @@
   </div>
 
   <div class="section">
-    <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每15分钟自动刷新；0–8点静默不自动拉)</span></h2>
+    <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
     <div class="toolbar">
     <button id="btn-add">批量添加 BV</button>
     <button id="btn-push-sel" class="secondary">手动推送选中</button>
@@ -93,7 +97,7 @@
   </div>
 
   <div class="section">
-    <h2>🚩 共青团搬运监控（达标 80000 自动推送） <span class="auto-refresh-hint">(每15分钟自动刷新；0–8点静默不自动拉)</span></h2>
+    <h2>🚩 共青团搬运监控（达标 80000 自动推送） <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
     <div class="toolbar">
     <button id="btn-gqt-add">添加共青团视频</button>
     <button id="btn-gqt-push" class="secondary">手动推送选中</button>
@@ -108,13 +112,27 @@
     </table>
   </div>
 
+  <div class="section">
+    <h2>📊 播放量预警（手动设置目标播放量，达标推送） <span class="auto-refresh-hint">(每30分钟轮询)</span></h2>
+    <div class="toolbar">
+      <button id="btn-viewalert-add">添加播放量预警</button>
+      <button id="btn-viewalert-refresh" class="secondary">手动刷新播放量</button>
+      <button id="btn-viewalert-del" class="danger">删除选中</button>
+    </div>
+    <table>
+      <thead>
+        <tr><th style="width:30px"><input type="checkbox" id="selectAllViewAlert"></th><th>BV号</th><th>标题</th><th>UP主</th><th>当前播放量</th><th>目标播放量</th><th>进度</th><th>状态</th><th>加入时间</th></tr>
+      </thead>
+      <tbody id="viewalert-tbody"></tbody>
+    </table>
+  </div>
+
   <div class="section log-section">
-    <h2>📋 操作日志 <span class="auto-refresh-hint">(每15分钟自动刷新；0–8点静默不自动拉)</span></h2>
+    <h2>📋 操作日志 <span class="auto-refresh-hint">(每30秒自动刷新)</span></h2>
     <div class="toolbar" style="position:sticky;top:0;z-index:10;">
     <button id="btn-refresh-log">刷新日志</button>
     <button id="btn-clear-log" class="danger">清空日志</button>
     <button id="btn-audit" class="secondary">📝 本机操作日志</button>
-    <button id="btn-audit-cloud" class="secondary">📝 审计记录(全员)</button>
     </div>
     <table>
       <thead><tr><th style="width:150px">时间</th><th style="width:100px">类型</th><th style="width:70px">级别</th><th>详情</th><th style="width:70px">操作</th></tr></thead>
@@ -131,11 +149,7 @@
       <button id="btn-mh-search">查询</button>
       <button id="btn-mh-refresh" class="secondary">刷新</button>
       <button id="btn-mh-export" class="secondary">📥 导出Excel</button>
-      <span style="border-left:1px solid #ddd;height:22px;margin:0 4px;"></span>
-      <input id="mhRecover" placeholder="补录缺失的BV号" style="width:150px;">
-      <button id="btn-mh-recover" class="secondary">补录已删稿件</button>
-      <button id="btn-mh-backfill" class="secondary">补齐活跃台账</button>
-      <button id="btn-mh-fixtitle" class="secondary">🔄 补全缺失标题</button>
+      <button id="btn-mh-backfill" class="secondary">🔄 补全缺失标题</button>
       <span id="mhCount" style="color:#888;font-size:13px;margin-left:8px;"></span>
     </div>
     <table>
@@ -153,7 +167,11 @@
         <div class="combobox">
           <input id="groupName" placeholder="输入或选择组名" style="width:200px;" autocomplete="off">
           <span class="combo-arrow">▼</span>
-          <div class="combo-panel" id="groupComboPanel"></div>
+          <div class="combo-panel" id="groupComboPanel">
+            <input class="combo-search" id="groupComboSearch" placeholder="筛选组名…" autocomplete="off">
+            <div class="combo-count" id="groupComboCount"></div>
+            <div class="combo-list" id="groupComboList"></div>
+          </div>
         </div>
       </div>
       <div class="form-row"><label>仅预警:</label><input type="checkbox" id="alertOnlyAdd"></div>
@@ -181,7 +199,7 @@
       <div class="form-row"><label>启用差距预警:</label><input type="checkbox" id="editGapAlertEnabled"></div>
       <div class="form-row"><label>对比稿件:</label>
         <div class="ms" id="msGap">
-          <div class="ms-control" onclick="toggleMS('msGap', event)"><span class="ms-text" id="msGapText">-- 无 --</span><span class="ms-arrow">▾</span></div>
+          <div class="ms-control"><span class="ms-text" id="msGapText">-- 无 --</span><span class="ms-arrow">▾</span></div>
           <div class="ms-panel" id="msGapPanel"></div>
         </div>
       </div>
@@ -191,7 +209,7 @@
       <div class="form-row"><label>启用在线预警:</label><input type="checkbox" id="editOnlineAlertEnabled"></div>
       <div class="form-row"><label>对比稿件:</label>
         <div class="ms" id="msOnline">
-          <div class="ms-control" onclick="toggleMS('msOnline', event)"><span class="ms-text" id="msOnlineText">-- 无 --</span><span class="ms-arrow">▾</span></div>
+          <div class="ms-control"><span class="ms-text" id="msOnlineText">-- 无 --</span><span class="ms-arrow">▾</span></div>
           <div class="ms-panel" id="msOnlinePanel"></div>
         </div>
       </div>
@@ -226,6 +244,17 @@
     </div>
   </div>
 
+  <div id="viewAlertAddModal" class="modal">
+    <div class="modal-content">
+      <h3>添加播放量预警</h3>
+      <div class="form-row"><label>BV号:</label><input id="vaBvInput" placeholder="BVxxx"></div>
+      <div class="form-row"><label>监控时长(小时):</label><input id="vaHours" type="number" value="48" style="width:120px;"> <span style="color:#888;font-size:12px">超过此时长未达标自动关闭</span></div>
+      <div class="form-row"><label>目标播放量:</label><input id="vaTarget" type="number" placeholder="如 100000"></div>
+      <button id="btn-submit-viewalert">提交</button>
+      <button id="btn-cancel-viewalert" class="danger">取消</button>
+    </div>
+  </div>
+
   <div id="historyModal" class="modal">
     <div class="modal-content">
       <h3>历史监控数据</h3>
@@ -245,21 +274,6 @@
       <table>
         <thead><tr><th style="width:150px">时间</th><th style="width:60px">机器</th><th style="width:120px">操作</th><th>详情</th></tr></thead>
         <tbody id="audit-tbody"><tr><td colspan="4" style="text-align:center;color:#999;">加载中...</td></tr></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div id="auditCloudModal" class="modal">
-    <div class="modal-content">
-      <h3>📝 审计记录（全员 · 多机） <span style="font-size:12px;color:#888;">（存于 Supabase，跨机器共享，精准记录谁增删改了什么）</span></h3>
-      <div style="margin-bottom:10px;">
-        <button id="btn-refresh-audit-cloud" class="secondary">刷新</button>
-        <button id="btn-export-audit-cloud" class="secondary">📥 导出CSV</button>
-        <button id="btn-cancel-audit-cloud" class="danger">关闭</button>
-      </div>
-      <table>
-        <thead><tr><th style="width:150px">时间</th><th style="width:90px">机器</th><th style="width:120px">操作</th><th>详情</th></tr></thead>
-        <tbody id="audit-cloud-tbody"><tr><td colspan="4" style="text-align:center;color:#999;">加载中...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -287,40 +301,6 @@
     if (_PY_IS_ADMIN) { localStorage.setItem(LS_ADMIN_KEY, '1'); _isAdmin = true; }
     else { _isAdmin = localStorage.getItem(LS_ADMIN_KEY) === '1'; }
     const IS_ADMIN = _isAdmin;
-
-    // ===== v2 新增：机器真实ID（审计署名）/ 0-8点静默时段 / 审计上云 =====
-    const MACHINE_ID = (_CFG && _CFG.MACHINE_ID) ? _CFG.MACHINE_ID : MACHINE_NAME;
-    const SILENT_START = 0;   // 静默开始小时（含）
-    const SILENT_END = 8;     // 静默结束小时（不含）
-
-    // 审计上云：把「谁（机器ID+机器名）在什么时间做了什么」写入 Supabase audit_log 表（全员共享）。
-    async function auditCloud(action, target, detail) {
-      try {
-        await supabase.from('audit_log').insert([{
-          machine_id: MACHINE_ID,
-          machine_name: MACHINE_NAME,
-          action: String(action || '').slice(0, 100),
-          target: String(target || '').slice(0, 200),
-          detail: String(detail || '').slice(0, 500),
-          created_at: new Date().toISOString()
-        }]);
-      } catch (e) { console.warn('审计上云失败', e); }
-    }
-    // 前端增删改 videos 后调用：让活跃机器把 app_config.videos_version +1，触发后端重新全表拉取。
-    async function bumpVersion() {
-      try {
-        await supabase.from('push_requests').insert([{ action: 'bump_version', video_id: 0, status: 'pending' }]);
-      } catch (e) { console.warn('bump version 失败', e); }
-    }
-    // 数据变更后统一动作：审计上云 + 通知后端重新加载视频列表
-    async function afterChange(action, target, detail) {
-      await auditCloud(action, target, detail);
-      await bumpVersion();
-    }
-    function inSilentHours() {
-      const h = new Date().getHours();
-      return h >= SILENT_START && h < SILENT_END;
-    }
 
     function renameMachine() {
       const cur = (MACHINE_NAME && MACHINE_NAME !== '未命名') ? MACHINE_NAME : '';
@@ -392,31 +372,6 @@
       if (!confirm('清空本机操作日志？（仅清空本地记录，不影响网站数据）')) return;
       localStorage.removeItem(AUDIT_KEY);
       document.getElementById('audit-tbody').innerHTML = auditRowsHtml();
-    }
-
-    // ===== 审计记录（全员 · 多机）：从 Supabase audit_log 读取 =====
-    async function loadAuditCloud() {
-      try {
-        const { data, error } = await supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(200);
-        if (error) throw error;
-        document.getElementById('audit-cloud-tbody').innerHTML = (data || []).map(r =>
-          `<tr><td class="time-text">${formatTime(r.created_at)}</td><td><b>${r.machine_name || r.machine_id || '-'}</b></td><td>${r.action || '-'}</td><td>${(r.detail || '').replace(/</g, '&lt;')}</td></tr>`
-        ).join('') || '<tr><td colspan="4" style="text-align:center;color:#999">暂无记录</td></tr>';
-      } catch (e) {
-        console.error(e);
-        document.getElementById('audit-cloud-tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">加载失败（请确认已在 Supabase 执行 create_tables.sql）</td></tr>';
-      }
-    }
-    function exportAuditCloud() {
-      const rows = [...document.querySelectorAll('#audit-cloud-tbody tr')].map(tr => {
-        const tds = tr.querySelectorAll('td');
-        if (tds.length < 4) return null;
-        return [...tds].map(td => (td.textContent || '').replace(/\t/g, ' ')).join('\t');
-      }).filter(Boolean);
-      const csv = '﻿时间\t机器\t操作\t详情\n' + rows.join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-      a.download = `审计记录全员_${new Date().toISOString().slice(0,10)}.csv`; a.click();
     }
 
     async function loadVideos() {
@@ -492,15 +447,13 @@
         await supabase.from('push_requests').insert(newVids.map(v=>({action:'new_video',video_id:v.id,status:'pending'})));
         // 注意：台账 upsert 故意不写 title/up_name（留空由后端刷新回填），
         // 避免重加视频时用空串覆盖掉已有的真实标题。
-        const { error: mhErr } = await supabase.from('manuscript_history').upsert(bvs.map(bv=>({
+        await supabase.from('manuscript_history').upsert(bvs.map(bv=>({
           bvid: bv, group_name: gn||'', status:'active',
           added_at: new Date().toISOString()
         })), {onConflict:'bvid'});
-        if (mhErr) alert('⚠️ 历史台账写入失败(添加): '+mhErr.message+'\n多半是 Supabase 对 manuscript_history 表开了 RLS 且未放行匿名写入，请在 Supabase SQL 执行：\nALTER TABLE manuscript_history DISABLE ROW LEVEL SECURITY;');
       }
       alert(`已添加 ${bvs.length} 个视频`);
       audit('添加视频', `组=${gn||'(默认)'} BV=${bvs.join(', ')}`);
-      await afterChange('添加视频', bvs.join(','), `组=${gn||'(默认)'}`);
       closeModal('addModal'); loadVideos();
     }
 
@@ -508,7 +461,6 @@
       const ids = getSelected(); if (!ids.length) return alert('请勾选');
       await supabase.from('push_requests').insert(ids.map(vid=>({action:'push',video_id:vid,status:'pending'})));
       audit('手动推送(选中)', `id=${ids.join(',')}`);
-      await afterChange('手动推送', ids.join(','), '');
       alert('已提交推送请求');
     }
     async function pushAll() {
@@ -518,7 +470,6 @@
       if (!confirm(`推送全部${vids.length}个？`)) return;
       await supabase.from('push_requests').insert(vids.map(v=>({action:'push',video_id:v.id,status:'pending'})));
       audit('一键推送全部', `共 ${vids.length} 个`);
-      await afterChange('一键推送全部', `共 ${vids.length} 个`, '');
       alert('已提交');
     }
 
@@ -568,10 +519,8 @@
           alert('❌ 已从监控删除，但历史台账没留下「'+failed.join(', ')+'」！\n原因几乎肯定是 Supabase 对 manuscript_history 表开了 RLS 且未放行匿名写入。\n请到 Supabase 后台 → SQL Editor 执行这一句（只需一次，可重复跑）：\n\nALTER TABLE manuscript_history DISABLE ROW LEVEL SECURITY;\n\n执行后重新删除一次即可看到。');
         }
       }
-      // 先刷新界面（即使下方推送逻辑报错也不影响列表显示）
       loadVideos();
-      loadManuscriptHistory();
-      try { await afterChange('删除视频', bvids.join(','), ''); } catch(e) { console.error('afterChange 失败:', e); }
+      loadManuscriptHistory(); // 立即刷新下方历史稿件查询，删除的 BV 立即可见
     }
 
     // 管理员：彻底删除——连 manuscript_history 记录一起清掉，网站不留任何痕迹
@@ -588,7 +537,6 @@
       const { error } = await supabase.from('videos').delete().in('id', ids);
       if (error) { alert('彻底删除失败: '+error.message); return; }
       audit('彻底删除(管理员)', `id=${ids.join(',')} BV=${bvids.join(', ')}（已从网站完全清除）`);
-      await afterChange('彻底删除', bvids.join(','), '');
       alert(`已彻底删除 ${ids.length} 个视频（网站不留记录）`); loadVideos();
     }
 
@@ -618,13 +566,18 @@
       else textEl.textContent = `已选 ${checked.length} 个`;
     }
     function toggleMS(id, ev) {
-      ev.stopPropagation();
       const panel = document.getElementById(id + 'Panel');
+      if (!panel) return;
       const willOpen = panel.style.display !== 'block';
       document.querySelectorAll('.ms-panel').forEach(p => p.style.display = 'none');
       panel.style.display = willOpen ? 'block' : 'none';
+      if (ev && ev.stopPropagation) ev.stopPropagation();
     }
-    window.toggleMS = toggleMS;  // 模块作用域下，HTML 内联 onclick 需显式挂到全局
+    // type=module 下内联 onclick 不可靠，改为模块内 addEventListener 绑定，确保点击箭头能展开
+    ['msGap', 'msOnline'].forEach(id => {
+      const ctrl = document.querySelector(`#${id} .ms-control`);
+      if (ctrl) ctrl.addEventListener('click', (e) => toggleMS(id, e));
+    });
     function getMSValues(panelId) {
       const panel = document.getElementById(panelId);
       return [...panel.querySelectorAll('input:checked')].map(c => c.value);
@@ -671,13 +624,18 @@
         const { data: rows } = await supabase.from('videos').select('bvid,title,up_name,group_name').in('id', cachedIds);
         sameGroup = rows || [];
       }
+      // 取全部非共青团视频，供回退使用
+      const { data: allVids } = await supabase.from('videos').select('bvid,title,up_name,group_name,category');
+      const nonGqt = (allVids||[]).filter(x => x.category !== 'gqt' && x.bvid !== v.bvid);
       if (!sameGroup.length) {
-        const { data: allVids } = await supabase.from('videos').select('bvid,title,up_name,group_name,category');
-        const nonGqt = (allVids||[]).filter(x => x.category !== 'gqt');
-        sameGroup = nonGqt.filter(x => normGroup(x.group_name) === gn && x.bvid !== v.bvid);
-        if (!sameGroup.length) sameGroup = nonGqt.filter(x => coreKey(normGroup(x.group_name)) === coreKey(gn) && x.bvid !== v.bvid);
+        sameGroup = nonGqt.filter(x => normGroup(x.group_name) === gn);
+        if (!sameGroup.length) sameGroup = nonGqt.filter(x => coreKey(normGroup(x.group_name)) === coreKey(gn));
       }
-      if (!sameGroup.length) showDebug(`单视频编辑：组"${gn}"未找到同组其他视频（可能该组只有这一个稿件）`);
+      // 同组确实没有其他稿件时，回退显示全部视频，避免下拉空白
+      if (!sameGroup.length) {
+        sameGroup = nonGqt;
+        showDebug(`单视频编辑：组"${gn}"无其他同组稿件，已回退显示全部视频供对比`);
+      }
 
       // 多选下拉：选项显示 BV - 标题 - UP主
       const cmpItems = sameGroup.map(x => ({
@@ -696,14 +654,13 @@
       if (!editingId) return;
       const gapVals = getMSValues('msGapPanel');
       const onlineVals = getMSValues('msOnlinePanel');
-      const gn = document.getElementById('editGroupName').value||'';
       const { error } = await supabase.from('videos').update({
         cid: document.getElementById('editCid').value,
         start_time: document.getElementById('editStartTime').value,
         current_hour: parseInt(document.getElementById('editCurrentHour').value)||0,
         monitor_hours: parseInt(document.getElementById('editMonitorHours').value)||48,
         notify_interval: parseFloat(document.getElementById('editNotifyInterval').value)||1,
-        group_name: gn,
+        group_name: document.getElementById('editGroupName').value,
         window_start: parseInt(document.getElementById('editWinStart').value)||0,
         window_end: parseInt(document.getElementById('editWinEnd').value)||24,
         highlight: document.getElementById('editHighlight').checked,
@@ -716,8 +673,7 @@
         online_alert_threshold: parseInt(document.getElementById('editOnlineAlertThreshold').value)||0,
       }).eq('id', editingId);
       if (error) { alert('保存失败: '+error.message); return; }
-      audit('编辑单视频', `BV=${editingBvid||editingId} 组=${gn}`);
-      await afterChange('编辑单视频', editingBvid||editingId, `组=${gn}`);
+      audit('编辑单视频', `BV=${editingBvid||editingId} 组=${(document.getElementById('editGroupName').value||'')}`);
       alert('已更新并写入数据库'); closeModal('editModal'); loadVideos();
     }
 
@@ -732,7 +688,6 @@
     async function refreshList() {
       await supabase.from('push_requests').insert([{action:'refresh_stats',video_id:0,status:'pending'}]);
       audit('请求刷新播放量', '');
-      await auditCloud('请求刷新播放量', '', '');
       alert('刷新请求已发送'); setTimeout(loadVideos, 10000);
     }
 
@@ -743,7 +698,6 @@
       if (!bv.startsWith('BV')) return alert('请输入BV号');
       await supabase.from('videos').insert([{bvid:bv,category:'gqt',alert_enabled:true,alert_milestone:80000,alert_only:true,start_time:formatLocalDateTime(),current_hour:0,monitor_hours:48,group_name:'共青团',push_enabled:false,view:0}]);
       audit('添加共青团视频', `BV=${bv}`);
-      await afterChange('添加共青团视频', bv, '');
       closeModal('gqtAddModal'); loadGqtVideos();
     }
     async function pushGqt() {
@@ -759,9 +713,56 @@
     async function deleteGqt() {
       const ids = [...document.querySelectorAll('.gqt-check:checked')].map(c=>parseInt(c.value));
       if (!ids.length) return alert('请勾选');
-      await supabase.from('videos').delete().in('id',ids); audit('删除共青团视频', `id=${ids.join(',')}`);
-      await afterChange('删除共青团视频', ids.join(','), '');
-      loadGqtVideos();
+      await supabase.from('videos').delete().in('id',ids); audit('删除共青团视频', `id=${ids.join(',')}`); loadGqtVideos();
+    }
+
+    async function loadViewAlertVideos() {
+      try {
+        const { data } = await supabase.from('videos').select('*').eq('category','view_alert').order('created_at',{ascending:false});
+        document.getElementById('viewalert-tbody').innerHTML = (data||[]).map(v => {
+          const target = v.alert_milestone || 0;
+          const cur = v.view || 0;
+          const pct = target ? Math.min(100, Math.floor(cur/target*100)) : 0;
+          const reached = target && cur >= target;
+          let st = '监控中', bc = 'badge-pending';
+          if (reached && !v.alert_enabled) { st = '✅已达标'; bc = 'badge-done'; }
+          else if (!v.alert_enabled) { st = '⏹已关闭'; bc = 'badge-done'; }
+          else if (reached) { st = '🔔达标'; bc = 'badge-error'; }
+          return `<tr class="${reached?'done':''}"><td><input type="checkbox" value="${v.id}" class="va-check"></td>
+            <td><a href="https://www.bilibili.com/video/${v.bvid}" target="_blank" style="color:#2196F3">${v.bvid}</a></td>
+            <td>${v.title||'获取中...'}</td><td>${v.up_name||'-'}</td>
+            <td class="view-num">${formatView(cur)}</td>
+            <td class="view-num">${formatView(target)}</td>
+            <td><div style="background:#eee;border-radius:4px;height:14px;width:100px;overflow:hidden;"><div style="background:#4caf50;height:100%;width:${pct}%"></div></div><span style="font-size:12px;color:#888"> ${pct}%</span></td>
+            <td><span class="badge ${bc}">${st}</span></td>
+            <td class="time-text">${formatTime(v.created_at)}</td></tr>`;
+        }).join('') || '<tr><td colspan="9">暂无</td></tr>';
+      } catch(e) { console.error(e); }
+    }
+
+    async function addViewAlert() {
+      const bv = document.getElementById('vaBvInput').value.trim();
+      if (!bv.startsWith('BV')) return alert('请输入BV号');
+      const hours = parseInt(document.getElementById('vaHours').value) || 48;
+      const target = parseInt(document.getElementById('vaTarget').value);
+      if (!target || target <= 0) return alert('请输入目标播放量');
+      await supabase.from('videos').insert([{
+        bvid: bv, category: 'view_alert', alert_enabled: true, alert_milestone: target,
+        alert_only: true, alert_interval_minutes: 30, start_time: formatLocalDateTime(),
+        current_hour: 0, monitor_hours: hours, group_name: '播放量预警',
+        push_enabled: false, view: 0, title: '', up_name: ''
+      }]);
+      audit('添加播放量预警', `BV=${bv} 目标=${target} 时长=${hours}h`);
+      closeModal('viewAlertAddModal'); loadViewAlertVideos();
+    }
+    async function deleteViewAlert() {
+      const ids = [...document.querySelectorAll('.va-check:checked')].map(c=>parseInt(c.value));
+      if (!ids.length) return alert('请勾选');
+      await supabase.from('videos').delete().in('id', ids); audit('删除播放量预警', `id=${ids.join(',')}`); loadViewAlertVideos();
+    }
+    async function refreshViewAlert() {
+      await supabase.from('push_requests').insert([{action:'view_alert_refresh',video_id:0,status:'pending'}]);
+      alert('已发送'); setTimeout(loadViewAlertVideos, 5000);
     }
 
     async function loadLogs() {
@@ -858,7 +859,6 @@
 
       alert(`已更新 ${successCount}/${ids.length} 个视频`);
       audit('编辑整组', `组=${editingGroup} 共 ${ids.length} 个视频`);
-      await afterChange('编辑整组', editingGroup, `共 ${ids.length} 个`);
       closeModal('groupEditModal');
       loadVideos();
     }
@@ -869,7 +869,9 @@
       const mf = document.getElementById('mhMonth').value;
       let { data } = await supabase.from('manuscript_history').select('*').order('added_at',{ascending:false});
       let list = data||[];
-      // 合并 videos 表中真实存在的标题/UP主/监控开始时间（台账 title 常为空、added_at 批量聚集）
+      // 合并 videos 表中真实存在的标题/UP主/监控开始时间：
+      // 台账 manuscript_history 的 title/up_name 常常是空串（添加时没写），
+      // 且 added_at 在批量添加时会挤在同一时刻；videos 表的真实数据更可信。
       const { data: vrows } = await supabase.from('videos').select('bvid,title,up_name,start_time');
       const vmap = {}; (vrows||[]).forEach(v => vmap[v.bvid] = v);
       if (sf) list = list.filter(r=>(r.status||'active')===sf);
@@ -951,91 +953,56 @@
       loadManuscriptHistory();
     }
 
-    // 把各种时间格式归一为 ISO（兜底用）
-    function toIso(s){
-      if(!s) return new Date().toISOString();
-      let t = String(s).trim();
-      if(t.includes(' ')) t = t.replace(' ','T');
-      if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(t)) t += ':00';
-      if(!/Z|\+\d{2}:?\d{2}$/.test(t)) t += 'Z';
-      return t;
-    }
-
-    // 补录一个在台账里缺失的 BV（例如早期被删、或后端加的视频没留痕）
-    async function recoverRemovedBV() {
-      const bv = (document.getElementById('mhRecover').value||'').trim();
-      if (!bv.startsWith('BV')) return alert('请输入以 BV 开头的稿件号');
-      const { data: vids } = await supabase.from('videos').select('bvid,title,up_name,group_name,start_time').eq('bvid', bv);
-      const now = new Date().toISOString();
-      let row, note;
-      if (vids && vids.length) {
-        const v = vids[0];
-        row = { bvid: bv, title: v.title||'', up_name: v.up_name||'', group_name: v.group_name||'',
-                status: 'active', added_at: toIso(v.start_time) };
-        note = '在监控中';
-      } else {
-        // 已不在监控：补一条 removed 记录，added_at 以补录时刻兜底（原始添加时间已不可恢复）
-        row = { bvid: bv, title:'', up_name:'', group_name:'', status:'removed', added_at: now, removed_at: now };
-        note = '已删除（原始添加时间已丢失，暂以补录时刻显示）';
-      }
-      const { error } = await supabase.from('manuscript_history').upsert(row, { onConflict:'bvid' });
-      if (error) return alert('补录失败: '+error.message);
-      alert(`已补录 ${bv}（状态：${note}）`);
-      document.getElementById('mhRecover').value = '';
-      loadManuscriptHistory();
-    }
-
-    // 把当前在监控、但台账缺记录的视频一次性补成 active（防止后端加的视频删了没痕迹）
-    async function backfillActiveLedger() {
-      const { data: vids } = await supabase.from('videos').select('bvid,title,up_name,group_name,start_time');
-      if (!vids || !vids.length) return alert('当前没有在监控的视频');
-      const { data: ledger } = await supabase.from('manuscript_history').select('bvid');
-      const have = new Set((ledger||[]).map(r=>r.bvid));
-      let n = 0;
-      for (const v of vids) {
-        if (have.has(v.bvid)) continue;
-        const { error } = await supabase.from('manuscript_history').upsert({
-          bvid: v.bvid, title: v.title||'', up_name: v.up_name||'', group_name: v.group_name||'',
-          status: 'active', added_at: toIso(v.start_time)
-        }, { onConflict:'bvid' });
-        if (!error) n++;
-      }
-      alert(`已补齐 ${n} 条活跃视频的台账记录`);
-      loadManuscriptHistory();
-    }
-
     let allGroupNames = [];
+    function escHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+    function highlight(text, kw){
+      if(!kw) return escHtml(text);
+      const i = text.toLowerCase().indexOf(kw.toLowerCase());
+      if(i<0) return escHtml(text);
+      return escHtml(text.slice(0,i))+'<mark>'+escHtml(text.slice(i,i+kw.length))+'</mark>'+escHtml(text.slice(i+kw.length));
+    }
     function renderGroupCombo(filter) {
-      const panel = document.getElementById('groupComboPanel');
-      const kw = (filter||'').toLowerCase();
-      const list = allGroupNames.filter(n => n.toLowerCase().includes(kw));
-      if (!list.length) { panel.innerHTML = '<div class="combo-empty">无可选项</div>'; return; }
-      panel.innerHTML = list.map(n => `<div class="combo-opt" data-g="${n.replace(/"/g,'&quot;')}">${n}</div>`).join('');
-      panel.querySelectorAll('.combo-opt').forEach(o => {
+      const listEl = document.getElementById('groupComboList');
+      const countEl = document.getElementById('groupComboCount');
+      if (!listEl) return;
+      const kw = (filter||'').trim().toLowerCase();
+      const sorted = [...allGroupNames].sort((a,b)=>a.localeCompare(b,'zh-Hans-CN'));
+      const list = kw ? sorted.filter(n => n.toLowerCase().includes(kw)) : sorted;
+      countEl.textContent = `共 ${allGroupNames.length} 个组名` + (kw ? `，匹配 ${list.length} 个` : '');
+      if (!list.length) { listEl.innerHTML = '<div class="combo-empty">无匹配组名</div>'; return; }
+      listEl.innerHTML = list.map(n => `<div class="combo-opt" data-g="${n.replace(/"/g,'&quot;')}">${highlight(n, kw)}</div>`).join('');
+      listEl.querySelectorAll('.combo-opt').forEach(o => {
         o.onclick = () => {
           document.getElementById('groupName').value = o.getAttribute('data-g');
-          panel.classList.remove('show');
+          document.getElementById('groupComboSearch').value = '';
+          document.getElementById('groupComboPanel').classList.remove('show');
         };
       });
     }
     function toggleGroupCombo(forceOpen) {
       const panel = document.getElementById('groupComboPanel');
       const willShow = forceOpen !== undefined ? forceOpen : !panel.classList.contains('show');
-      if (willShow) { renderGroupCombo(document.getElementById('groupName').value); panel.classList.add('show'); }
-      else panel.classList.remove('show');
+      if (willShow) {
+        document.getElementById('groupComboSearch').value = '';
+        renderGroupCombo('');
+        panel.classList.add('show');
+        setTimeout(() => { const s=document.getElementById('groupComboSearch'); if(s) s.focus(); }, 0);
+      } else panel.classList.remove('show');
     }
     const groupInput = document.getElementById('groupName');
     const comboArrow = document.querySelector('.combo-arrow');
     groupInput.addEventListener('focus', async () => { await loadAllGroupNames(); toggleGroupCombo(true); });
-    groupInput.addEventListener('input', () => renderGroupCombo(groupInput.value));
+    groupInput.addEventListener('input', () => { document.getElementById('groupComboSearch').value = groupInput.value; renderGroupCombo(groupInput.value); });
     if (comboArrow) comboArrow.addEventListener('click', async (e) => { e.stopPropagation(); await loadAllGroupNames(); toggleGroupCombo(); });
+    const comboSearch = document.getElementById('groupComboSearch');
+    if (comboSearch) comboSearch.addEventListener('input', () => renderGroupCombo(comboSearch.value));
     async function loadAllGroupNames() {
       try {
         const { data, error } = await supabase.from('videos').select('group_name,category');
         if (error) { console.error('[组名下拉] 加载失败:', error); allGroupNames = []; }
         else allGroupNames = [...new Set((data||[]).filter(v => v.category !== 'gqt' && v.group_name).map(v=>v.group_name))];
       } catch(e) { console.error('[组名下拉] 加载异常:', e); allGroupNames = []; }
-      if (document.getElementById('groupComboPanel').classList.contains('show')) renderGroupCombo('');
+      if (document.getElementById('groupComboPanel').classList.contains('show')) renderGroupCombo(document.getElementById('groupComboSearch').value);
     }
     document.getElementById('btn-add').onclick = () => {
       document.getElementById('addModal').style.display = 'block';
@@ -1076,6 +1043,13 @@
     document.getElementById('btn-gqt-del').onclick = deleteGqt;
     document.getElementById('selectAllGqt').onchange = function() { document.querySelectorAll('.gqt-check').forEach(c=>c.checked=this.checked); };
 
+    document.getElementById('btn-viewalert-add').onclick = () => document.getElementById('viewAlertAddModal').style.display='block';
+    document.getElementById('btn-submit-viewalert').onclick = addViewAlert;
+    document.getElementById('btn-cancel-viewalert').onclick = () => closeModal('viewAlertAddModal');
+    document.getElementById('btn-viewalert-refresh').onclick = refreshViewAlert;
+    document.getElementById('btn-viewalert-del').onclick = deleteViewAlert;
+    document.getElementById('selectAllViewAlert').onchange = function() { document.querySelectorAll('.va-check').forEach(c=>c.checked=this.checked); };
+
     document.getElementById('btn-refresh-log').onclick = loadLogs;
     document.getElementById('btn-clear-log').onclick = clearLogs;
     document.getElementById('btn-audit').onclick = () => { document.getElementById('audit-tbody').innerHTML = auditRowsHtml(); document.getElementById('auditModal').style.display = 'block'; };
@@ -1086,32 +1060,25 @@
     document.getElementById('btn-mh-search').onclick = loadManuscriptHistory;
     document.getElementById('btn-mh-refresh').onclick = loadManuscriptHistory;
     document.getElementById('btn-mh-export').onclick = exportExcel;
-    document.getElementById('btn-mh-recover').onclick = recoverRemovedBV;
-    document.getElementById('btn-mh-backfill').onclick = backfillActiveLedger;
-    document.getElementById('btn-mh-fixtitle').onclick = backfillMHInfo;
+    document.getElementById('btn-mh-backfill').onclick = backfillMHInfo;
     document.getElementById('mhSearch').onkeydown = e => { if(e.key==='Enter') loadManuscriptHistory(); };
     document.getElementById('mhStatus').onchange = loadManuscriptHistory;
     document.getElementById('mhMonth').onchange = loadManuscriptHistory;
 
-    // ===== v2 新增：审计记录(全员) 按钮绑定 =====
-    document.getElementById('btn-audit-cloud').onclick = () => { loadAuditCloud(); document.getElementById('auditCloudModal').style.display = 'block'; };
-    document.getElementById('btn-refresh-audit-cloud').onclick = loadAuditCloud;
-    document.getElementById('btn-export-audit-cloud').onclick = exportAuditCloud;
-    document.getElementById('btn-cancel-audit-cloud').onclick = () => closeModal('auditCloudModal');
-
-    // 自动刷新：每 15 分钟；0–8 点静默时段不自动拉（手动刷新/推送仍随时可用）
-    setInterval(() => { if (!inSilentHours()) loadVideos(); }, 900000);
-    setInterval(() => { if (!inSilentHours()) loadGqtVideos(); }, 900000);
-    setInterval(() => { if (!inSilentHours()) loadLogs(); }, 900000);
+    setInterval(loadVideos, 300000);
+    setInterval(loadGqtVideos, 300000);
+    setInterval(loadViewAlertVideos, 300000);
+    setInterval(loadLogs, 30000);
 
     loadVideos();
     loadGqtVideos();
+    loadViewAlertVideos();
     loadLogs();
     fillMonthOptions();
     loadManuscriptHistory();
 
     // 本机身份与权限展示
-    document.getElementById('machineTag').textContent = `${MACHINE_NAME}（ID: ${MACHINE_ID}）`;
+    document.getElementById('machineTag').textContent = MACHINE_NAME;
     document.getElementById('adminTag').textContent = IS_ADMIN ? '🛡️ 管理员（可彻底删除）' : '（普通用户）';
     document.getElementById('btn-hard-del').style.display = IS_ADMIN ? '' : 'none';
     document.getElementById('btn-rename').onclick = renameMachine;
@@ -1144,7 +1111,7 @@
       })();
     })();
 
-    console.log('[B站监控] 页面初始化完成（v2：租约锁 + 审计上云 + 0-8点静默）');
+    console.log('[B站监控] 页面初始化完成');
   </script>
 </body>
 </html>
