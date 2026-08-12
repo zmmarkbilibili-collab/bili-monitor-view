@@ -104,7 +104,6 @@
     <button id="btn-push-all" class="secondary">一键推送全部</button>
     <button id="btn-del-sel" class="danger">删除选中</button>
     <button id="btn-hard-del" class="danger">彻底删除选中</button>
-    <button id="btn-edit">编辑选中</button>
     <button id="btn-history">查看历史</button>
     <button id="btn-refresh">刷新列表</button>
     </div>
@@ -289,6 +288,7 @@
       <div class="form-row"><label>BV号:</label><input id="vaBvInput" placeholder="BVxxx"></div>
       <div class="form-row"><label>监控时长(小时):</label><input id="vaHours" type="number" value="48" style="width:120px;"> <span style="color:#888;font-size:12px">超过此时长未达标自动关闭</span></div>
       <div class="form-row"><label>目标播放量:</label><input id="vaTarget" type="number" placeholder="如 100000"></div>
+      <div class="form-row"><label>刷新间隔(分钟):</label><input id="vaRefresh" type="number" min="1" max="1440" style="width:120px;" value="5"> <span style="color:#888;font-size:12px">该稿件自动拉取播放量的间隔，可各不相同（如一个5分钟、一个10分钟）</span></div>
       <button id="btn-submit-viewalert">提交</button>
       <button id="btn-cancel-viewalert" class="danger">取消</button>
     </div>
@@ -511,7 +511,7 @@
         order.forEach(g => {
           const vids = groups[g];
           vids.sort((a,b) => { const ah = a.highlight?1:0, bh = b.highlight?1:0; if(ah!==bh) return bh-ah; return (Number(b.view)||0)-(Number(a.view)||0); });
-          html += `<tr class="group-header"><td colspan="13">📁 ${g} (${vids.length}个) <button class="group-edit-btn" data-group="${encodeURIComponent(g)}" style="float:right;padding:3px 12px;font-size:12px;">编辑整组</button></td></tr>`;
+          html += `<tr class="group-header"><td colspan="14">📁 ${g} (${vids.length}个) <button class="group-edit-btn" data-group="${encodeURIComponent(g)}" style="float:right;padding:3px 12px;font-size:12px;">编辑整组</button></td></tr>`;
           vids.forEach(v => {
             const h = v.current_hour ?? 0;
             const p = Math.min(h/48*100, 100);
@@ -528,10 +528,11 @@
               <td class="time-text">${formatTime(v.last_push_time)}</td>
               <td>${v.push_enabled?'<span style="color:#4CAF50">开</span>':'<span style="color:#f44336">关</span>'}</td>
               <td><button class="hl-btn ${v.highlight?'on':''}" data-id="${v.id}" data-hl="${v.highlight?1:0}">${v.highlight?'★':'☆'}</button></td>
+              <td><button class="mini-btn" data-v-edit="${v.id}">编辑</button></td>
             </tr>`;
           });
         });
-        document.getElementById('video-tbody').innerHTML = html || '<tr><td colspan="13" style="text-align:center">暂无视频</td></tr>';
+        document.getElementById('video-tbody').innerHTML = html || '<tr><td colspan="14" style="text-align:center">暂无视频</td></tr>';
       } catch(e) { console.error(e); }
     }
 
@@ -752,9 +753,8 @@
       }
     });
 
-    async function openEdit() {
-      const ids = getSelected(); if (ids.length !== 1) return alert('请选一个');
-      editingId = ids[0];
+    async function openEditById(id) {
+      editingId = id;
       const { data: v } = await supabase.from('videos').select('*').eq('id',editingId).single();
       if (!v) return alert('未找到');
       editingBvid = v.bvid;
@@ -932,13 +932,16 @@
       const hours = parseInt(document.getElementById('vaHours').value) || 48;
       const target = parseInt(document.getElementById('vaTarget').value);
       if (!target || target <= 0) return alert('请输入目标播放量');
+      let refresh = parseInt(document.getElementById('vaRefresh').value);
+      if (!refresh || refresh < 1) refresh = 1;
       await supabase.from('videos').insert([{
         bvid: bv, category: 'view_alert', alert_enabled: true, alert_milestone: target,
         alert_only: true, alert_interval_minutes: 30, start_time: formatLocalDateTime(),
         current_hour: 0, monitor_hours: hours, group_name: '播放量预警',
+        view_refresh_minutes: refresh,
         push_enabled: false, view: 0, title: '', up_name: ''
       }]);
-      audit('添加播放量预警', `BV=${bv} 目标=${target} 时长=${hours}h`);
+      audit('添加播放量预警', `BV=${bv} 目标=${target} 时长=${hours}h 刷新=${refresh}分钟`);
       closeModal('viewAlertAddModal'); loadViewAlertVideos();
     }
     async function deleteViewAlert() {
@@ -1270,7 +1273,6 @@
     document.getElementById('btn-push-sel').onclick = pushSelected;
     document.getElementById('btn-push-all').onclick = pushAll;
     document.getElementById('btn-del-sel').onclick = deleteSelected;
-    document.getElementById('btn-edit').onclick = openEdit;
     document.getElementById('btn-submit-edit').onclick = saveEdit;
     document.getElementById('btn-cancel-edit').onclick = () => closeModal('editModal');
     document.getElementById('btn-history').onclick = viewHistory;
@@ -1279,6 +1281,8 @@
     document.getElementById('btn-refresh').onclick = refreshList;
     document.getElementById('selectAll').onchange = function() { document.querySelectorAll('.video-check').forEach(c=>c.checked=this.checked); };
     document.getElementById('video-tbody').onclick = function(e) {
+      const editBtn = e.target.closest('[data-v-edit]');
+      if (editBtn) { openEditById(parseInt(editBtn.dataset.vEdit)); return; }
       if (e.target.classList.contains('group-edit-btn')) { openGroupEdit(e.target.dataset.group); return; }
       if (e.target.classList.contains('hl-btn')) { toggleHighlight(parseInt(e.target.dataset.id), e.target.dataset.hl==='1'); }
     };
