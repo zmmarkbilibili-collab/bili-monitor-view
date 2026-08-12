@@ -23,7 +23,7 @@
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; }
     .modal-content { background: white; margin: 3% auto; padding: 20px; width: 650px; border-radius: 8px; max-height: 85vh; overflow-y: auto; }
     #viewAlertAddModal .modal-content, #viewAlertEditModal .modal-content { min-height: 380px; margin: 1.5% auto; }
-    .mini-btn { padding: 3px 12px; font-size: 12px; cursor: pointer; border: 1px solid #2196F3; background: #fff; color: #2196F3; border-radius: 4px; }
+    .mini-btn { padding: 4px 6px; font-size: 12px; cursor: pointer; border: 1px solid #2196F3; background: #fff; color: #2196F3; border-radius: 4px; display: block; width: 100%; box-sizing: border-box; text-align: center; white-space: nowrap; }
     .mini-btn:hover { background: #2196F3; color: #fff; }
     .lease-bar { background: #f5f7fa; border: 1px solid #e3e8ee; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; font-size: 13px; color: #333; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .lease-bar b { color: #222; }
@@ -49,7 +49,7 @@
     .log-section table { font-size: 12px; }
     .log-level-INFO { color: #2196F3; }
     .log-level-ERROR { color: #f44336; font-weight: bold; }
-    .hl-btn { padding:2px 8px; font-size:12px; border:1px solid #ff9800; background:#fff; color:#ff9800; border-radius:4px; cursor:pointer; }
+    .hl-btn { padding:4px 6px; font-size:12px; border:1px solid #ff9800; background:#fff; color:#ff9800; border-radius:4px; cursor:pointer; display:block; width:100%; box-sizing:border-box; text-align:center; white-space:nowrap; }
     .hl-btn.on { background:#ff9800; color:#fff; }
     .history-section { max-height: 500px; overflow-y: auto; }
     .ms { position: relative; display: inline-block; width: 280px; vertical-align: middle; }
@@ -113,7 +113,7 @@
           <th style="width:30px"><input type="checkbox" id="selectAll"></th>
           <th style="width:115px">BV号</th><th>标题</th><th style="width:90px">UP主</th><th style="width:95px">分组</th>
           <th style="width:70px">播放量</th><th style="width:50px">在线</th><th style="width:135px">开始时间</th>
-          <th style="width:40px">已推</th><th style="width:65px">进度</th><th style="width:80px">上次推送</th><th style="width:40px">推送</th><th style="width:45px">突出</th><th style="width:45px">编辑</th>
+          <th style="width:40px">已推</th><th style="width:65px">进度</th><th style="width:80px">上次推送</th><th style="width:42px;text-align:center">推送</th><th style="width:50px;text-align:center">突出</th><th style="width:56px;text-align:center">编辑</th>
         </tr>
       </thead>
       <tbody id="video-tbody"></tbody>
@@ -526,9 +526,9 @@
               <td class="time-text">${v.start_time||'-'}</td><td>${h}h</td>
               <td><div style="background:#e0e0e0;border-radius:3px;height:10px;width:50px;display:inline-block"><div style="height:100%;width:${p}%;background:#4CAF50;border-radius:3px"></div></div> ${h}/48</td>
               <td class="time-text">${formatTime(v.last_push_time)}</td>
-              <td>${v.push_enabled?'<span style="color:#4CAF50">开</span>':'<span style="color:#f44336">关</span>'}</td>
-              <td><button class="hl-btn ${v.highlight?'on':''}" data-id="${v.id}" data-hl="${v.highlight?1:0}">${v.highlight?'★':'☆'}</button></td>
-              <td><button class="mini-btn" data-v-edit="${v.id}">编辑</button></td>
+              <td style="text-align:center">${v.push_enabled?'<span style="color:#4CAF50">开</span>':'<span style="color:#f44336">关</span>'}</td>
+              <td style="text-align:center"><button class="hl-btn ${v.highlight?'on':''}" data-id="${v.id}" data-hl="${v.highlight?1:0}">${v.highlight?'★':'☆'}</button></td>
+              <td style="text-align:center"><button class="mini-btn" data-v-edit="${v.id}">编辑</button></td>
             </tr>`;
           });
         });
