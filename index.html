@@ -230,6 +230,7 @@
         </div>
       </div>
       <div class="form-row"><label>差距阈值:</label><input id="editGapThreshold" type="number" placeholder="播放量差距在此值内时提醒"></div>
+      <div class="form-row"><label>刷新间隔(分):</label><input id="editGapRefresh" type="number" min="1" value="15" disabled> <span style="color:#888;font-size:12px">开启预警后可用，默认15</span></div>
       <hr>
       <h4>📈 在线人数差距预警</h4>
       <div class="form-row"><label>启用在线预警:</label><input type="checkbox" id="editOnlineAlertEnabled"></div>
@@ -240,6 +241,7 @@
         </div>
       </div>
       <div class="form-row"><label>差距阈值:</label><input id="editOnlineAlertThreshold" type="number" placeholder="在线人数差距在此值内时提醒"></div>
+      <div class="form-row"><label>刷新间隔(分):</label><input id="editOnlineAlertRefresh" type="number" min="1" value="15" disabled> <span style="color:#888;font-size:12px">开启预警后可用，默认15</span></div>
       <hr>
       <h4>📶 在线人数预警</h4>
       <div class="form-row"><label>启用:</label><input type="checkbox" id="editOnlineAbsEnabled"></div>
@@ -250,6 +252,7 @@
         </div>
       </div>
       <div class="form-row"><label>阈值:</label><input id="editOnlineAbsThreshold" type="number" placeholder="选『高于阈值』时填写，在线人数达到此值推送"></div>
+      <div class="form-row"><label>刷新间隔(分):</label><input id="editOnlineAbsRefresh" type="number" min="1" value="5" disabled> <span style="color:#888;font-size:12px">开启预警后可用，默认5</span></div>
       <button id="btn-submit-edit">保存</button>
       <button id="btn-cancel-edit" class="danger">取消</button>
     </div>
@@ -726,6 +729,16 @@
       const panel = document.getElementById(panelId);
       return [...panel.querySelectorAll('input:checked')].map(c => c.value);
     }
+    // 三种预警的「刷新间隔」输入框：仅当对应预警开关勾选时才可用
+    function syncAlertRefreshState() {
+      document.getElementById('editGapRefresh').disabled = !document.getElementById('editGapAlertEnabled').checked;
+      document.getElementById('editOnlineAlertRefresh').disabled = !document.getElementById('editOnlineAlertEnabled').checked;
+      document.getElementById('editOnlineAbsRefresh').disabled = !document.getElementById('editOnlineAbsEnabled').checked;
+    }
+    ['editGapAlertEnabled','editOnlineAlertEnabled','editOnlineAbsEnabled'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', syncAlertRefreshState);
+    });
     document.addEventListener('change', (e) => {
       const opt = e.target.closest('.ms-option input');
       if (opt) {
@@ -761,6 +774,12 @@
       document.getElementById('editOnlineAlertThreshold').value = v.online_alert_threshold||'';
       document.getElementById('editOnlineAbsEnabled').checked = v.online_abs_enabled||false;
       document.getElementById('editOnlineAbsThreshold').value = v.online_abs_threshold||'';
+      // 三种预警各自的自定义刷新间隔（默认：差距类15、在线人数绝对值5）
+      document.getElementById('editGapRefresh').value = v.gap_alert_refresh_minutes||15;
+      document.getElementById('editOnlineAlertRefresh').value = v.online_alert_refresh_minutes||15;
+      document.getElementById('editOnlineAbsRefresh').value = v.online_abs_refresh_minutes||5;
+      // 刷新间隔输入框仅在对应预警开关勾选时才可用
+      syncAlertRefreshState();
 
       // 组内其他视频（用于预警对比下拉框）—— 优先用渲染时缓存的ID映射
       const gn = normGroup(v.group_name);
@@ -822,12 +841,15 @@
         gap_alert_enabled: document.getElementById('editGapAlertEnabled').checked,
         gap_alert_target_bvid: JSON.stringify(gapVals),
         gap_alert_threshold: parseInt(document.getElementById('editGapThreshold').value)||0,
+        gap_alert_refresh_minutes: parseInt(document.getElementById('editGapRefresh').value)||15,
         online_alert_enabled: document.getElementById('editOnlineAlertEnabled').checked,
         online_alert_bvids: JSON.stringify(onlineVals),
         online_alert_threshold: parseInt(document.getElementById('editOnlineAlertThreshold').value)||0,
+        online_alert_refresh_minutes: parseInt(document.getElementById('editOnlineAlertRefresh').value)||15,
         online_abs_enabled: document.getElementById('editOnlineAbsEnabled').checked,
         online_abs_conditions: JSON.stringify(getMSValues('msOnlineAbsPanel')),
         online_abs_threshold: parseInt(document.getElementById('editOnlineAbsThreshold').value)||0,
+        online_abs_refresh_minutes: parseInt(document.getElementById('editOnlineAbsRefresh').value)||5,
       }).eq('id', editingId);
       if (error) { alert('保存失败: '+error.message); return; }
       // 先提示 + 关弹窗（不依赖 audit 是否成功），再异步记录审计
