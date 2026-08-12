@@ -97,7 +97,7 @@
   </div>
 
   <div class="section">
-    <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每1分钟自动刷新)</span></h2>
+    <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
     <div class="toolbar">
     <button id="btn-add">批量添加 BV</button>
     <button id="btn-push-sel" class="secondary">手动推送选中</button>
@@ -122,7 +122,7 @@
   </div>
 
   <div class="section">
-    <h2>🚩 共青团搬运监控（达标 80000 自动推送） <span class="auto-refresh-hint">(每1分钟自动刷新)</span></h2>
+    <h2>🚩 共青团搬运监控（达标 80000 自动推送） <span class="auto-refresh-hint">(每15分钟刷新数据)</span></h2>
     <div class="toolbar">
     <button id="btn-gqt-add">添加共青团视频</button>
     <button id="btn-gqt-push" class="secondary">手动推送选中</button>
@@ -146,7 +146,7 @@
     </div>
     <table>
       <thead>
-        <tr><th style="width:30px"><input type="checkbox" id="selectAllViewAlert"></th><th>BV号</th><th>标题</th><th>UP主</th><th>当前播放量</th><th>目标播放量</th><th>进度</th><th>状态</th><th>加入时间</th><th style="width:60px">操作</th></tr>
+        <tr><th style="width:30px"><input type="checkbox" id="selectAllViewAlert"></th><th>BV号</th><th>标题</th><th>UP主</th><th>当前播放量</th><th>目标播放量</th><th>进度</th><th>状态</th><th>刷新间隔</th><th>加入时间</th><th style="width:60px">操作</th></tr>
       </thead>
       <tbody id="viewalert-tbody"></tbody>
     </table>
@@ -297,6 +297,7 @@
       <div class="form-row"><label>BV号:</label><input id="vaEditBv" readonly style="background:#f0f0f0;color:#666"></div>
       <div class="form-row"><label>监控时长(小时):</label><input id="vaEditHours" type="number" style="width:120px;"> <span style="color:#888;font-size:12px">超过此时长未达标自动关闭</span></div>
       <div class="form-row"><label>目标播放量:</label><input id="vaEditTarget" type="number" placeholder="如 100000"></div>
+      <div class="form-row"><label>刷新间隔(分钟):</label><input id="vaEditRefresh" type="number" min="1" max="1440" style="width:120px;" value="5"> <span style="color:#888;font-size:12px">该稿件自动拉取播放量的间隔，可各不相同（如一个5分钟、一个10分钟）</span></div>
       <button id="btn-save-viewalert">保存</button>
       <button id="btn-cancel-viewalertedit" class="danger">取消</button>
     </div>
@@ -583,37 +584,39 @@
 
     async function pushSelected() {
       const ids = getSelected(); if (!ids.length) return alert('请勾选');
-      await supabase.from('push_requests').insert(ids.map(vid=>({action:'push',video_id:vid,status:'pending'})));
+      await supabase.from('push_requests').insert(ids.map(vid=>({action:'push',video_id:vid,status:'pending',source:'manual'})));
       audit('手动推送(选中)', `id=${ids.join(',')}`);
-      alert('已提交推送请求');
+      alert('已提交手动推送请求，活跃机器约 5~10 秒内处理；结果见下方「操作日志」（失败会显示原因）');
     }
     async function pushAll() {
       const { data } = await supabase.from('videos').select('id,category').eq('alert_only',false);
       const vids = (data||[]).filter(v => v.category !== 'gqt');
       if (!vids.length) return alert('无视频');
       if (!confirm(`推送全部${vids.length}个？`)) return;
-      await supabase.from('push_requests').insert(vids.map(v=>({action:'push',video_id:v.id,status:'pending'})));
+      await supabase.from('push_requests').insert(vids.map(v=>({action:'push',video_id:v.id,status:'pending',source:'manual'})));
       audit('一键推送全部', `共 ${vids.length} 个`);
-      alert('已提交');
+      alert('已提交，活跃机器约 5~10 秒内处理；结果见下方「操作日志」');
     }
 
     async function deleteSelected() {
       const ids = getSelected(); if (!ids.length) return alert('请勾选');
       if (!confirm(`删除${ids.length}个视频？`)) return;
       // 先把要删的视频信息取出来（删完 videos 就查不到了）
-      const { data: toDel } = await supabase.from('videos').select('bvid,title,up_name,group_name').in('id', ids);
+      const { data: toDel } = await supabase.from('videos').select('bvid,title,up_name,group_name,category').in('id', ids);
       const rows = (toDel||[]).filter(v=>v.bvid);
       const bvids = rows.map(v=>v.bvid);
-      if (bvids.length) {
+      // 共青团视频不进历史台账（仅普通监控进「历史稿件查询」）
+      const nonGqtRows = rows.filter(v => v.category !== 'gqt');
+      const nonGqtBvids = nonGqtRows.map(v=>v.bvid);
+      if (nonGqtBvids.length) {
         const now = new Date().toISOString();
         // 找出 manuscript_history 里已经存在的 bvid：存在则只更新状态，保留原 added_at（添加时间）
-        const { data: existing } = await supabase.from('manuscript_history').select('bvid,title,up_name,group_name').in('bvid', bvids);
+        const { data: existing } = await supabase.from('manuscript_history').select('bvid,title,up_name,group_name').in('bvid', nonGqtBvids);
         const existMap = {}; (existing||[]).forEach(r => existMap[r.bvid] = r);
         const existSet = new Set((existing||[]).map(r=>r.bvid));
-        const existingBvids = bvids.filter(b=>existSet.has(b));
-        // 不存在的 bvid（如早期添加/GQT自动加/写入被挡）：补建一条 removed 痕迹，added_at 取当前时间作为兜底
-        // 标题优先用 videos 的，若 videos 还没刷出标题则回退到台账已存在的标题，避免空标题
-        const missing = rows.filter(v=>!existSet.has(v.bvid)).map(v=>{
+        const existingBvids = nonGqtBvids.filter(b=>existSet.has(b));
+        // 不存在的 bvid（如早期添加/写入被挡）：补建一条 removed 痕迹，added_at 取当前时间作为兜底
+        const missing = nonGqtRows.filter(v=>!existSet.has(v.bvid)).map(v=>{
           const mh = existMap[v.bvid] || {};
           return {
             bvid: v.bvid,
@@ -631,17 +634,19 @@
           const { error: inErr } = await supabase.from('manuscript_history').insert(missing);
           if (inErr) alert('⚠️ 历史台账补录失败(删除): '+inErr.message+'\n多半是 Supabase 对 manuscript_history 表开了 RLS 且未放行匿名写入，请在 Supabase SQL 执行：\nALTER TABLE manuscript_history DISABLE ROW LEVEL SECURITY;');
         }
-      }
-      await supabase.from('videos').delete().in('id', ids);
-      audit('删除视频', `id=${ids.join(',')} BV=${bvids.join(', ')}（网站记录标记为已移除）`);
-      // 校验：确认台账记录确实落库（排除 RLS 静默拦截等写入失败）
-      if (bvids.length) {
-        const { data: chk } = await supabase.from('manuscript_history').select('bvid').in('bvid', bvids);
+        // 校验：确认台账记录确实落库（排除 RLS 静默拦截等写入失败）
+        const { data: chk } = await supabase.from('manuscript_history').select('bvid').in('bvid', nonGqtBvids);
         const okSet = new Set((chk||[]).map(r=>r.bvid));
-        const failed = bvids.filter(b=>!okSet.has(b));
+        const failed = nonGqtBvids.filter(b=>!okSet.has(b));
         if (failed.length) {
           alert('❌ 已从监控删除，但历史台账没留下「'+failed.join(', ')+'」！\n原因几乎肯定是 Supabase 对 manuscript_history 表开了 RLS 且未放行匿名写入。\n请到 Supabase 后台 → SQL Editor 执行这一句（只需一次，可重复跑）：\n\nALTER TABLE manuscript_history DISABLE ROW LEVEL SECURITY;\n\n执行后重新删除一次即可看到。');
         }
+      }
+      await supabase.from('videos').delete().in('id', ids);
+      audit('删除视频', `id=${ids.join(',')} BV=${bvids.join(', ')}（网站记录标记为已移除）`);
+      // 写入忽略表：删除即忽略，共青团扫描器不再自动加回（方案A黑名单）
+      if (bvids.length) {
+        await supabase.from('ignored_videos').insert(bvids.map(b=>({bvid:b, reason:'manual_delete'}))).catch(()=>{});
       }
       loadVideos();
       loadManuscriptHistory(); // 立即刷新下方历史稿件查询，删除的 BV 立即可见
@@ -657,6 +662,8 @@
       if (bvids.length) {
         await supabase.from('manuscript_history').delete().in('bvid', bvids);
         await supabase.from('push_requests').delete().in('video_id', ids);
+        // 彻底删除也写入忽略表，避免共青团扫描器把已删视频重新加回
+        await supabase.from('ignored_videos').insert(bvids.map(b=>({bvid:b, reason:'hard_delete'}))).catch(()=>{});
       }
       const { error } = await supabase.from('videos').delete().in('id', ids);
       if (error) { alert('彻底删除失败: '+error.message); return; }
@@ -810,10 +817,12 @@
         online_abs_threshold: parseInt(document.getElementById('editOnlineAbsThreshold').value)||0,
       }).eq('id', editingId);
       if (error) { alert('保存失败: '+error.message); return; }
+      // 先提示 + 关弹窗（不依赖 audit 是否成功），再异步记录审计
+      alert('已更新并写入数据库'); closeModal('editModal');
       audit('编辑单视频', `BV=${editingBvid||editingId} 组=${(document.getElementById('editGroupName').value||'')}`);
       // 通知活跃机重新加载 videos（带宽优化配合）
       supabase.from('push_requests').insert([{action:'bump_version',video_id:0,status:'pending'}]).catch(()=>{});
-      alert('已更新并写入数据库'); closeModal('editModal'); loadVideos();
+      loadVideos();
     }
 
     async function viewHistory() {
@@ -861,6 +870,7 @@
         document.getElementById('viewalert-tbody').innerHTML = (data||[]).map(v => {
           const target = v.alert_milestone || 0;
           const cur = v.view || 0;
+          const refreshMin = v.view_refresh_minutes || 5;
           const pct = target ? Math.min(100, Math.floor(cur/target*100)) : 0;
           const reached = target && cur >= target;
           let st = '监控中', bc = 'badge-pending';
@@ -874,9 +884,10 @@
             <td class="view-num">${formatView(target)}</td>
             <td><div style="background:#eee;border-radius:4px;height:14px;width:100px;overflow:hidden;"><div style="background:#4caf50;height:100%;width:${pct}%"></div></div><span style="font-size:12px;color:#888"> ${pct}%</span></td>
             <td><span class="badge ${bc}">${st}</span></td>
+            <td class="time-text">每${refreshMin}分钟</td>
             <td class="time-text">${formatTime(v.created_at)}</td>
             <td><button class="mini-btn" data-va-edit="${v.id}">编辑</button></td></tr>`;
-        }).join('') || '<tr><td colspan="10">暂无</td></tr>';
+        }).join('') || '<tr><td colspan="11">暂无</td></tr>';
       } catch(e) { console.error(e); }
     }
 
@@ -913,6 +924,7 @@
       document.getElementById('vaEditBv').value = data.bvid || '';
       document.getElementById('vaEditHours').value = data.monitor_hours || 48;
       document.getElementById('vaEditTarget').value = data.alert_milestone || 0;
+      document.getElementById('vaEditRefresh').value = data.view_refresh_minutes || 5;
       document.getElementById('viewAlertEditModal').style.display = 'block';
     }
     async function saveEditViewAlert() {
@@ -920,10 +932,14 @@
       const hours = parseInt(document.getElementById('vaEditHours').value) || 48;
       const target = parseInt(document.getElementById('vaEditTarget').value);
       if (!target || target <= 0) return alert('请输入目标播放量');
-      const { error } = await supabase.from('videos').update({ monitor_hours: hours, alert_milestone: target }).eq('id', editVaId);
+      let refresh = parseInt(document.getElementById('vaEditRefresh').value);
+      if (!refresh || refresh < 1) refresh = 1;
+      const { error } = await supabase.from('videos').update({ monitor_hours: hours, alert_milestone: target, view_refresh_minutes: refresh }).eq('id', editVaId);
       if (error) { alert('保存失败: ' + error.message); return; }
-      audit('编辑播放量预警', `id=${editVaId} 目标=${target} 时长=${hours}h`);
-      alert('已更新并写入数据库'); closeModal('viewAlertEditModal'); loadViewAlertVideos();
+      // 先提示 + 关弹窗（不依赖 audit 是否成功），再异步记录审计
+      alert('已更新并写入数据库'); closeModal('viewAlertEditModal');
+      audit('编辑播放量预警', `id=${editVaId} 目标=${target} 时长=${hours}h 刷新=${refresh}分钟`);
+      loadViewAlertVideos();
     }
 
     async function loadLogs() {
@@ -1030,6 +1046,8 @@
       const mf = document.getElementById('mhMonth').value;
       let { data } = await supabase.from('manuscript_history').select('*').order('added_at',{ascending:false});
       let list = data||[];
+      // 历史稿件查询只展示普通视频监控；共青团(group_name 含「共青团」)不进入
+      list = list.filter(r => !(r.group_name && r.group_name.includes('共青团')));
       // 合并 videos 表中真实存在的标题/UP主/监控开始时间：
       // 台账 manuscript_history 的 title/up_name 常常是空串（添加时没写），
       // 且 added_at 在批量添加时会挤在同一时刻；videos 表的真实数据更可信。
@@ -1070,6 +1088,8 @@
       const mf = document.getElementById('mhMonth').value;
       let { data } = await supabase.from('manuscript_history').select('*').order('added_at',{ascending:false});
       let list = data||[];
+      // 导出同样排除共青团
+      list = list.filter(r => !(r.group_name && r.group_name.includes('共青团')));
       const { data: vrows } = await supabase.from('videos').select('bvid,title,up_name,start_time');
       const vmap = {}; (vrows||[]).forEach(v => vmap[v.bvid] = v);
       if (sf) list = list.filter(r=>(r.status||'active')===sf);
@@ -1283,13 +1303,13 @@
     document.getElementById('mhStatus').onchange = loadManuscriptHistory;
     document.getElementById('mhMonth').onchange = loadManuscriptHistory;
 
-    // 0-8 点静默：该时段不自动拉取视频数据（手动刷新仍可用），其余时段每 1 分钟自动刷新
+    // 0-8 点静默：该时段不自动拉取视频数据（手动刷新仍可用），其余时段每 5 分钟自动刷新
     function autoRefresh() {
       const h = new Date().getHours();
       if (h >= 0 && h < 8) return;
       loadVideos(); loadGqtVideos(); loadViewAlertVideos();
     }
-    setInterval(autoRefresh, 60000);   // 1 分钟（让「到达状态」尽快显示在网页上）
+    setInterval(autoRefresh, 300000);   // 5 分钟（普通视频监控网页刷新；共青团后台每15分钟拉一次B站数据）
 
     // 活跃机器状态：读取 lease 表，显示当前由哪台机器监控，并支持一键把监控切回本机
     async function refreshLeaseStatus() {
