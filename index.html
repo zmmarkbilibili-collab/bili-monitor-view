@@ -179,7 +179,7 @@
       <span id="mhCount" style="color:#888;font-size:13px;margin-left:8px;"></span>
     </div>
     <table>
-      <thead><tr><th>BV号</th><th>标题</th><th>UP主</th><th>组名</th><th>状态</th><th>日期</th><th>时间</th></tr></thead>
+      <thead><tr><th>BV号</th><th>标题</th><th>UP主</th><th>组名</th><th>状态</th><th>添加人</th><th>删除人</th><th>日期</th><th>时间</th></tr></thead>
       <tbody id="mh-tbody"><tr><td colspan="7" style="text-align:center;color:#999;">加载中...</td></tr></tbody>
     </table>
   </div>
@@ -331,6 +331,7 @@
       <h3>📝 审计记录（全员云端） <span style="font-size:12px;color:#888;">（所有设备操作，署名机器ID+机器名）</span></h3>
       <div style="margin-bottom:10px;">
         <button id="btn-audit-cloud-refresh" class="secondary">🔄 刷新</button>
+        <button id="btn-audit-cloud-export" class="secondary">📥 导出Excel</button>
         <button id="btn-cancel-audit-cloud" class="danger">关闭</button>
       </div>
       <table>
@@ -568,12 +569,22 @@
       if (error) { alert('添加失败: '+error.message); return; }
       if (newVids?.length) {
         await supabase.from('push_requests').insert(newVids.map(v=>({action:'new_video',video_id:v.id,status:'pending'})));
-        // 注意：台账 upsert 故意不写 title/up_name（留空由后端刷新回填），
-        // 避免重加视频时用空串覆盖掉已有的真实标题。
-        await supabase.from('manuscript_history').upsert(bvs.map(bv=>({
+        // 台账：仅对「从未记录过的 BV」写入 added_by（保留原始添加人，重加不覆盖）；
+        // 已存在的记录只把状态恢复为 active、并同步最新组名，避免空串覆盖标题。
+        const { data: existRows } = await supabase.from('manuscript_history').select('bvid').in('bvid', bvs);
+        const existSet = new Set((existRows||[]).map(r=>r.bvid));
+        const fresh = bvs.filter(b => !existSet.has(b)).map(bv => ({
           bvid: bv, group_name: gn||'', status:'active',
-          added_at: new Date().toISOString()
-        })), {onConflict:'bvid'});
+          added_at: new Date().toISOString(), added_by: MACHINE_NAME
+        }));
+        if (fresh.length) {
+          const { error: inErr } = await supabase.from('manuscript_history').insert(fresh);
+          if (inErr) console.warn('历史台账补录失败(添加):', inErr.message);
+        }
+        const existed = bvs.filter(b => existSet.has(b));
+        if (existed.length) {
+          await supabase.from('manuscript_history').update({status:'active', removed_at: null, group_name: gn||''}).in('bvid', existed);
+        }
       }
       alert(`已添加 ${bvs.length} 个视频`);
       audit('添加视频', `组=${gn||'(默认)'} BV=${bvs.join(', ')}`);
@@ -627,10 +638,12 @@
           };
         });
         if (existingBvids.length) {
-          const { error: upErr } = await supabase.from('manuscript_history').update({status:'removed', removed_at:now}).in('bvid', existingBvids);
+          const { error: upErr } = await supabase.from('manuscript_history').update({status:'removed', removed_at:now, removed_by:MACHINE_NAME}).in('bvid', existingBvids);
           if (upErr) alert('⚠️ 历史台账更新失败(删除): '+upErr.message+'\n多半是 Supabase 对 manuscript_history 表开了 RLS 且未放行匿名写入，请在 Supabase SQL 执行：\nALTER TABLE manuscript_history DISABLE ROW LEVEL SECURITY;');
         }
         if (missing.length) {
+          // 早期缺失台账记录的视频：删除时补建一条 removed 痕迹，并记录删除人（添加人未知，留空）
+          missing.forEach(m => { m.removed_by = MACHINE_NAME; });
           const { error: inErr } = await supabase.from('manuscript_history').insert(missing);
           if (inErr) alert('⚠️ 历史台账补录失败(删除): '+inErr.message+'\n多半是 Supabase 对 manuscript_history 表开了 RLS 且未放行匿名写入，请在 Supabase SQL 执行：\nALTER TABLE manuscript_history DISABLE ROW LEVEL SECURITY;');
         }
@@ -1067,8 +1080,10 @@
         return `<tr><td><a href="https://www.bilibili.com/video/${r.bvid}" target="_blank" style="color:#2196F3">${r.bvid}</a></td>
         <td>${title}</td><td>${up}</td><td>${r.group_name||'-'}</td>
         <td>${r.status==='removed'?'<span class="badge badge-error">已删除</span>':'<span class="badge badge-done">在监控</span>'}</td>
+        <td>${r.added_by||'-'}</td>
+        <td>${r.status==='removed'?(r.removed_by||'-'):'-'}</td>
         <td>${date||'-'}</td><td>${time||'-'}</td></tr>`;
-      }).join('') : '<tr><td colspan="7">暂无</td></tr>';
+      }).join('') : '<tr><td colspan="9">暂无</td></tr>';
     }
 
     function fillMonthOptions() {
@@ -1095,7 +1110,7 @@
       if (sf) list = list.filter(r=>(r.status||'active')===sf);
       if (mf) list = list.filter(r=>{ const t=(vmap[r.bvid]&&vmap[r.bvid].start_time)||r.added_at; return t&&String(t).startsWith(mf); });
       if (kw) { const hay = r => { const v=vmap[r.bvid]; return ((r.bvid||'')+(r.title||(v&&v.title)||'')+(r.up_name||(v&&v.up_name)||'')+(r.group_name||'')).toLowerCase(); }; list = list.filter(r => hay(r).includes(kw)); }
-      let csv = '\uFEFFBV号,标题,UP主,组名,状态,日期,时间\n';
+      let csv = '\uFEFFBV号,标题,UP主,组名,状态,添加人,删除人,日期,时间\n';
       list.forEach(r => {
         const v = vmap[r.bvid];
         const title = r.title || (v&&v.title) || '';
@@ -1103,7 +1118,9 @@
         const tsrc = (v&&v.start_time) || r.added_at;
         let date = '', time = '';
         if (tsrc) { try { const d = new Date(tsrc); date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`; } catch(e) {} }
-        csv += `${r.bvid},${(title||'').replace(/,/g,'，')},${(up||'').replace(/,/g,'，')},${(r.group_name||'').replace(/,/g,'，')},${r.status||'active'},${date},${time}\n`;
+        const addedBy = r.added_by || '';
+        const removedBy = (r.status==='removed') ? (r.removed_by || '') : '';
+        csv += `${r.bvid},${(title||'').replace(/,/g,'，')},${(up||'').replace(/,/g,'，')},${(r.group_name||'').replace(/,/g,'，')},${r.status||'active'},${(addedBy||'').replace(/,/g,'，')},${(removedBy||'').replace(/,/g,'，')},${date},${time}\n`;
       });
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `稿件历史_${new Date().toISOString().slice(0,10)}.csv`; a.click();
@@ -1285,6 +1302,36 @@
       }
     }
 
+    // 导出全员审计记录（audit_log 全量，分页拉取避免 200 行上限），生成 Excel 可打开的 CSV
+    async function exportCloudAudit() {
+      try {
+        const PAGE = 1000;
+        let all = [];
+        for (let offset = 0; ; offset += PAGE) {
+          const { data, error } = await supabase.from('audit_log')
+            .select('created_at,machine_name,action,detail')
+            .order('created_at', { ascending: false })
+            .range(offset, offset + PAGE - 1);
+          if (error) { alert('导出失败: ' + error.message); return; }
+          if (!data || !data.length) break;
+          all = all.concat(data);
+          if (data.length < PAGE) break;
+        }
+        if (!all.length) { alert('暂无全员审计记录可导出'); return; }
+        let csv = '\uFEFF时间,机器,操作,详情\n';
+        all.forEach(r => {
+          const t = formatTime(r.created_at) || '';
+          const m = (r.machine_name||'').replace(/,/g,'，');
+          const a = (r.action||'').replace(/,/g,'，');
+          const d = (r.detail||'').replace(/,/g,'，').replace(/\n/g,' ');
+          csv += `${t},${m},${a},${d}\n`;
+        });
+        const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = `全员审计记录_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+      } catch (e) { alert('导出异常: ' + (e.message||e)); }
+    }
+
     document.getElementById('btn-refresh-log').onclick = loadLogs;
     document.getElementById('btn-clear-log').onclick = clearLogs;
     document.getElementById('btn-audit').onclick = () => { document.getElementById('audit-tbody').innerHTML = auditRowsHtml(); document.getElementById('auditModal').style.display = 'block'; };
@@ -1293,6 +1340,7 @@
     document.getElementById('btn-cancel-audit').onclick = () => closeModal('auditModal');
     document.getElementById('btn-audit-cloud').onclick = loadCloudAudit;
     document.getElementById('btn-audit-cloud-refresh').onclick = loadCloudAudit;
+    document.getElementById('btn-audit-cloud-export').onclick = exportCloudAudit;
     document.getElementById('btn-cancel-audit-cloud').onclick = () => closeModal('auditCloudModal');
     document.getElementById('btn-hard-del').onclick = hardDeleteSelected;
     document.getElementById('btn-mh-search').onclick = loadManuscriptHistory;
