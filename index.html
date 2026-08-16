@@ -896,7 +896,16 @@
     async function deleteGqt() {
       const ids = [...document.querySelectorAll('.gqt-check:checked')].map(c=>parseInt(c.value));
       if (!ids.length) return alert('请勾选');
-      await supabase.from('videos').delete().in('id',ids); audit('删除共青团视频', `id=${ids.join(',')}`); loadGqtVideos();
+      if (!confirm(`删除${ids.length}个共青团视频？`)) return;
+      // 先取出要删的 bvid（删完 videos 就查不到了）
+      const { data: toDel } = await supabase.from('videos').select('bvid').in('id', ids);
+      const bvids = (toDel||[]).map(v=>v.bvid).filter(Boolean);
+      await supabase.from('videos').delete().in('id',ids);
+      // 写入忽略表：删除即忽略，共青团扫描器不再自动加回（方案A黑名单）
+      if (bvids.length) {
+        await supabase.from('ignored_videos').insert(bvids.map(b=>({bvid:b, reason:'manual_delete'}))).catch(()=>{});
+      }
+      audit('删除共青团视频', `id=${ids.join(',')} BV=${bvids.join(', ')}`); loadGqtVideos();
     }
 
     async function loadViewAlertVideos() {
