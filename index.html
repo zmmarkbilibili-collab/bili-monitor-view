@@ -679,8 +679,8 @@
       if (bvids.length) {
         await supabase.from('manuscript_history').delete().in('bvid', bvids);
         await supabase.from('push_requests').delete().in('video_id', ids);
-        // 彻底删除也写入忽略表，避免共青团扫描器把已删视频重新加回
-        const { error: igErr } = await supabase.from('ignored_videos').insert(bvids.map(b=>({bvid:b, reason:'hard_delete'})));
+        // 彻底删除也写入忽略表，避免共青团扫描器把已删视频重新加回（upsert：已存在则忽略，不报错）
+        const { error: igErr } = await supabase.from('ignored_videos').upsert(bvids.map(b=>({bvid:b, reason:'hard_delete'})), { onConflict: 'bvid' });
         if (igErr) alert('⚠️ 忽略表写入失败，该共青团视频可能再次被扫描加回：' + igErr.message);
       }
       const { error } = await supabase.from('videos').delete().in('id', ids);
@@ -904,7 +904,7 @@
       await supabase.from('videos').delete().in('id',ids);
       // 写入忽略表：删除即忽略，共青团扫描器不再自动加回（方案A黑名单）
       if (bvids.length) {
-        const { error: igErr } = await supabase.from('ignored_videos').insert(bvids.map(b=>({bvid:b, reason:'manual_delete'})));
+        const { error: igErr } = await supabase.from('ignored_videos').upsert(bvids.map(b=>({bvid:b, reason:'manual_delete'})), { onConflict: 'bvid' });
         if (igErr) alert('⚠️ 忽略表写入失败，该共青团视频可能再次被扫描加回：' + igErr.message);
       }
       audit('删除共青团视频', `id=${ids.join(',')} BV=${bvids.join(', ')}`); loadGqtVideos();
