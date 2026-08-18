@@ -220,6 +220,11 @@
       <hr>
       <div class="form-row"><label>推送开关:</label><input type="checkbox" id="editPushEnabled"> <span style="color:#888;font-size:12px">开启后才推送企微</span></div>
       <hr>
+      <h4>🎯 播放量预警</h4>
+      <div class="form-row"><label>启用达标预警:</label><input type="checkbox" id="editMsEnabled"></div>
+      <div class="form-row"><label>目标播放量:</label><input id="editMsTarget" type="number" placeholder="播放量达到此值即推送"></div>
+      <div class="form-row"><label>刷新间隔(分):</label><input id="editMsRefresh" type="number" min="1" value="15" disabled> <span style="color:#888;font-size:12px">开启预警后可用，默认15</span></div>
+      <hr>
       <h4>📊 播放量差距预警</h4>
       <div class="form-row"><label>启用差距预警:</label><input type="checkbox" id="editGapAlertEnabled"></div>
       <div class="form-row"><label>对比稿件:</label>
@@ -733,11 +738,12 @@
     }
     // 三种预警的「刷新间隔」输入框：仅当对应预警开关勾选时才可用
     function syncAlertRefreshState() {
+      document.getElementById('editMsRefresh').disabled = !document.getElementById('editMsEnabled').checked;
       document.getElementById('editGapRefresh').disabled = !document.getElementById('editGapAlertEnabled').checked;
       document.getElementById('editOnlineAlertRefresh').disabled = !document.getElementById('editOnlineAlertEnabled').checked;
       document.getElementById('editOnlineAbsRefresh').disabled = !document.getElementById('editOnlineAbsEnabled').checked;
     }
-    ['editGapAlertEnabled','editOnlineAlertEnabled','editOnlineAbsEnabled'].forEach(id => {
+    ['editMsEnabled','editGapAlertEnabled','editOnlineAlertEnabled','editOnlineAbsEnabled'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.addEventListener('change', syncAlertRefreshState);
     });
@@ -769,6 +775,9 @@
       document.getElementById('editWinEnd').value = v.window_end||24;
       document.getElementById('editHighlight').checked = v.highlight||false;
       document.getElementById('editPushEnabled').checked = v.push_enabled||false;
+      // 播放量达标预警（里程碑）：alert_milestone>0 即启用
+      document.getElementById('editMsEnabled').checked = (v.alert_milestone||0) > 0;
+      document.getElementById('editMsTarget').value = v.alert_milestone||'';
       document.getElementById('editGapAlertEnabled').checked = v.gap_alert_enabled||false;
       document.getElementById('editGapThreshold').value = v.gap_alert_threshold||'';
       document.getElementById('editOnlineAlertEnabled').checked = v.online_alert_enabled||false;
@@ -776,6 +785,7 @@
       document.getElementById('editOnlineAbsEnabled').checked = v.online_abs_enabled||false;
       document.getElementById('editOnlineAbsThreshold').value = v.online_abs_threshold||'';
       // 三种预警各自的自定义刷新间隔（默认：差距类15、在线人数绝对值5）
+      document.getElementById('editMsRefresh').value = v.ms_refresh_minutes||15;
       document.getElementById('editGapRefresh').value = v.gap_alert_refresh_minutes||15;
       document.getElementById('editOnlineAlertRefresh').value = v.online_alert_refresh_minutes||15;
       document.getElementById('editOnlineAbsRefresh').value = v.online_abs_refresh_minutes||5;
@@ -839,6 +849,12 @@
         window_end: parseInt(document.getElementById('editWinEnd').value)||24,
         highlight: document.getElementById('editHighlight').checked,
         push_enabled: document.getElementById('editPushEnabled').checked,
+        // 播放量达标预警（里程碑）：开启且目标>0 才写入；关闭或未填目标则清空，避免旧值残留仍触发
+        alert_milestone: (document.getElementById('editMsEnabled').checked
+                          && (parseInt(document.getElementById('editMsTarget').value)||0) > 0)
+                         ? (parseInt(document.getElementById('editMsTarget').value)||0)
+                         : null,
+        ms_refresh_minutes: parseInt(document.getElementById('editMsRefresh').value)||15,
         gap_alert_enabled: document.getElementById('editGapAlertEnabled').checked,
         gap_alert_target_bvid: JSON.stringify(gapVals),
         gap_alert_threshold: parseInt(document.getElementById('editGapThreshold').value)||0,
