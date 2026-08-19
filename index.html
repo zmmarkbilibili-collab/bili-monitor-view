@@ -905,8 +905,9 @@
 
     // 自动配置组内预警：按组内视频数量自动设定播放量预警类型与阈值。
     //  · 单视频(1个)：启用「播放量达标预警」，阈值 10000，间隔 15 分钟。
-    //  · 2 个及以上：以「被突出的稿件」为基准(锚点)，其余稿件各自启用「播放量差距预警」，
-    //    分别对比被突出的稿件，阈值 30000，间隔 15 分钟（即 |本稿播放量 - 基准播放量| < 30000 时推送）。
+    //  · 2 个及以上：由「被突出的稿件」作为主体，启用「播放量差距预警」，
+    //    对比组内其余【所有】视频——其余 1 个就对比 1 个、2 个就对比 2 个，以此类推
+    //    （即 |被突出稿播放量 - 其余各稿播放量| < 30000 时推送）。其余视频仅作被对比对象，自身不预警。
     // 触发点：① 添加视频后（addVideos）② 点击「突出」切换基准时（toggleHighlight）。
     async function autoConfigAlerts(gn) {
       try {
@@ -924,32 +925,33 @@
           audit('自动配置预警', `组"${target}"仅1个视频 → 播放量达标预警 10000/15`);
           return;
         }
-        // 2 个及以上：优先用已被突出的稿件作基准；若都没突出，取播放量最高者为基准
+        // 2 个及以上：优先用已被突出的稿件作主体；若都没突出，取播放量最高者为默认主体
         let base = grp.find(x => x.highlight);
         if (!base) base = grp.reduce((a, b) => ((Number(b.view) || 0) > (Number(a.view) || 0) ? b : a), grp[0]);
         const baseBvid = base.bvid;
+        // 组内其余视频（被对比对象）的 bvid 列表：1 个就 1 个、2 个就 2 个……
+        const otherBvids = grp.filter(x => x.id !== base.id).map(x => x.bvid);
         for (const v of grp) {
           if (v.id === base.id) {
-            // 基准稿：作为对比锚点，自身不预警
+            // 被突出的稿件：启用播放量差距预警，对比组内其余所有视频
             await supabase.from('videos').update({
               highlight: true,
               alert_milestone: null, ms_refresh_minutes: 15,
-              gap_alert_enabled: false, gap_alert_target_bvid: '[]', gap_alert_threshold: 0,
-              push_enabled: true
-            }).eq('id', v.id);
-          } else {
-            // 其余稿件：分别对比被突出的稿件（基准）
-            await supabase.from('videos').update({
-              highlight: false,
-              alert_milestone: null,
               gap_alert_enabled: true,
-              gap_alert_target_bvid: JSON.stringify([baseBvid]),
+              gap_alert_target_bvid: JSON.stringify(otherBvids),
               gap_alert_threshold: 30000, gap_alert_refresh_minutes: 15,
               push_enabled: true
             }).eq('id', v.id);
+          } else {
+            // 其余稿件：仅作被对比对象，自身不预警（清掉可能残留的预警配置）
+            await supabase.from('videos').update({
+              highlight: false,
+              alert_milestone: null,
+              gap_alert_enabled: false, gap_alert_target_bvid: '[]', gap_alert_threshold: 0
+            }).eq('id', v.id);
           }
         }
-        audit('自动配置预警', `组"${target}"共 ${grp.length} 个 → 基准=${baseBvid}，其余启用播放量差距预警 30000/15`);
+        audit('自动配置预警', `组"${target}"共 ${grp.length} 个 → 被突出稿=${baseBvid}，对比其余 ${otherBvids.length} 个(差距30000/15)`);
       } catch (e) { console.warn('自动配置预警失败:', e); }
     }
 
