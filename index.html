@@ -574,32 +574,44 @@
         online_alert_enabled: false, online_alert_bvids: '[]', online_alert_threshold: 0,
         online_abs_enabled: false, online_abs_conditions: '[]', online_abs_threshold: 0
       }));
+      const usedGn = entries[0].group_name;
       const { data: newVids, error } = await supabase.from('videos').insert(entries).select();
       if (error) { alert('添加失败: '+error.message); return; }
+      // ✅ 核心写入成功：立即提示 + 关闭弹窗 + 刷新列表。
+      // 原实现把提示放在一串 await(台账/push_requests)之后，任一后台请求挂起都会导致
+      // 「不提示、弹窗不关、但实际已保存」的假死现象——这里全部降级为 fire-and-forget。
+      alert(`✅ 已添加 ${bvs.length} 个视频`);
+      closeModal('addModal'); loadVideos();
+      // ---- 以下均为后台任务：不 await、失败静默，绝不阻塞提示/关窗 ----
       if (newVids?.length) {
-        await supabase.from('push_requests').insert(newVids.map(v=>({action:'new_video',video_id:v.id,status:'pending'})));
+        // 自动配置组内预警（单视频→达标10000；2+→以突出稿为基准的差距30000）。fire-and-forget，配置完成后刷新列表。
+        autoConfigAlerts(usedGn).then(loadVideos).catch(()=>{});
+        // 通知活跃机处理新视频
+        supabase.from('push_requests').insert(newVids.map(v=>({action:'new_video',video_id:v.id,status:'pending'}))).catch(()=>{});
         // 台账：仅对「从未记录过的 BV」写入 added_by（保留原始添加人，重加不覆盖）；
         // 已存在的记录只把状态恢复为 active、并同步最新组名，避免空串覆盖标题。
-        const { data: existRows } = await supabase.from('manuscript_history').select('bvid').in('bvid', bvs);
-        const existSet = new Set((existRows||[]).map(r=>r.bvid));
-        const fresh = bvs.filter(b => !existSet.has(b)).map(bv => ({
-          bvid: bv, group_name: gn||'', status:'active',
-          added_at: new Date().toISOString(), added_by: MACHINE_NAME
-        }));
-        if (fresh.length) {
-          const { error: inErr } = await supabase.from('manuscript_history').insert(fresh);
-          if (inErr) console.warn('历史台账补录失败(添加):', inErr.message);
-        }
-        const existed = bvs.filter(b => existSet.has(b));
-        if (existed.length) {
-          await supabase.from('manuscript_history').update({status:'active', removed_at: null, group_name: gn||''}).in('bvid', existed);
-        }
+        (async () => {
+          try {
+            const { data: existRows } = await supabase.from('manuscript_history').select('bvid').in('bvid', bvs);
+            const existSet = new Set((existRows||[]).map(r=>r.bvid));
+            const fresh = bvs.filter(b => !existSet.has(b)).map(bv => ({
+              bvid: bv, group_name: gn||'', status:'active',
+              added_at: new Date().toISOString(), added_by: MACHINE_NAME
+            }));
+            if (fresh.length) {
+              const { error: inErr } = await supabase.from('manuscript_history').insert(fresh);
+              if (inErr) console.warn('历史台账补录失败(添加):', inErr.message);
+            }
+            const existed = bvs.filter(b => existSet.has(b));
+            if (existed.length) {
+              await supabase.from('manuscript_history').update({status:'active', removed_at: null, group_name: gn||''}).in('bvid', existed);
+            }
+          } catch (e) { console.warn('历史台账处理失败(添加):', e); }
+        })();
       }
-      alert(`已添加 ${bvs.length} 个视频`);
       audit('添加视频', `组=${gn||'(默认)'} BV=${bvs.join(', ')}`);
       // 通知活跃机重新加载 videos（带宽优化配合）
       supabase.from('push_requests').insert([{action:'bump_version',video_id:0,status:'pending'}]).catch(()=>{});
-      closeModal('addModal'); loadVideos();
     }
 
     async function pushSelected() {
@@ -891,7 +903,76 @@
       alert('刷新请求已发送'); setTimeout(loadVideos, 10000);
     }
 
-    async function toggleHighlight(id, cur) { await supabase.from('videos').update({highlight:!cur}).eq('id',id); audit('切换突出显示', `id=${id}`); loadVideos(); }
+    // 自动配置组内预警：按组内视频数量自动设定播放量预警类型与阈值。
+    //  · 单视频(1个)：启用「播放量达标预警」，阈值 10000，间隔 15 分钟。
+    //  · 2 个及以上：以「被突出的稿件」为基准(锚点)，其余稿件各自启用「播放量差距预警」，
+    //    分别对比被突出的稿件，阈值 30000，间隔 15 分钟（即 |本稿播放量 - 基准播放量| < 30000 时推送）。
+    // 触发点：① 添加视频后（addVideos）② 点击「突出」切换基准时（toggleHighlight）。
+    async function autoConfigAlerts(gn) {
+      try {
+        const { data: all } = await supabase.from('videos').select('id,bvid,view,highlight,group_name,category');
+        if (!all) return;
+        const target = normGroup(gn);
+        const grp = all.filter(x => x.category !== 'gqt' && normGroup(x.group_name) === target);
+        if (!grp.length) return;
+        if (grp.length === 1) {
+          const v = grp[0];
+          await supabase.from('videos').update({
+            alert_milestone: 10000, ms_refresh_minutes: 15, push_enabled: true,
+            gap_alert_enabled: false, gap_alert_target_bvid: '[]', gap_alert_threshold: 0
+          }).eq('id', v.id);
+          audit('自动配置预警', `组"${target}"仅1个视频 → 播放量达标预警 10000/15`);
+          return;
+        }
+        // 2 个及以上：优先用已被突出的稿件作基准；若都没突出，取播放量最高者为基准
+        let base = grp.find(x => x.highlight);
+        if (!base) base = grp.reduce((a, b) => ((Number(b.view) || 0) > (Number(a.view) || 0) ? b : a), grp[0]);
+        const baseBvid = base.bvid;
+        for (const v of grp) {
+          if (v.id === base.id) {
+            // 基准稿：作为对比锚点，自身不预警
+            await supabase.from('videos').update({
+              highlight: true,
+              alert_milestone: null, ms_refresh_minutes: 15,
+              gap_alert_enabled: false, gap_alert_target_bvid: '[]', gap_alert_threshold: 0,
+              push_enabled: true
+            }).eq('id', v.id);
+          } else {
+            // 其余稿件：分别对比被突出的稿件（基准）
+            await supabase.from('videos').update({
+              highlight: false,
+              alert_milestone: null,
+              gap_alert_enabled: true,
+              gap_alert_target_bvid: JSON.stringify([baseBvid]),
+              gap_alert_threshold: 30000, gap_alert_refresh_minutes: 15,
+              push_enabled: true
+            }).eq('id', v.id);
+          }
+        }
+        audit('自动配置预警', `组"${target}"共 ${grp.length} 个 → 基准=${baseBvid}，其余启用播放量差距预警 30000/15`);
+      } catch (e) { console.warn('自动配置预警失败:', e); }
+    }
+
+    async function toggleHighlight(id, cur) {
+      await supabase.from('videos').update({highlight:!cur}).eq('id',id);
+      audit('切换突出显示', `id=${id}`);
+      const { data: row } = await supabase.from('videos').select('group_name').eq('id', id);
+      if (row && row[0]) {
+        const gn = row[0].group_name;
+        // 若本次是把某稿「设为突出」(cur=false→true)，需清掉同组其它稿件的突出，
+        // 保证组内仅一个基准（否则旧基准仍被标记，autoConfig 会选错基准）。
+        // 用 normGroup 归一化组名，避免「保央视 」与「保央视」被当不同组而漏清。
+        if (!cur) {
+          const { data: all } = await supabase.from('videos').select('id,group_name,category').neq('id', id);
+          const target = normGroup(gn);
+          const sibIds = (all||[]).filter(x => x.category !== 'gqt' && normGroup(x.group_name) === target).map(x => x.id);
+          if (sibIds.length) await supabase.from('videos').update({highlight:false}).in('id', sibIds);
+        }
+        // 切换基准后重跑组内自动配置：让其余稿件对比新的「被突出稿件」
+        await autoConfigAlerts(gn);
+      }
+      loadVideos();
+    }
 
     async function addGqt() {
       const bv = document.getElementById('gqtBvInput').value.trim();
