@@ -17,6 +17,8 @@
     button.danger:hover { background: #d32f2f; }
     button.secondary { background: #2196F3; }
     button.secondary:hover { background: #1976D2; }
+    button.primary { background: #ff9800; }
+    button.primary:hover { background: #f57c00; }
     .form-row { margin-bottom: 10px; }
     label { display: inline-block; width: 100px; }
     input, select { padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
@@ -127,6 +129,7 @@
     <button id="btn-gqt-push" class="secondary">手动推送选中</button>
     <button id="btn-gqt-refresh" class="secondary">手动刷新播放量</button>
     <button id="btn-gqt-del" class="danger">删除选中</button>
+    <button id="btn-gqt-scan" class="primary">🔍 立即扫描共青团</button>
     </div>
     <table>
       <thead>
@@ -918,6 +921,7 @@
         if (!grp.length) return;
         if (grp.length === 1) {
           const v = grp[0];
+          // 单视频：默认开启「播放量达标推送」，不碰突出（突出只由用户手动设置）
           await supabase.from('videos').update({
             alert_milestone: 10000, ms_refresh_minutes: 15, push_enabled: true,
             gap_alert_enabled: false, gap_alert_target_bvid: '[]', gap_alert_threshold: 0
@@ -925,17 +929,17 @@
           audit('自动配置预警', `组"${target}"仅1个视频 → 播放量达标预警 10000/15`);
           return;
         }
-        // 2 个及以上：优先用已被突出的稿件作主体；若都没突出，取播放量最高者为默认主体
-        let base = grp.find(x => x.highlight);
-        if (!base) base = grp.reduce((a, b) => ((Number(b.view) || 0) > (Number(a.view) || 0) ? b : a), grp[0]);
+        // 2 个及以上：必须有用户手动「突出」的稿件作基准，才自动配置差距推送。
+        // 若用户尚未设置突出，绝不自动配置、也绝不擅自打开任何视频的突出。
+        const base = grp.find(x => x.highlight);
+        if (!base) return;
         const baseBvid = base.bvid;
         // 组内其余视频（被对比对象）的 bvid 列表：1 个就 1 个、2 个就 2 个……
         const otherBvids = grp.filter(x => x.id !== base.id).map(x => x.bvid);
         for (const v of grp) {
           if (v.id === base.id) {
-            // 被突出的稿件：启用播放量差距预警，对比组内其余所有视频
+            // 被突出的稿件：自身开启「播放量差距推送」，对比组内其余所有视频（不改动突出字段）
             await supabase.from('videos').update({
-              highlight: true,
               alert_milestone: null, ms_refresh_minutes: 15,
               gap_alert_enabled: true,
               gap_alert_target_bvid: JSON.stringify(otherBvids),
@@ -943,9 +947,8 @@
               push_enabled: true
             }).eq('id', v.id);
           } else {
-            // 其余稿件：仅作被对比对象，自身不预警（清掉可能残留的预警配置）
+            // 其余稿件：仅作被对比对象，自身不开启预警；不碰突出设置
             await supabase.from('videos').update({
-              highlight: false,
               alert_milestone: null,
               gap_alert_enabled: false, gap_alert_target_bvid: '[]', gap_alert_threshold: 0
             }).eq('id', v.id);
@@ -1406,6 +1409,12 @@
     document.getElementById('btn-gqt-push').onclick = pushGqt;
     document.getElementById('btn-gqt-refresh').onclick = refreshGqt;
     document.getElementById('btn-gqt-del').onclick = deleteGqt;
+    document.getElementById('btn-gqt-scan').onclick = () => {
+      if (!confirm('立即触发共青团空间扫描？活跃机器将马上执行（可在「本机操作日志」或库 monitor_logs 查看进度）。')) return;
+      supabase.from('push_requests').insert([{action:'gqt_scan', video_id:0, status:'pending'}])
+        .then(()=> alert('✅ 已提交扫描请求，活跃机器将立即执行。'))
+        .catch(e=> alert('❌ 提交失败：' + e.message));
+    };
     document.getElementById('selectAllGqt').onchange = function() { document.querySelectorAll('.gqt-check').forEach(c=>c.checked=this.checked); };
 
     document.getElementById('btn-viewalert-add').onclick = () => document.getElementById('viewAlertAddModal').style.display='block';
