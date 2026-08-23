@@ -682,8 +682,10 @@
       await supabase.from('videos').delete().in('id', ids);
       audit('删除视频', `id=${ids.join(',')} BV=${bvids.join(', ')}（网站记录标记为已移除）`);
       // 写入忽略表：删除即忽略，共青团扫描器不再自动加回（方案A黑名单）
+      // 与 deleteGqt / hardDeleteSelected 保持一致：用 upsert + 失败弹窗，避免静默吞错导致回补
       if (bvids.length) {
-        await supabase.from('ignored_videos').insert(bvids.map(b=>({bvid:b, reason:'manual_delete'}))).catch(()=>{});
+        const { error: igErr } = await supabase.from('ignored_videos').upsert(bvids.map(b=>({bvid:b, reason:'manual_delete'})), { onConflict: 'bvid' });
+        if (igErr) alert('⚠️ 忽略表写入失败，该共青团视频可能再次被扫描加回：' + igErr.message);
       }
       loadVideos();
       loadManuscriptHistory(); // 立即刷新下方历史稿件查询，删除的 BV 立即可见
