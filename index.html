@@ -585,6 +585,21 @@
       // 「不提示、弹窗不关、但实际已保存」的假死现象——这里全部降级为 fire-and-forget。
       alert(`✅ 已添加 ${bvs.length} 个视频`);
       closeModal('addModal'); loadVideos();
+      // 添加后短暂轮询：后端补上 cid/标题就刷新列表（仅添加瞬间，最多~25s，不持续）
+      (async () => {
+        const ids = (newVids || []).map(v => v.id);
+        if (!ids.length) return;
+        const deadline = Date.now() + 25000;
+        const tick = async () => {
+          try {
+            const { data } = await supabase.from('videos').select('id,cid,title').in('id', ids);
+            if ((data || []).some(v => v.cid)) { loadVideos(); return; }
+          } catch (e) {}
+          if (Date.now() < deadline) setTimeout(tick, 1500);
+          else loadVideos();
+        };
+        setTimeout(tick, 1500);
+      })();
       // ---- 以下均为后台任务：不 await、失败静默，绝不阻塞提示/关窗 ----
       if (newVids?.length) {
         // 自动配置组内预警（单视频→达标10000；2+→以突出稿为基准的差距30000）。fire-and-forget，配置完成后刷新列表。
