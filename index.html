@@ -99,7 +99,7 @@
   </div>
 
   <div class="section">
-    <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每5分钟自动刷新)</span></h2>
+    <h2>📺 普通视频监控 <span class="auto-refresh-hint">(每10分钟自动刷新)</span></h2>
     <div class="toolbar">
     <button id="btn-add">批量添加 BV</button>
     <button id="btn-push-sel" class="secondary">手动推送选中</button>
@@ -259,7 +259,7 @@
         </div>
       </div>
       <div class="form-row"><label>阈值:</label><input id="editOnlineAbsThreshold" type="number" placeholder="选『高于阈值』时填写，在线人数达到此值推送"></div>
-      <div class="form-row"><label>刷新间隔(分):</label><input id="editOnlineAbsRefresh" type="number" min="1" value="5" disabled> <span style="color:#888;font-size:12px">开启预警后可用，默认5</span></div>
+      <div class="form-row"><label>刷新间隔(分):</label><input id="editOnlineAbsRefresh" type="number" min="1" value="10" disabled> <span style="color:#888;font-size:12px">开启预警后可用，默认10</span></div>
       <button id="btn-submit-edit">保存</button>
       <button id="btn-cancel-edit" class="danger">取消</button>
     </div>
@@ -296,7 +296,7 @@
       <div class="form-row"><label>BV号:</label><input id="vaBvInput" placeholder="BVxxx"></div>
       <div class="form-row"><label>监控时长(小时):</label><input id="vaHours" type="number" value="48" style="width:120px;"> <span style="color:#888;font-size:12px">超过此时长未达标自动关闭</span></div>
       <div class="form-row"><label>目标播放量:</label><input id="vaTarget" type="number" placeholder="如 100000"></div>
-      <div class="form-row"><label>刷新间隔(分钟):</label><input id="vaRefresh" type="number" min="1" max="1440" style="width:120px;" value="5"> <span style="color:#888;font-size:12px">该稿件自动拉取播放量的间隔，可各不相同（如一个5分钟、一个10分钟）</span></div>
+      <div class="form-row"><label>刷新间隔(分钟):</label><input id="vaRefresh" type="number" min="1" max="1440" style="width:120px;" value="10"> <span style="color:#888;font-size:12px">该稿件自动拉取播放量的间隔，可各不相同（如一个10分钟、一个15分钟）</span></div>
       <button id="btn-submit-viewalert">提交</button>
       <button id="btn-cancel-viewalert" class="danger">取消</button>
     </div>
@@ -308,7 +308,7 @@
       <div class="form-row"><label>BV号:</label><input id="vaEditBv" readonly style="background:#f0f0f0;color:#666"></div>
       <div class="form-row"><label>监控时长(小时):</label><input id="vaEditHours" type="number" style="width:120px;"> <span style="color:#888;font-size:12px">超过此时长未达标自动关闭</span></div>
       <div class="form-row"><label>目标播放量:</label><input id="vaEditTarget" type="number" placeholder="如 100000"></div>
-      <div class="form-row"><label>刷新间隔(分钟):</label><input id="vaEditRefresh" type="number" min="1" max="1440" style="width:120px;" value="5"> <span style="color:#888;font-size:12px">该稿件自动拉取播放量的间隔，可各不相同（如一个5分钟、一个10分钟）</span></div>
+      <div class="form-row"><label>刷新间隔(分钟):</label><input id="vaEditRefresh" type="number" min="1" max="1440" style="width:120px;" value="10"> <span style="color:#888;font-size:12px">该稿件自动拉取播放量的间隔，可各不相同（如一个10分钟、一个15分钟）</span></div>
       <button id="btn-save-viewalert">保存</button>
       <button id="btn-cancel-viewalertedit" class="danger">取消</button>
     </div>
@@ -805,7 +805,7 @@
       document.getElementById('editMsRefresh').value = v.ms_refresh_minutes||15;
       document.getElementById('editGapRefresh').value = v.gap_alert_refresh_minutes||15;
       document.getElementById('editOnlineAlertRefresh').value = v.online_alert_refresh_minutes||15;
-      document.getElementById('editOnlineAbsRefresh').value = v.online_abs_refresh_minutes||5;
+      document.getElementById('editOnlineAbsRefresh').value = v.online_abs_refresh_minutes||10;
       // 刷新间隔输入框仅在对应预警开关勾选时才可用
       syncAlertRefreshState();
 
@@ -883,7 +883,7 @@
         online_abs_enabled: document.getElementById('editOnlineAbsEnabled').checked,
         online_abs_conditions: JSON.stringify(getMSValues('msOnlineAbsPanel')),
         online_abs_threshold: parseInt(document.getElementById('editOnlineAbsThreshold').value)||0,
-        online_abs_refresh_minutes: parseInt(document.getElementById('editOnlineAbsRefresh').value)||5,
+        online_abs_refresh_minutes: parseInt(document.getElementById('editOnlineAbsRefresh').value)||10,
       }).eq('id', editingId);
       if (error) { alert('保存失败: '+error.message); return; }
       // 先提示 + 关弹窗（不依赖 audit 是否成功），再异步记录审计
@@ -1020,7 +1020,7 @@
         document.getElementById('viewalert-tbody').innerHTML = (data||[]).map(v => {
           const target = v.alert_milestone || 0;
           const cur = v.view || 0;
-          const refreshMin = v.view_refresh_minutes || 5;
+          const refreshMin = v.view_refresh_minutes || 10;
           const pct = target ? Math.min(100, Math.floor(cur/target*100)) : 0;
           const reached = target && cur >= target;
           let st = '监控中', bc = 'badge-pending';
@@ -1077,7 +1077,7 @@
       document.getElementById('vaEditBv').value = data.bvid || '';
       document.getElementById('vaEditHours').value = data.monitor_hours || 48;
       document.getElementById('vaEditTarget').value = data.alert_milestone || 0;
-      document.getElementById('vaEditRefresh').value = data.view_refresh_minutes || 5;
+      document.getElementById('vaEditRefresh').value = data.view_refresh_minutes || 10;
       document.getElementById('viewAlertEditModal').style.display = 'block';
     }
     async function saveEditViewAlert() {
@@ -1498,13 +1498,13 @@
     document.getElementById('mhStatus').onchange = loadManuscriptHistory;
     document.getElementById('mhMonth').onchange = loadManuscriptHistory;
 
-    // 0-8 点静默：该时段不自动拉取视频数据（手动刷新仍可用），其余时段每 5 分钟自动刷新
+    // 0-8 点静默：该时段不自动拉取视频数据（手动刷新仍可用），其余时段每 10 分钟自动刷新
     function autoRefresh() {
       const h = new Date().getHours();
       if (h >= 0 && h < 8) return;
       loadVideos(); loadGqtVideos(); loadViewAlertVideos();
     }
-    setInterval(autoRefresh, 300000);   // 5 分钟（普通视频监控网页刷新；共青团后台每15分钟拉一次B站数据）
+    setInterval(autoRefresh, 600000);   // 10 分钟（普通视频监控网页刷新；共青团后台每15分钟拉一次B站数据）
 
     // 活跃机器状态：读取 lease 表，显示当前由哪台机器监控，并支持一键把监控切回本机
     async function refreshLeaseStatus() {
