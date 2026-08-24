@@ -940,7 +940,7 @@
           const v = grp[0];
           // 单视频：默认开启「播放量达标推送」，不碰突出（突出只由用户手动设置）
           await supabase.from('videos').update({
-            alert_milestone: 10000, ms_refresh_minutes: 15, push_enabled: true,
+            alert_milestone: 10000, ms_refresh_minutes: 15,
             gap_alert_enabled: false, gap_alert_target_bvid: '[]', gap_alert_threshold: 0
           }).eq('id', v.id);
           audit('自动配置预警', `组"${target}"仅1个视频 → 播放量达标预警 10000/15`);
@@ -960,8 +960,7 @@
               alert_milestone: null, ms_refresh_minutes: 15,
               gap_alert_enabled: true,
               gap_alert_target_bvid: JSON.stringify(otherBvids),
-              gap_alert_threshold: 30000, gap_alert_refresh_minutes: 15,
-              push_enabled: true
+              gap_alert_threshold: 30000, gap_alert_refresh_minutes: 15
             }).eq('id', v.id);
           } else {
             // 其余稿件：仅作被对比对象，自身不开启预警；不碰突出设置
