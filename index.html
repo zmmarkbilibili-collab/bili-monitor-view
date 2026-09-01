@@ -365,14 +365,17 @@
     const LS_NAME_KEY = 'bili_panel_machine_name';
     const LS_ADMIN_KEY = 'bili_panel_is_admin';
     const _CFG = (typeof window.BILI_PANEL_CONFIG !== 'undefined') ? window.BILI_PANEL_CONFIG : null;
-    // 身份来源优先级：① 后端脚本 panel_config.js 指定的 MACHINE_NAME / MACHINE_ID
+    // 访问来源区分：本地 file:// 是 py 生成的本机页面，可信任 config 里的机器身份/管理员；
+    // 远程 http(s)://（GitHub Pages 等公开页）不信任 config 身份——否则任何拿到链接的人都会
+    // 默认成为 config 里写的管理员（公开仓库权限泄露）。远程页退化为「未命名/普通用户」。
+    const isLocalFile = (location.protocol === 'file:');
+    const _CFG_EFF = isLocalFile ? _CFG : null;
+    // 身份来源优先级：① 后端脚本 panel_config.js 指定的 MACHINE_NAME / MACHINE_ID（仅本地）
     //                 ② 浏览器本地改名(localStorage)
     //                 ③ 都没有 → 「未命名」（不偷填成别的机器）
-    // 这样每台机器网页都显示「自己脚本里设置的设备名」；没装脚本/没设名的设备就是「未命名」，
-    // 编辑框默认也是「未命名」，可在网页上改名成自己的设备名。
-    const _PY_NAME = (_CFG && _CFG.MACHINE_NAME) ? _CFG.MACHINE_NAME : null;
-    const _PY_MID  = (_CFG && _CFG.MACHINE_ID)  ? _CFG.MACHINE_ID  : null;
-    const _PY_ADMIN_LIST = (_CFG && Array.isArray(_CFG.ADMIN_MACHINES)) ? _CFG.ADMIN_MACHINES : [];
+    const _PY_NAME = (_CFG_EFF && _CFG_EFF.MACHINE_NAME) ? _CFG_EFF.MACHINE_NAME : null;
+    const _PY_MID  = (_CFG_EFF && _CFG_EFF.MACHINE_ID)  ? _CFG_EFF.MACHINE_ID  : null;
+    const _PY_ADMIN_LIST = (_CFG_EFF && Array.isArray(_CFG_EFF.ADMIN_MACHINES)) ? _CFG_EFF.ADMIN_MACHINES : [];
     const _PY_IS_ADMIN = _PY_NAME ? _PY_ADMIN_LIST.includes(_PY_NAME) : false;
     const _LS_NAME = (localStorage.getItem(LS_NAME_KEY) || '').trim();
     const MACHINE_NAME = _LS_NAME || _PY_NAME || '未命名';
@@ -648,6 +651,29 @@
       alert('已提交，活跃机器约 5~10 秒内处理；结果见下方「操作日志」');
     }
 
+    // 写入忽略表并校验落库：删除即忽略，共青团扫描器不再自动加回（方案A黑名单）。
+    // 先 upsert，再读回确认 bvid 确实落库（排除 RLS 静默拦截 / 网络丢写），缺失则大声告警，
+    // 避免「删了却没进黑名单 → 下次扫描又加回来又推送」。与 manuscript_history 删除校验同一思路。
+    async function ensureIgnoredWritten(bvids, reason) {
+      const list = [...new Set((bvids || []).filter(Boolean))];
+      if (!list.length) return;
+      const { error: igErr } = await supabase.from('ignored_videos').upsert(
+        list.map(b => ({ bvid: b, reason: reason || 'manual_delete' })), { onConflict: 'bvid' });
+      if (igErr) {
+        alert('❌ 忽略表写入失败，该共青团视频会再次被扫描加回：' + igErr.message
+          + '\n多半是 Supabase 对 ignored_videos 表开了 RLS 且未放行匿名写入，请到 Supabase SQL Editor 执行：\n\nALTER TABLE ignored_videos DISABLE ROW LEVEL SECURITY;');
+        return;
+      }
+      // 校验：确认 bvid 确实落库（防止静默丢写导致回潮）
+      const { data: chk } = await supabase.from('ignored_videos').select('bvid').in('bvid', list);
+      const okSet = new Set((chk || []).map(r => r.bvid));
+      const failed = list.filter(b => !okSet.has(b));
+      if (failed.length) {
+        alert('❌ 已从监控删除，但忽略表没留下「' + failed.join(', ') + '」！该共青团视频会再次被扫描加回。\n'
+          + '几乎肯定是 Supabase 对 ignored_videos 表开了 RLS，请执行（可重复跑）：\n\nALTER TABLE ignored_videos DISABLE ROW LEVEL SECURITY;');
+      }
+    }
+
     async function deleteSelected() {
       const ids = getSelected(); if (!ids.length) return alert('请勾选');
       if (!confirm(`删除${ids.length}个视频？`)) return;
@@ -697,11 +723,8 @@
       await supabase.from('videos').delete().in('id', ids);
       audit('删除视频', `id=${ids.join(',')} BV=${bvids.join(', ')}（网站记录标记为已移除）`);
       // 写入忽略表：删除即忽略，共青团扫描器不再自动加回（方案A黑名单）
-      // 与 deleteGqt / hardDeleteSelected 保持一致：用 upsert + 失败弹窗，避免静默吞错导致回补
-      if (bvids.length) {
-        const { error: igErr } = await supabase.from('ignored_videos').upsert(bvids.map(b=>({bvid:b, reason:'manual_delete'})), { onConflict: 'bvid' });
-        if (igErr) alert('⚠️ 忽略表写入失败，该共青团视频可能再次被扫描加回：' + igErr.message);
-      }
+      // 用 ensureIgnoredWritten 统一写入并读回校验，失败/未落库会大声告警，避免静默丢写导致回潮
+      await ensureIgnoredWritten(bvids, 'manual_delete');
       loadVideos();
       loadManuscriptHistory(); // 立即刷新下方历史稿件查询，删除的 BV 立即可见
     }
@@ -716,9 +739,8 @@
       if (bvids.length) {
         await supabase.from('manuscript_history').delete().in('bvid', bvids);
         await supabase.from('push_requests').delete().in('video_id', ids);
-        // 彻底删除也写入忽略表，避免共青团扫描器把已删视频重新加回（upsert：已存在则忽略，不报错）
-        const { error: igErr } = await supabase.from('ignored_videos').upsert(bvids.map(b=>({bvid:b, reason:'hard_delete'})), { onConflict: 'bvid' });
-        if (igErr) alert('⚠️ 忽略表写入失败，该共青团视频可能再次被扫描加回：' + igErr.message);
+        // 彻底删除也写入忽略表，并用 ensureIgnoredWritten 读回校验，失败/未落库会大声告警
+        await ensureIgnoredWritten(bvids, 'hard_delete');
       }
       const { error } = await supabase.from('videos').delete().in('id', ids);
       if (error) { alert('彻底删除失败: '+error.message); return; }
@@ -1021,10 +1043,8 @@
       const bvids = (toDel||[]).map(v=>v.bvid).filter(Boolean);
       await supabase.from('videos').delete().in('id',ids);
       // 写入忽略表：删除即忽略，共青团扫描器不再自动加回（方案A黑名单）
-      if (bvids.length) {
-        const { error: igErr } = await supabase.from('ignored_videos').upsert(bvids.map(b=>({bvid:b, reason:'manual_delete'})), { onConflict: 'bvid' });
-        if (igErr) alert('⚠️ 忽略表写入失败，该共青团视频可能再次被扫描加回：' + igErr.message);
-      }
+      // 用 ensureIgnoredWritten 统一写入并读回校验，失败/未落库会大声告警
+      await ensureIgnoredWritten(bvids, 'manual_delete');
       audit('删除共青团视频', `id=${ids.join(',')} BV=${bvids.join(', ')}`); loadGqtVideos();
     }
 
