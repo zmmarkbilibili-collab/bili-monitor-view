@@ -89,14 +89,14 @@
   <div id="leaseBar" class="lease-bar" data-page-node-id="oLFro1goSaodvPGVv7laOi">
     <span data-page-node-id="ARZdUfbjpA4TLEZi7DoygC">当前活跃机器：<b id="activeMachine" data-page-node-id="4woB5RBR77bCXswVhrpZDO">查询中…</b></span>
     <span id="amStatus" class="badge badge-pending" data-page-node-id="iCtxanVxbjbRYHhpPcANDG">本机：?</span>
-    <label style="font-size:12px;color:#555;" data-page-node-id="lVMx3XYUOk3AbPVVXuRzvE">切换活跃到：
-      <select id="switchTarget" style="padding:3px 6px;font-size:12px;" data-page-node-id="hMLdVbK8uRvxKFNOOXgpqM">
-        <option value="" data-page-node-id="JBoJQOAc03fg9KJps8QjBy">（本机）</option>
+    <button id="btn-take-lease" class="secondary" style="padding:2px 10px;font-size:12px;" data-page-node-id="jqVk0BB8OmaukTU35LzfPo">🔓 切换活跃机器</button>
+    <label style="font-size:12px;color:#555;">切换活跃到：
+      <select id="switchTarget" style="padding:3px 6px;font-size:12px;">
+        <option value="">（本机）</option>
       </select>
     </label>
-    <button id="btn-take-lease" class="secondary" style="padding:2px 10px;font-size:12px;" data-page-node-id="jqVk0BB8OmaukTU35LzfPo">🔓 切换活跃机器</button>
     <span style="color:#888;font-size:12px;" data-page-node-id="OQFrC6ktj7BDIq8bSa6YUP">把监控切到下拉框选中的设备（需该设备 py 在跑）</span>
-    <span id="switchTargetLabel" style="font-size:12px;color:#1565c0;font-weight:600;" data-page-node-id="kLKny2iyqHdv0kCjEGbQA3"></span>
+    <span id="switchTargetLabel" style="font-size:12px;color:#1565c0;font-weight:600;"></span>
   </div>
 
   <div id="unnamedBanner" style="display:none;margin:0 0 14px;padding:10px 14px;background:#fff3cd;color:#7a5b00;border:1px solid #ffc107;border-radius:8px;font-size:13px;line-height:1.6;" data-page-node-id="yakIEgwq9jBrYvgbEvWkaz">
@@ -1616,7 +1616,7 @@
     setInterval(refreshLeaseStatus, 10000);  // 每 10 秒刷新活跃机器状态
     updateSwitchLabel();  // 初始显示即将切换的目标机
 
-    // 下拉框：从 app_config.registered_machines 拉取全部已知设备，可显式指定“切换活跃到哪台”
+    // 下拉框：从 app_config.registered_machines 拉取全部已知设备，可显式指定"切换活跃到哪台"
     // （修复：原先 target_machine 写死为本面板所在机器，导致在别的面板点按钮永远切不到目标机器）
     async function populateSwitchTargets() {
       try {
@@ -1626,6 +1626,7 @@
         if (data && data.value) {
           try { list = JSON.parse(data.value); } catch (e) { list = []; }
         }
+        list = [...new Set(list || [])];  // 渲染层去重：即使表里残留重复名，界面也不重复显示
         const sel = document.getElementById('switchTarget');
         if (!sel) return;
         const cur = sel.value;
@@ -1636,13 +1637,13 @@
           o.value = m; o.textContent = m;
           sel.appendChild(o);
         });
-        // 默认优先选中「本机 beacon 真实身份」；若取不到则偏好迟迟大王；否则保持“本机”
+        // 默认优先选中「本机 beacon 真实身份」；若取不到则偏好迟迟大王；否则保持"本机"
         let dflt = '';
         if (_BEACON_MID && list.includes(_BEACON_MID)) dflt = _BEACON_MID;
         else if (list.includes('迟迟大王')) dflt = '迟迟大王';
         sel.value = dflt || cur || '';
         updateSwitchLabel();  // 下拉框内容变化后刷新「即将切换为」提示
-      } catch (e) { /* 拉取失败不影响现有逻辑，下拉框保留“本机”选项 */ }
+      } catch (e) { /* 拉取失败不影响现有逻辑，下拉框保留"本机"选项 */ }
     }
     populateSwitchTargets();
     setInterval(populateSwitchTargets, 60000);  // 每分钟刷新一次设备清单
