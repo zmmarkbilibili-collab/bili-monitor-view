@@ -360,9 +360,10 @@
 
   <!-- 机器名/管理员配置由 bili_monitor_web.py 启动时写入（file:// 直接打开也能用） -->
   <script src="panel_config.js"></script>
+  <!-- supabase-js 本地自托管（v2.116.0 UMD 自包含构建），替代 jsDelivr +esm 远程 import（解决首屏被海外 CDN 阻塞） -->
+  <script src="supabase-js.min.js"></script>
   <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-    const supabase = createClient('https://erzjcvsbrkmukswkqfss.supabase.co', 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g');
+    const supabase = window.supabase.createClient('https://erzjcvsbrkmukswkqfss.supabase.co', 'sb_publishable_pj3uHezveNeVekWTioVT1Q_BH1waa1g');
 
     // ===== 本机身份与权限配置 =====
     // 机器名由 bili_monitor_web.py 写入 panel_config.js（py 是唯一维护处），仅用于“显示名/审计署名”。
