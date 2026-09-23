@@ -14,8 +14,13 @@
   th, td { padding: 6px 8px; text-align: left; font-size: 13px; border: 1px solid #e8e8e8; vertical-align: top; word-break: break-all; }
   th { background: #eef1f5; font-weight: 600; white-space: nowrap; }
   /* 列宽对齐 Excel：稿件内容宽、链接中、截图窄 */
-  col.c-title { width: 20%; } col.c-link { width: 13%; } col.c-view { width: 6%; }
-  col.c-shot { width: 16%; } col.c-time { width: 7%; }
+  col.c-row { width: 4%; }
+  col.c-title { width: 19%; } col.c-link { width: 12%; } col.c-view { width: 6%; }
+  col.c-shot { width: 15%; } col.c-time { width: 7%; }
+  td.rowno { text-align: center; color: #666; font-family: Consolas, monospace; white-space: nowrap; }
+  td.rowno button { border: 1px solid #e8b0b0; background: #fff; color: #b42318; border-radius: 4px;
+                    cursor: pointer; font-size: 11px; padding: 0 5px; margin-left: 4px; }
+  td.rowno button:hover { background: #fde3e3; }
   td.title { word-break: break-word; }
   td.view { text-align: right; font-family: Consolas, monospace; }
   td.time { white-space: nowrap; color: #666; font-family: Consolas, monospace; font-size: 12px; }
@@ -33,16 +38,25 @@
   .消息 .tag { background: #e3edff; color: #1a56c4; } .结果 .tag { background: #e2f7e8; color: #177a37; }
   .启动 .tag, .恢复 .tag { background: #fff3d6; color: #946a00; } .断线 .tag { background: #fde3e3; color: #b42318; }
   .skip .tag { background: #eee; color: #666; }
+  /* 存本地按钮 */
+  #btnSave { display: inline-block; margin-left: 12px; padding: 3px 12px; font-size: 12px; border: 1px solid #c6d2e4;
+             border-radius: 6px; background: #eef4ff; color: #1a56c4; cursor: pointer; }
+  #btnSave:hover { background: #dfeaff; }
+  /* 悬停放大浮层 */
+  #zoom { position: fixed; inset: 0; background: rgba(0,0,0,.65); display: none; z-index: 99;
+          align-items: center; justify-content: center; pointer-events: none; }
+  #zoom img { max-width: 92vw; max-height: 92vh; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,.5); }
 </style>
 </head>
 <body data-page-node-id="l8v0AjlsqL0toC6QFz8c17">
 <h1 data-page-node-id="oyQ8QCC28ULqFwtXsHkCtD">📋 访美监控 · 填表进展</h1>
-<div class="sub" data-page-node-id="fIEDRyzTDjGBqzDTO5ou8H"><span id="dot" data-page-node-id="o6RI8cIarfTzkV5x5NrH8U"></span><span id="st" data-page-node-id="ZxfRk5tPQIRLD2U9HjkyRb">加载中…</span>　口令：@机器人 B站/b站/微博/抖音 + 链接（+微博原文），时间 9.24 16点 可选</div>
+<div class="sub" data-page-node-id="fIEDRyzTDjGBqzDTO5ou8H"><span id="dot" data-page-node-id="o6RI8cIarfTzkV5x5NrH8U"></span><span id="st" data-page-node-id="ZxfRk5tPQIRLD2U9HjkyRb">加载中…</span>　口令：@机器人 B站/b站/微博/抖音 + 链接（+微博原文），时间 9.24 16点 可选；改行：第3行改 b站；只发链接/BV号也认　<button id="btnSave" title="快捷键 Ctrl+S">💾 存一份到本地 (Ctrl+S)</button></div>
+<div id="zoom"><img alt=""></div>
 
 <table data-page-node-id="U6wpAGc29CeRF1OT8D2DQk">
-  <colgroup data-page-node-id="VPuXw3JzgZQFrtxFaEBluj"><col class="c-title" data-page-node-id="CE8wDhfbwtwV904tdm9YfK"><col class="c-link" data-page-node-id="EPByoiPDCktzXmRJYFLoZ6"><col class="c-view" data-page-node-id="PiIwcee849WsrSfhanUcjk"><col class="c-link" data-page-node-id="ApwPoDtNZFqt9UsIusrDaJ"><col class="c-shot" data-page-node-id="tHCpUiEnOmYgKyykovpFBr"><col class="c-link" data-page-node-id="qvN5nRrCG9OK4jdDNxFnjo"><col class="c-shot" data-page-node-id="KlpJuo3LqBg8skUT3rAKFn"><col class="c-time" data-page-node-id="AEk4bmWCBhSMln4NIEUVwq"></colgroup>
+  <colgroup data-page-node-id="VPuXw3JzgZQFrtxFaEBluj"><col class="c-row" data-page-node-id="CE8wDhfbwtwV904tdm9YfK"><col class="c-title" data-page-node-id="CE8wDhfbwtwV904tdm9YfK"><col class="c-link" data-page-node-id="EPByoiPDCktzXmRJYFLoZ6"><col class="c-view" data-page-node-id="PiIwcee849WsrSfhanUcjk"><col class="c-link" data-page-node-id="ApwPoDtNZFqt9UsIusrDaJ"><col class="c-shot" data-page-node-id="tHCpUiEnOmYgKyykovpFBr"><col class="c-link" data-page-node-id="qvN5nRrCG9OK4jdDNxFnjo"><col class="c-shot" data-page-node-id="KlpJuo3LqBg8skUT3rAKFn"><col class="c-time" data-page-node-id="AEk4bmWCBhSMln4NIEUVwq"></colgroup>
   <thead data-page-node-id="q9YmE33Wuc0ebUJeL4u56o"><tr data-page-node-id="E0ZV5DYGclE13Ut6KnYPGX">
-    <th data-page-node-id="8iX5PHKRsBLwfqFJd89vZl">稿件内容</th><th data-page-node-id="10hrnYtnCVGiKNHoHVHFFI">B站链接</th><th data-page-node-id="m2BrAiimzSxoJR7Qv86Klm">播放量</th><th data-page-node-id="qvKMlES3i7lg8ZIJymsu20">抖音链接</th>
+    <th data-page-node-id="8iX5PHKRsBLwfqFJd89vZl">行</th><th data-page-node-id="8iX5PHKRsBLwfqFJd89vZl">稿件内容</th><th data-page-node-id="10hrnYtnCVGiKNHoHVHFFI">B站链接</th><th data-page-node-id="m2BrAiimzSxoJR7Qv86Klm">播放量</th><th data-page-node-id="qvKMlES3i7lg8ZIJymsu20">抖音链接</th>
     <th data-page-node-id="wNzcyAkCrFSZTqPubw2gdF">截图（包含点赞）</th><th data-page-node-id="XV8G2WQZGECFy9BRjD3fnC">微博链接</th><th data-page-node-id="nhvtdYIT5Sx3QaLI3Kb04t">截图（包含播放数据）</th><th data-page-node-id="2Tjplodib2LhKjJxEap5FM">记录时间</th>
   </tr></thead>
   <tbody id="rec" data-page-node-id="RU2Um9okh8kz6jhNvCwBYM"></tbody>
@@ -65,10 +79,56 @@ const API = "http://127.0.0.1:8790";
 const SHORT = u => { u = String(u || ""); return u.length > 34 ? u.slice(0, 32) + "…" : u; };
 const link = u => u ? `<a href="${esc(u)}" target="_blank" title="${esc(u)}">${esc(SHORT(u))}</a>` : "—";
 const cell = v => (v === "" || v === null || v === undefined) ? "—" : v;
+let lastRecs = [];  // 供「存一份到本地」导出用
+
+// —— 存一份到本地：CSV（带 BOM，Excel 双击直开），按钮 + Ctrl+S ——
+function exportCsv() {
+  if (!lastRecs.length) { alert("还没有记录可导出"); return; }
+  const q = s => '"' + String(s ?? "").replace(/"/g, '""') + '"';
+  const rows = [["稿件内容", "B站链接", "播放量", "抖音链接", "截图（包含点赞）", "微博链接", "截图（包含播放数据）", "记录时间"]];
+  lastRecs.forEach(r => rows.push([
+    r.title, r.bili, r.view, r.douyin,
+    r.douyin_shot ? API + "/shots/douyin_r" + r.row + ".png" : "",
+    r.weibo, r.weibo ? (r.weibo_shot ? API + "/shots/weibo_r" + r.row + ".png" : "") : "",
+    r.time]));
+  const blob = new Blob(["\ufeff" + rows.map(r => r.map(q).join(",")).join("\r\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "访美监控_" + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "") + ".csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+document.getElementById("btnSave").addEventListener("click", exportCsv);
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); exportCsv(); }
+});
+
+// —— 截图悬停放大：鼠标移到缩略图上弹出大图，移开即关（img 原生支持右键复制） ——
+const zoom = document.getElementById("zoom");
+const recBody = document.getElementById("rec");
+recBody.addEventListener("mouseover", e => {
+  const img = e.target.closest("td.shot img");
+  if (!img) return;
+  zoom.querySelector("img").src = img.src;
+  zoom.style.display = "flex";
+});
+recBody.addEventListener("mouseout", e => {
+  if (e.target.closest("td.shot img")) zoom.style.display = "none";
+});
+
+// —— 删除行：确认后调 watcher 接口清空该行（自动备份），成功后刷新 ——
+async function delRow(row) {
+  if (!confirm("确定清空第 " + row + " 行吗？\n（该行标题/链接/播放量/截图全部删除，删除前自动备份到 访美监控_backup.xlsx）")) return;
+  try {
+    const res = await (await fetch(API + "/api/delete_row?row=" + row)).json();
+    if (res.ok) { load(); } else { alert(res.msg || "删除失败"); }
+  } catch (e) { alert("连不上 watcher：" + e); }
+}
 
 async function load() {
   try {
     const recs = await (await fetch(API + "/api/records")).json();
+    lastRecs = Array.isArray(recs) ? recs : [];
     document.getElementById("dot").className = "";
     document.getElementById("st").textContent = "监控运行中，共 " + (Array.isArray(recs) ? recs.length : 0) + " 条记录";
     document.getElementById("rec").innerHTML = (Array.isArray(recs) ? recs : []).map(r => {
@@ -76,6 +136,7 @@ async function load() {
         ? `<a href="${API}/shots/${name}" target="_blank" title="点击看原图"><img src="${API}/shots/${name}" loading="lazy"></a>`
         : `<span class="no">—</span>`;
       return `<tr>` +
+        `<td class="rowno">${r.row}<button title="清空该行（备份后删）" onclick="delRow(${r.row})">✕</button></td>` +
         `<td class="title">${cell(esc(r.title))}</td>` +
         `<td>${link(r.bili)}</td>` +
         `<td class="view">${cell(r.view)}</td>` +
@@ -85,7 +146,7 @@ async function load() {
         `<td class="shot">${shot(r.weibo_shot, "weibo_r" + r.row + ".png")}</td>` +
         `<td class="time">${esc(r.time)}</td>` +
         `</tr>`;
-    }).join("") || `<tr><td colspan="8" style="color:#888">还没有记录，群里发口令试试</td></tr>`;
+    }).join("") || `<tr><td colspan="9" style="color:#888">还没有记录，群里发口令试试</td></tr>`;
   } catch (err) {
     document.getElementById("dot").className = "off";
     document.getElementById("st").textContent = "连不上 watcher（fill_watch.py 没在跑？）";
