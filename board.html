@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="Mq7TiUpRZEM0WdpocF8HQs">
+<head data-page-node-id="kP8KiWdBXZlHfLyNEdAfqM">
+<meta charset="utf-8" data-page-node-id="MjgXdNyEgWbDipeAPuXvzl">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="GFjWyzL2cPiRU4N9b2RLPB">
+<title>B站监控看板</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --line:#e6e8ec; --text:#1f2328; --muted:#6b7280;
+    --brand:#185FA5; --brand-bg:#eef4fb; --hot:#d93838; --ok:#16a34a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 16px 60px}
+  header{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+  h1{font-size:20px;font-weight:600;margin:0}
+  .meta{font-size:12px;color:var(--muted)}
+  .meta b{color:var(--text);font-weight:500}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .stat b{display:block;font-size:24px;font-weight:600;line-height:1.2;font-variant-numeric:tabular-nums}
+  .stat span{font-size:12px;color:var(--muted)}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .tab{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:999px;
+       padding:5px 13px;font-size:13px;cursor:pointer;font-family:inherit}
+  .tab:hover{border-color:#c9ced6}
+  .tab.on{background:var(--brand);border-color:var(--brand);color:#fff}
+  .tab i{font-style:normal;opacity:.6;margin-left:4px;font-size:12px}
+  .tab.on i{opacity:.85}
+  input,select{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:7px 11px;
+       font:13px/1.5 inherit;color:var(--text);outline:none}
+  input:focus,select:focus{border-color:var(--brand)}
+  #q{flex:1;min-width:180px}
+  main{display:flex;flex-direction:column;gap:8px}
+  .row{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+       display:grid;grid-template-columns:1fr 150px 110px;gap:14px;align-items:center}
+  .row:hover{border-color:#c9ced6}
+  .t{font-weight:500;margin-bottom:2px;word-break:break-all}
+  .t a{color:inherit;text-decoration:none}
+  .t a:hover{color:var(--brand);text-decoration:underline}
+  .sub{font-size:12px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
+  .tag{background:var(--brand-bg);color:var(--brand);border-radius:4px;padding:1px 7px;font-size:11px}
+  .tag.gqt{background:#fdf0f0;color:var(--hot)}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .num b{font-size:16px;font-weight:600;display:block}
+  .num span{font-size:11px;color:var(--muted)}
+  .empty{text-align:center;color:var(--muted);padding:50px 0}
+  footer{margin-top:26px;font-size:12px;color:var(--muted);text-align:center;line-height:1.9}
+  @media(max-width:680px){
+    .stats{grid-template-columns:1fr 1fr}
+    .stat:last-child{grid-column:span 2}
+    .row{grid-template-columns:1fr;gap:8px}
+    .num{text-align:left;display:flex;gap:16px;align-items:baseline}
+    .num b{display:inline;font-size:15px}
+  }
+</style>
+</head>
+<body data-page-node-id="lkpQepkWB1wYznPTyRaJ5D">
+<div class="wrap" data-page-node-id="6i4WY1Bkpsm0PzLQIU2ojW">
+  <header data-page-node-id="yQC6s3iEYd4l6FZsBBnqBH">
+    <h1 data-page-node-id="r7GFSG33i9bXNCM3GTZSOu">B站监控看板</h1>
+    <div class="meta" data-page-node-id="DVY1yqOezFgjfGDxMlNqqi">数据更新：<b id="stamp" data-page-node-id="muez6LuG0XBvY3v96tBl9Y">--</b> ｜ 来源机器：<b id="machine" data-page-node-id="gDITFucRPmFjDBW66km9nv">--</b></div>
+  </header>
+
+  <section class="stats" data-page-node-id="sWgkAu7BJOCZB6KjbXq9AD">
+    <div class="stat" data-page-node-id="840LGmdqWIX4p7bkslSQ9w"><b id="s-count" data-page-node-id="kFOhDw0LeiE7ouHnFXVA4z">0</b><span data-page-node-id="WE1l9U6tEevtdvCKKJFvJv">监控中视频</span></div>
+    <div class="stat" data-page-node-id="RICj7629pDljUzAQl39zuE"><b id="s-view" data-page-node-id="W45ocyLyI2DKFwQGOw1reO">0</b><span data-page-node-id="Xmr0oOcU8J908v0th476rZ">累计播放量</span></div>
+    <div class="stat" data-page-node-id="xL6z5Ku2RNXfnrmYXDFoCc"><b id="s-online" data-page-node-id="DU2KKuvbiOrGIJYX3uFD1W">0</b><span data-page-node-id="5oUNNSmbzlP5QckpdKJwem">当前在线人数</span></div>
+  </section>
+
+  <div class="bar" data-page-node-id="7PsSCUxYBHEWkRV6MRx2SG">
+    <div class="tabs" id="tabs" data-page-node-id="SeAvkZNS2Kd3RjB0RetsEA"></div>
+    <input id="q" type="search" placeholder="搜标题 / UP主 / BV号" data-page-node-id="zCIWAodvk1F1S3mMIc9eBK">
+    <select id="sort" data-page-node-id="3zajtd2AAxlQCXQf22l4Bi">
+      <option value="view" data-page-node-id="5HmmHnjbO4wd0KfSEtfgdX">按播放量</option>
+      <option value="online" data-page-node-id="A4Ho61aX8H1AIix1OkDNkw">按在线人数</option>
+      <option value="added" data-page-node-id="xRPnLuIAXOXg15vTZOeLmW">按加入时间</option>
+      <option value="title" data-page-node-id="2UXnM56G2uvjWVRHoVCSJ3">按标题</option>
+    </select>
+  </div>
+
+  <main id="list" data-page-node-id="WQVBROP64hqF2EGWnLPinf"></main>
+
+  <footer data-page-node-id="sMfIHpX1qCoS6xG05HyJBK">
+    只读看板 · 数据由监控机定时导出<br data-page-node-id="62rzBXbePvIHwhkLcDPFrC">
+    增删改请在企微智能表格操作，或联系管理员
+  </footer>
+</div>
+
+<script>window.__BOARD_DATA__ = {"generated_at":"2026-09-27 13:45","machine":"马克其实是马斯克","totals":{"count":55,"view":10950640,"online":573},"groups":[{"name":"共青团","count":20,"view":727467,"online":0},{"name":"刘欢","count":3,"view":723543,"online":0},{"name":"白宫见面，保央视","count":3,"view":493557,"online":0},{"name":"yxh中秋保新华","count":2,"view":133546,"online":0},{"name":"临时","count":2,"view":77182,"online":0},{"name":"保央视，新华搬运","count":2,"view":1752792,"online":0},{"name":"博物馆","count":2,"view":409847,"online":40},{"name":"圆满结束","count":2,"view":727906,"online":0},{"name":"小范围交流保央视","count":2,"view":259863,"online":21},{"name":"川子抵达迎接，保央视","count":2,"view":900450,"online":0},{"name":"广阔空间","count":2,"view":551806,"online":27},{"name":"欢迎宴会","count":2,"view":1509770,"online":190},{"name":"白宫欢迎仪式，保央","count":2,"view":623678,"online":91},{"name":"白宫欢迎纪录片，保央","count":2,"view":646354,"online":160},{"name":"相处之道","count":2,"view":675323,"online":35},{"name":"茶叙","count":2,"view":397339,"online":0},{"name":"保央视 特朗普迎接","count":1,"view":276043,"online":0},{"name":"欢迎仪式","count":1,"view":60788,"online":9},{"name":"茅台 商5了","count":1,"view":3386,"online":0}],"videos":[{"bvid":"BV152aA6nEET","title":"“班长，我还想再讲两句……”“讲！”","up":"新华社","group":"yxh中秋保新华","category":"normal","view":113762,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV152aA6nEET"},{"bvid":"BV1vTaN6REzn","title":"中秋战位上的祝福！舍小家为大家，致敬人民子弟兵！","up":"人民日报","group":"yxh中秋保新华","category":"normal","view":19784,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1vTaN6REzn"},{"bvid":"BV1jDaT6PEA7","title":"习近平和夫人彭丽媛抵达白宫","up":"共青团中央","group":"临时","category":"gqt","view":38914,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1jDaT6PEA7"},{"bvid":"BV1Koag6oExx","title":"战机飞越白宫 向中美两国元首夫妇致敬","up":"共青团中央","group":"临时","category":"gqt","view":38268,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1Koag6oExx"},{"bvid":"BV1CCaF6REK4","title":"现场视频！习近平主席抵达华盛顿 特朗普机场热情迎接","up":"新华社","group":"保央视 特朗普迎接","category":"normal","view":276043,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1CCaF6REK4"},{"bvid":"BV1HMaF6SEDU","title":"习近平和夫人彭丽媛抵达华盛顿，特朗普和夫人梅拉尼娅热情迎接","up":"央视新闻","group":"保央视，新华搬运","category":"normal","view":1752792,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1HMaF6SEDU"},{"bvid":"BV1wPaF8pEoT","title":"BV1wPaF8pEoT","up":"","group":"保央视，新华搬运","category":"normal","view":0,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1wPaF8pEoT"},{"bvid":"BV1EEbK6xEpJ","title":"网友：袁爷爷，今天我也有好好吃饭……","up":"共青团中央","group":"共青团","category":"gqt","view":82740,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1EEbK6xEpJ"},{"bvid":"BV1vPt967EKm","title":"重温九三盛大阅兵，一起纪念伟大胜利！","up":"共青团中央","group":"共青团","category":"gqt","view":59559,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1vPt967EKm"},{"bvid":"BV1GDaA6mEbq","title":"国庆将至，多地街道两侧挂起五星红旗 >>","up":"共青团中央","group":"共青团","category":"gqt","view":53505,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1GDaA6mEbq"},{"bvid":"BV18Xh76UER9","title":"最后一棒反超日本！中国队打破亚洲纪录！","up":"共青团中央","group":"共青团","category":"gqt","view":52796,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV18Xh76UER9"},{"bvid":"BV1fztH6AEjv","title":"动画详解：吉隆泥石流灾害为何救援难度极大 >>","up":"共青团中央","group":"共青团","category":"gqt","view":48056,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1fztH6AEjv"},{"bvid":"BV1gegp6yEX5","title":"村民洪水中抱树避险，消防员激流横渡救援 >>","up":"共青团中央","group":"共青团","category":"gqt","view":45831,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1gegp6yEX5"},{"bvid":"BV1ahtR6mEUH","title":"当地铁驶入“千里江山图”……","up":"共青团中央","group":"共青团","category":"gqt","view":44122,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1ahtR6mEUH"},{"bvid":"BV1LPuB64Eso","title":"路上跑，水上开！两栖全地形救援车投入抢险救援 >>","up":"共青团中央","group":"共青团","category":"gqt","view":42818,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1LPuB64Eso"},{"bvid":"BV1Coh36QEJV","title":"广西宁明多乡镇内涝，“救援航母”挺进灾区救援 >>","up":"共青团中央","group":"共青团","category":"gqt","view":41599,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1Coh36QEJV"},{"bvid":"BV1LKtc6KE1G","title":"最新进展！消防救援队已抵达受灾核心区 >>","up":"共青团中央","group":"共青团","category":"gqt","view":40450,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1LKtc6KE1G"},{"bvid":"BV1bhbi6fEmu","title":"纪念江泽民同志诞辰100周年大会在京隆重举行 习近平发表重要讲话","up":"共青团中央","group":"共青团","category":"gqt","view":39612,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1bhbi6fEmu"},{"bvid":"BV1PXhF6dE9q","title":"运-20起飞赶赴西藏！开展吉隆县泥石流灾害救援 >>","up":"共青团中央","group":"共青团","category":"gqt","view":38570,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1PXhF6dE9q"},{"bvid":"BV1fHgw6wEFs","title":"子弟兵来了！武警驰援河南郏县封堵溃口 >>","up":"共青团中央","group":"共青团","category":"gqt","view":37358,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1fHgw6wEFs"},{"bvid":"BV1GdYe6zEz6","title":"刷到啥就学点啥吧！空军飞行员教你空中加油～","up":"共青团中央","group":"共青团","category":"gqt","view":37345,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1GdYe6zEz6"},{"bvid":"BV17nMk6uENX","title":"成功发射！看火箭与碧海蓝天浪漫同框 >>","up":"共青团中央","group":"共青团","category":"gqt","view":25625,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV17nMk6uENX"},{"bvid":"BV13htn6DE3j","title":"我国的运载火箭，为何命名“长征”？","up":"共青团中央","group":"共青团","category":"gqt","view":19508,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV13htn6DE3j"},{"bvid":"BV11yMk6QEMK","title":"对“敌”舰艇编队，多军种联合火力打击！","up":"共青团中央","group":"共青团","category":"gqt","view":17973,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV11yMk6QEMK"},{"bvid":"BV1gnY16AEzx","title":"BV1gnY16AEzx","up":"","group":"共青团","category":"gqt","view":0,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1gnY16AEzx"},{"bvid":"BV1AJ3c6zEng","title":"BV1AJ3c6zEng","up":"","group":"共青团","category":"gqt","view":0,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1AJ3c6zEng"},{"bvid":"BV1XK3i6wEZN","title":"BV1XK3i6wEZN","up":"","group":"共青团","category":"gqt","view":0,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1XK3i6wEZN"},{"bvid":"BV13YhD6rEVg","title":"著名音乐家刘欢病逝，享年63岁","up":"央视新闻","group":"刘欢","category":"normal","view":494304,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV13YhD6rEVg"},{"bvid":"BV1GbhD65EMH","title":"刘欢逝世，送别！一路走好！","up":"新华社","group":"刘欢","category":"normal","view":193700,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1GbhD65EMH"},{"bvid":"BV1mWh965E3X","title":"著名音乐家刘欢在上海不幸病逝，享年63岁。送别！一路走好！","up":"人民日报","group":"刘欢","category":"normal","view":35539,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1mWh965E3X"},{"bvid":"BV1s7aM61Et3","title":"彭丽媛同美国总统特朗普夫人梅拉尼娅参观国立亚洲艺术博物馆","up":"央视新闻","group":"博物馆","category":"normal","view":326149,"online":31,"added_at":"","url":"https://www.bilibili.com/video/BV1s7aM61Et3"},{"bvid":"BV19BaM6cENu","title":"彭丽媛同美国总统特朗普夫人梅拉尼娅参观国立亚洲艺术博物馆","up":"新华社","group":"博物馆","category":"normal","view":83698,"online":9,"added_at":"","url":"https://www.bilibili.com/video/BV19BaM6cENu"},{"bvid":"BV1oFhS65E7x","title":"习近平圆满结束对美国的国事访问","up":"央视新闻","group":"圆满结束","category":"normal","view":667756,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1oFhS65E7x"},{"bvid":"BV16ehQ6fEHj","title":"习近平圆满结束对美国的国事访问","up":"新华社","group":"圆满结束","category":"normal","view":60150,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV16ehQ6fEHj"},{"bvid":"BV1quaT6wEfK","title":"习近平同美国总统特朗普小范围交流","up":"央视新闻","group":"小范围交流保央视","category":"normal","view":179305,"online":10,"added_at":"","url":"https://www.bilibili.com/video/BV1quaT6wEfK"},{"bvid":"BV1iuaT6wEow","title":"习近平同美国总统特朗普小范围交流","up":"新华社","group":"小范围交流保央视","category":"normal","view":80558,"online":11,"added_at":"","url":"https://www.bilibili.com/video/BV1iuaT6wEow"},{"bvid":"BV1aMac6BEy8","title":"【独家视频】特朗普总统抵达机场，迎接习近平主席到访","up":"央视新闻","group":"川子抵达迎接，保央视","category":"normal","view":771468,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1aMac6BEy8"},{"bvid":"BV19Pac63EE5","title":"习近平主席抵达华盛顿 特朗普总统机场迎接","up":"新华社","group":"川子抵达迎接，保央视","category":"normal","view":128982,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV19Pac63EE5"},{"bvid":"BV1mRaM6JEAr","title":"现场视频！习近平：中美两国利益深度交融 合作空间十分广阔","up":"央视新闻","group":"广阔空间","category":"normal","view":480779,"online":23,"added_at":"","url":"https://www.bilibili.com/video/BV1mRaM6JEAr"},{"bvid":"BV1g1aM64EgN","title":"习近平：中美两国利益深度交融 合作空间十分广阔","up":"新华社","group":"广阔空间","category":"normal","view":71027,"online":4,"added_at":"","url":"https://www.bilibili.com/video/BV1g1aM64EgN"},{"bvid":"BV1t4aT6SEjG","title":"当地时间9月24日上午，习近平和夫人彭丽媛乘车抵达白宫时，特朗普总统和夫人梅拉尼娅在下车处热情迎接","up":"人民日报","group":"欢迎仪式","category":"normal","view":60788,"online":9,"added_at":"","url":"https://www.bilibili.com/video/BV1t4aT6SEjG"},{"bvid":"BV1JSau6kEof","title":"习近平和彭丽媛出席特朗普总统夫妇举行的欢迎国宴","up":"央视新闻","group":"欢迎宴会","category":"normal","view":1366777,"online":186,"added_at":"","url":"https://www.bilibili.com/video/BV1JSau6kEof"},{"bvid":"BV1PEag6XEh3","title":"习近平和彭丽媛出席特朗普总统夫妇举行的欢迎宴会","up":"新华社","group":"欢迎宴会","category":"normal","view":142993,"online":4,"added_at":"","url":"https://www.bilibili.com/video/BV1PEag6XEh3"},{"bvid":"BV1xvaT65Exg","title":"现场视频！习近平出席特朗普在白宫举行的欢迎仪式","up":"央视新闻","group":"白宫欢迎仪式，保央","category":"normal","view":373916,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1xvaT65Exg"},{"bvid":"BV1yvaT65Ejw","title":"习近平出席美国总统特朗普在白宫举行的欢迎仪式","up":"新华社","group":"白宫欢迎仪式，保央","category":"normal","view":249762,"online":91,"added_at":"","url":"https://www.bilibili.com/video/BV1yvaT65Ejw"},{"bvid":"BV1FPaT6iEvw","title":"习近平出席美国总统特朗普在白宫举行的欢迎仪式","up":"央视新闻","group":"白宫欢迎纪录片，保央","category":"normal","view":582648,"online":160,"added_at":"","url":"https://www.bilibili.com/video/BV1FPaT6iEvw"},{"bvid":"BV1qTaT6YEh5","title":"拾光纪·精彩瞬间！中美元首会晤，欢迎仪式现场画面来了","up":"人民日报","group":"白宫欢迎纪录片，保央","category":"normal","view":63706,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1qTaT6YEh5"},{"bvid":"BV14maP6zEJG","title":"习近平主席车队抵达白宫","up":"央视新闻","group":"白宫见面，保央视","category":"normal","view":329210,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV14maP6zEJG"},{"bvid":"BV1PSaP6MEH6","title":"习近平和夫人彭丽媛抵达白宫","up":"新华社","group":"白宫见面，保央视","category":"normal","view":110354,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1PSaP6MEH6"},{"bvid":"BV18paT6pE7D","title":"此行间·习近平出席白宫欢迎仪式，引发华盛顿民众和中外媒体高度关注","up":"人民日报","group":"白宫见面，保央视","category":"normal","view":53993,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV18paT6pE7D"},{"bvid":"BV132aM6dENF","title":"现场视频！习近平：中美一定能走出一条两个大国的正确相处之道","up":"央视新闻","group":"相处之道","category":"normal","view":601604,"online":27,"added_at":"","url":"https://www.bilibili.com/video/BV132aM6dENF"},{"bvid":"BV1XzaM68E5z","title":"习近平：中美一定能走出一条两个大国的正确相处之道","up":"新华社","group":"相处之道","category":"normal","view":73719,"online":8,"added_at":"","url":"https://www.bilibili.com/video/BV1XzaM68E5z"},{"bvid":"BV1dNaA6EEmV","title":"时 间 的 密 码","up":"央视新闻","group":"茅台 商5了","category":"normal","view":3386,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1dNaA6EEmV"},{"bvid":"BV18Dhm6aEDr","title":"【独家视频】 习近平和彭丽媛同美国总统特朗普夫妇茶叙","up":"央视新闻","group":"茶叙","category":"normal","view":340883,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV18Dhm6aEDr"},{"bvid":"BV1XChm6TEvG","title":"习近平和彭丽媛同美国总统特朗普夫妇茶叙","up":"新华社","group":"茶叙","category":"normal","view":56456,"online":0,"added_at":"","url":"https://www.bilibili.com/video/BV1XChm6TEvG"}]};</script>
+<script>
+(function(){
+  var D = window.__BOARD_DATA__ || {videos:[],groups:[],totals:{}};
+  var all = D.videos || [];
+  var curGroup = '', curQ = '', curSort = 'view';
+
+  function fmt(n){
+    n = Number(n) || 0;
+    if (n >= 100000000) return (n/100000000).toFixed(1).replace(/\.0$/,'') + '亿';
+    if (n >= 10000) return (n/10000).toFixed(1).replace(/\.0$/,'') + '万';
+    return n.toLocaleString('zh-CN');
+  }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  document.getElementById('stamp').textContent = D.generated_at || '--';
+  document.getElementById('machine').textContent = D.machine || '--';
+
+  var t = D.totals || {};
+  document.getElementById('s-count').textContent = fmt(t.count);
+  document.getElementById('s-view').textContent = fmt(t.view);
+  document.getElementById('s-online').textContent = fmt(t.online);
+
+  var tabs = document.getElementById('tabs');
+  var groups = D.groups || [];
+  function addTab(name, count){
+    var b = document.createElement('button');
+    b.className = 'tab' + (curGroup === name ? ' on' : '');
+    b.innerHTML = esc(name) + '<i>' + count + '</i>';
+    b.onclick = function(){ curGroup = name; render(); };
+    tabs.appendChild(b);
+  }
+  addTab('', all.length);
+  groups.forEach(function(g){ addTab(g.name, g.count); });
+
+  function render(){
+    Array.prototype.forEach.call(tabs.children, function(b, i){
+      var name = i === 0 ? '' : groups[i-1].name;
+      b.className = 'tab' + (name === curGroup ? ' on' : '');
+    });
+
+    var q = curQ.trim().toLowerCase();
+    var list = all.filter(function(v){
+      if (curGroup && v.group !== curGroup) return false;
+      if (!q) return true;
+      return (v.title + ' ' + v.up + ' ' + v.bvid).toLowerCase().indexOf(q) >= 0;
+    });
+
+    list.sort(function(a, b){
+      if (curSort === 'title') return String(a.title).localeCompare(String(b.title), 'zh');
+      if (curSort === 'added') return String(b.added_at).localeCompare(String(a.added_at));
+      if (curSort === 'online') return (b.online||0) - (a.online||0);
+      return (b.view||0) - (a.view||0);
+    });
+
+    var box = document.getElementById('list');
+    if (!list.length){
+      box.innerHTML = '<div class="empty">没有匹配的视频</div>';
+      return;
+    }
+    box.innerHTML = list.map(function(v){
+      var tag = v.category === 'gqt'
+        ? '<span class="tag gqt">共青团</span>'
+        : '<span class="tag">' + esc(v.group) + '</span>';
+      return '<div class="row">' +
+        '<div>' +
+          '<div class="t"><a href="' + esc(v.url) + '" target="_blank" rel="noopener">' + esc(v.title) + '</a></div>' +
+          '<div class="sub">' + tag +
+            (v.up ? '<span>' + esc(v.up) + '</span>' : '') +
+            '<span>' + esc(v.bvid) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="num"><b>' + fmt(v.view) + '</b><span>播放量</span></div>' +
+        '<div class="num"><b>' + fmt(v.online) + '</b><span>在线人数</span></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  document.getElementById('q').oninput = function(e){ curQ = e.target.value; render(); };
+  document.getElementById('sort').onchange = function(e){ curSort = e.target.value; render(); };
+
+  render();
+})();
+</script>
+</body>
+</html>
