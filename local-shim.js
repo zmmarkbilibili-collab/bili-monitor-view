@@ -169,9 +169,15 @@
       var age = SNAP && ageText(SNAP.generated_at);
       var label, bg = 'rgba(0,0,0,.5)', op = '.75', clickable = false;
 
+      if (MODE === 'live' && !FELL_BACK) {
+        // 直连数据库正常 —— 页面保持干净，不挂任何角标（用户口径：不该一直弹东西）
+        if (el) { try { el.remove(); } catch (e) {} }
+        markBanner();
+        return;
+      }
       if (MODE === 'live') {
-        label = '在线实时 · 直连数据库';
-        bg = 'rgba(20,110,60,.85)'; op = '1';
+        label = '⚠ 离线 · 已切表格版';
+        bg = 'rgba(190,30,30,.88)'; op = '1';
       } else if (MODE === 'local') {
         label = '本机直连 · 数据实时';
         bg = 'rgba(20,110,60,.85)'; op = '1';
@@ -221,9 +227,41 @@
     markBanner();
   }
 
-  /* ================= 顶部提示条：数据源异常时显式告知"已启用表格版" ================= */
+  /* ================= 顶部提示条：网断 → 提示 + 跳到智能表格 =================
+   * 口径（2026-09-28 用户确认）：
+   *   网通 → 网页直连数据库 = 原版实时，页面**完全干净**（不挂角标、不挂提示条）
+   *   网断 → 顶部红条提示"已切表格版"，8 秒倒计时后自动跳到智能表格，
+   *          点「留在本页」可取消（本页仍能看最后一次快照）
+   *   恢复 → 自动整页刷新回实时
+   */
   function sheetUrl() {
     return (CFG && (CFG.sheetUrl || CFG.sheet)) || '';
+  }
+
+  var JUMP_DELAY = 8;                 // 自动跳表格倒计时（秒）
+  var jumpTimer = null, jumpLeft = 0, jumpCancelled = false;
+  var bannerKey = '';                 // 当前横幅状态；状态没变就不重建 DOM（否则倒计时被重置）
+
+  function clearJump() {
+    if (jumpTimer) { clearInterval(jumpTimer); jumpTimer = null; }
+  }
+
+  function jumpToSheet() {
+    var u = sheetUrl();
+    if (!u) return false;
+    try { location.href = u; } catch (e) { try { window.open(u, '_blank'); } catch (x) {} }
+    return true;
+  }
+
+  function startJump() {
+    if (jumpTimer || jumpCancelled || !sheetUrl()) return;
+    jumpLeft = JUMP_DELAY;
+    jumpTimer = setInterval(function () {
+      jumpLeft--;
+      var n = document.getElementById('__board_jump_left');
+      if (n) n.textContent = String(Math.max(jumpLeft, 0));
+      if (jumpLeft <= 0) { clearJump(); jumpToSheet(); }
+    }, 1000);
   }
 
   function markBanner() {
@@ -232,32 +270,36 @@
       var el = document.getElementById(BANNER_ID);
       var age = SNAP && ageText(SNAP.generated_at);
       var ago = age ? String(age.text).replace(/前$/, '') : '';   // 去掉"前"，便于自行拼"前"字
-      var bg = '', text = '';
+      var key = '', bg = '', text = '';
 
-      if (MODE === 'live') {
-        // 直连数据库成功中：数据是实时的，不需要任何提示条
-        if (FELL_BACK) {
-          bg = 'rgba(190,120,10,.94)';
-          text = '数据库连接不稳定，已自动启用表格版';
-        }
-      } else if (MODE === 'snapshot') {
-        bg = 'rgba(190,30,30,.94)';
-        text = FELL_BACK
-          ? '数据库连不上，已自动启用快照版' + (ago ? '（数据 ' + ago + '前）' : '')
-          : '未配置在线数据源，当前显示内置快照' + (ago ? '（数据 ' + ago + '前）' : '');
+      if (MODE === 'live' && !FELL_BACK) {
+        key = 'ok';                                  // 直连数据库正常：不留任何提示
       } else if (FELL_BACK) {
-        bg = 'rgba(190,120,10,.94)';
-        text = '数据库连不上，已自动启用表格版' + (ago ? '（数据 ' + ago + '前）' : '');
+        key = 'down';
+        bg = 'rgba(190,30,30,.95)';
+        text = '⚠ 数据库连不上，已切到智能表格版' + (ago ? '（数据截至 ' + ago + '前）' : '');
+      } else if (MODE === 'snapshot') {
+        key = 'ro';
+        bg = 'rgba(190,30,30,.95)';
+        text = '未配置在线数据源，当前显示内置快照' + (ago ? '（数据 ' + ago + '前）' : '');
       } else if (age && age.mins >= 120) {
-        bg = 'rgba(190,30,30,.94)';
-        text = '数据已 ' + ago + '未更新，已自动启用表格版（本机监控可能已停止）';
+        key = 'stale2h';
+        bg = 'rgba(190,30,30,.95)';
+        text = '数据已 ' + ago + '未更新，请以智能表格为准（本机监控可能已停止）';
       } else if (age && age.mins >= 30) {
-        bg = 'rgba(190,120,10,.94)';
+        key = 'stale30';
+        bg = 'rgba(190,120,10,.95)';
         text = '数据已 ' + ago + '未更新，当前为表格版';
+      } else {
+        key = 'ok';
       }
 
-      if (!text) {
+      if (key === bannerKey) return;     // 状态没变 → 不碰 DOM（保住倒计时进度）
+      bannerKey = key;
+
+      if (key === 'ok') {
         if (el) { try { el.remove(); } catch (e) {} }
+        clearJump();
         return;
       }
       if (!el) {
@@ -268,17 +310,48 @@
         (document.body || document.documentElement).appendChild(el);
       }
       el.style.background = bg;
-      el.textContent = text;
+      el.textContent = '';
+
+      var span = document.createElement('span');
+      span.textContent = text;
+      el.appendChild(span);
+
       var u = sheetUrl();
       if (u) {
         var a = document.createElement('a');
         a.href = u;
-        a.target = '_blank';
-        a.rel = 'noopener';
         a.textContent = '打开智能表格 →';
         a.style.cssText = 'color:#fff;text-decoration:underline;margin-left:10px';
         el.appendChild(document.createTextNode('　'));
         el.appendChild(a);
+
+        // 真断线才自动跳；只是数据旧（stale30）就给个链接，不打扰
+        if (key === 'down' || key === 'ro' || key === 'stale2h') {
+          el.appendChild(document.createTextNode('　'));
+          var n = document.createElement('span');
+          n.id = '__board_jump_left';
+          n.textContent = String(JUMP_DELAY);
+          el.appendChild(n);
+          el.appendChild(document.createTextNode(' 秒后自动前往'));
+
+          var stay = document.createElement('a');
+          stay.href = 'javascript:void(0)';
+          stay.textContent = '留在本页';
+          stay.style.cssText = 'color:#fff;text-decoration:underline;margin-left:12px';
+          stay.onclick = function (ev) {
+            if (ev && ev.preventDefault) ev.preventDefault();
+            if (ev && ev.stopPropagation) ev.stopPropagation();
+            jumpCancelled = true;
+            clearJump();
+            try {
+              var x = document.getElementById('__board_jump_left');
+              if (x) x.textContent = '自动跳转已取消';
+            } catch (e) {}
+            return false;
+          };
+          el.appendChild(stay);
+          startJump();
+        }
       }
     } catch (e) { /* 提示失败不影响功能 */ }
   }
@@ -615,6 +688,7 @@
     if (MODE !== 'live') return;
     MODE = remoteReady() ? 'remote' : 'snapshot';
     FELL_BACK = true;
+    jumpCancelled = false; bannerKey = '';   // 让顶部提示条重建（重新开始倒计时）
     if (!loadRemoteStarted) { loadRemoteStarted = true; loadRemote(); }
     try { markStatus(); markBanner(); } catch (e) {}
     startRecovery();
@@ -752,6 +826,17 @@
     }
     markStatus();
     markBanner();
+
+    // 断网/恢复（浏览器级）：断网立刻提示 + 准备跳智能表格；网络回来刷新回实时
+    try {
+      window.addEventListener('offline', function () {
+        FELL_BACK = true; jumpCancelled = false; bannerKey = '';
+        try { markStatus(); markBanner(); } catch (e) {}
+      });
+      window.addEventListener('online', function () {
+        if (MODE === 'live') { try { location.reload(); } catch (e) {} }
+      });
+    } catch (e) {}
   })();
 
   // 供调试/自检：当前处在哪一档
