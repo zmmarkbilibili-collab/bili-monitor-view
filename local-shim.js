@@ -1,18 +1,20 @@
-/* local-shim.js —— 前端数据访问 shim（三模：本机全功能 / 在线可写 / 只读快照）
+/* local-shim.js —— 前端数据访问 shim（四模：公网实时 / 本机全功能 / 在线可写 / 只读快照）
  *
  * 作用：把网页里 supabase-js 的链式调用（.from().select().eq().in().order()...）
  * 原样翻译到数据源。对外保持 window.supabase.createClient() 接口与 {data, error}
  * 返回形状不变，业务 JS 零改动。
  *
- * 三种模式，自动切换：
+ * 四种模式，自动切换：
+ *   live     —— 公网（GitHub Pages 等）且页面加载了真库 supabase-js.min.js
+ *               → **原版行为**：直连 Supabase 读写，实时。真库一旦请求失败（网络被掐），
+ *                 自动降级到 remote/snapshot 并在顶部提示，恢复后自动刷新回实时。
  *   local    —— 同源能访问 POST /api/db（本机 py 在跑 / 同网同事访问本机面板）
  *               → 全功能，读写本机 SQLite，立即生效。
- *   remote   —— 公网环境（GitHub Pages 等）且页面注入了 window.__BOARD_REMOTE__
+ *   remote   —— 公网但拿不到真库（或真库已降级）且注入了 window.__BOARD_REMOTE__
  *               → 读：同域 data/db.json（本机定期推送的全量快照）
  *                 写：追加到 GitHub 仓库的 data/ops.json 队列，
  *                     本机监控每 2 分钟拉取并执行（含 BV 校验），再回写数据。
- *               → 功能与原页面一致，只是写入需等本机消费（非即时）。
- *   snapshot —— 公网环境但没配 remote，或 remote 读不到数据
+ *   snapshot —— 公网但没配 remote，或数据源都不可达
  *               → 只读，读页面内联的 window.__BOARD_DATA__。写操作明确报错，绝不静默失败。
  *
  * remote 模式写操作需要 GitHub token（该仓库 Contents 读写权限）：
@@ -24,10 +26,20 @@
 
   var SNAP = (typeof window !== 'undefined' && window.__BOARD_DATA__) || null;
   var CFG = (typeof window !== 'undefined' && window.__BOARD_REMOTE__) || null;
-  var MODE = 'local';          // 'local' | 'remote' | 'snapshot'
+  var MODE = 'local';          // 'live' | 'local' | 'remote' | 'snapshot'
+
+  /* 真库：页面若按 <script src="supabase-js.min.js"> 加载过，这里就拿得到。
+     公网优先用它直连数据库（原版实时行为），拿不到才退到快照。 */
+  var REAL_LIB = null;
+  try {
+    if (typeof window !== 'undefined' && window.supabase &&
+        typeof window.supabase.createClient === 'function') REAL_LIB = window.supabase;
+  } catch (e) { REAL_LIB = null; }
   var RO_TAG_ID = '__board_ro_tag';
+  var BANNER_ID = '__board_banner';
   var TOKEN_KEY = 'board_gh_token';
   var WROTE_HINT = false;      // 提交过操作后刷新页面不必再提示
+  var FELL_BACK = false;       // 本机数据源连不上而降级（区别于"本来就在公网"）
 
   function tables() { return (SNAP && SNAP.tables) || {}; }
   function remoteReady() { return !!(CFG && CFG.repo); }
@@ -157,7 +169,10 @@
       var age = SNAP && ageText(SNAP.generated_at);
       var label, bg = 'rgba(0,0,0,.5)', op = '.75', clickable = false;
 
-      if (MODE === 'local') {
+      if (MODE === 'live') {
+        label = '在线实时 · 直连数据库';
+        bg = 'rgba(20,110,60,.85)'; op = '1';
+      } else if (MODE === 'local') {
         label = '本机直连 · 数据实时';
         bg = 'rgba(20,110,60,.85)'; op = '1';
       } else if (MODE === 'remote') {
@@ -172,11 +187,14 @@
       }
 
       // 数据陈旧告警：≥30 分钟转橙、≥2 小时转红（说明监控可能停了）
-      if (age && age.mins >= 120 && MODE !== 'local') {
-        label = (MODE === 'remote' ? '数据 ' : '数据 ') + age.text + '更新 · 监控可能已停止';
-        bg = 'rgba(190,30,30,.88)'; op = '1';
-      } else if (age && age.mins >= 30 && MODE !== 'local') {
-        bg = 'rgba(190,120,10,.88)'; op = '1';
+      // live/local 是直连实时，不看快照年龄
+      if (age && MODE !== 'local' && MODE !== 'live') {
+        if (age.mins >= 120) {
+          label = '数据 ' + age.text + '更新 · 监控可能已停止';
+          bg = 'rgba(190,30,30,.88)'; op = '1';
+        } else if (age.mins >= 30) {
+          bg = 'rgba(190,120,10,.88)'; op = '1';
+        }
       }
       if (SNAP && SNAP.pending) {
         label += ' · 有操作待本机处理';
@@ -199,6 +217,69 @@
         ? '点一次粘贴 GitHub token（只存在本机浏览器，不会上传）；配好后即可在网页上增删改'
         : '';
       el.onclick = clickable ? setTokenByPrompt : null;
+    } catch (e) { /* 提示失败不影响功能 */ }
+    markBanner();
+  }
+
+  /* ================= 顶部提示条：数据源异常时显式告知"已启用表格版" ================= */
+  function sheetUrl() {
+    return (CFG && (CFG.sheetUrl || CFG.sheet)) || '';
+  }
+
+  function markBanner() {
+    try {
+      if (typeof document === 'undefined') return;
+      var el = document.getElementById(BANNER_ID);
+      var age = SNAP && ageText(SNAP.generated_at);
+      var ago = age ? String(age.text).replace(/前$/, '') : '';   // 去掉"前"，便于自行拼"前"字
+      var bg = '', text = '';
+
+      if (MODE === 'live') {
+        // 直连数据库成功中：数据是实时的，不需要任何提示条
+        if (FELL_BACK) {
+          bg = 'rgba(190,120,10,.94)';
+          text = '数据库连接不稳定，已自动启用表格版';
+        }
+      } else if (MODE === 'snapshot') {
+        bg = 'rgba(190,30,30,.94)';
+        text = FELL_BACK
+          ? '数据库连不上，已自动启用快照版' + (ago ? '（数据 ' + ago + '前）' : '')
+          : '未配置在线数据源，当前显示内置快照' + (ago ? '（数据 ' + ago + '前）' : '');
+      } else if (FELL_BACK) {
+        bg = 'rgba(190,120,10,.94)';
+        text = '数据库连不上，已自动启用表格版' + (ago ? '（数据 ' + ago + '前）' : '');
+      } else if (age && age.mins >= 120) {
+        bg = 'rgba(190,30,30,.94)';
+        text = '数据已 ' + ago + '未更新，已自动启用表格版（本机监控可能已停止）';
+      } else if (age && age.mins >= 30) {
+        bg = 'rgba(190,120,10,.94)';
+        text = '数据已 ' + ago + '未更新，当前为表格版';
+      }
+
+      if (!text) {
+        if (el) { try { el.remove(); } catch (e) {} }
+        return;
+      }
+      if (!el) {
+        el = document.createElement('div');
+        el.id = BANNER_ID;
+        el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;' +
+          'color:#fff;font:12px/2 Arial,sans-serif;padding:0 12px;text-align:center';
+        (document.body || document.documentElement).appendChild(el);
+      }
+      el.style.background = bg;
+      el.textContent = text;
+      var u = sheetUrl();
+      if (u) {
+        var a = document.createElement('a');
+        a.href = u;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = '打开智能表格 →';
+        a.style.cssText = 'color:#fff;text-decoration:underline;margin-left:10px';
+        el.appendChild(document.createTextNode('　'));
+        el.appendChild(a);
+      }
     } catch (e) { /* 提示失败不影响功能 */ }
   }
 
@@ -388,6 +469,7 @@
         }
         // 本机数据源拿不到：公网看板 → 有 remote 配置走在线可写，否则退回只读快照
         MODE = remoteReady() ? 'remote' : 'snapshot';
+        FELL_BACK = true;
         markStatus();
         if (MODE === 'remote') {
           if (!loadRemoteStarted) { loadRemoteStarted = true; loadRemote(); }
@@ -488,19 +570,125 @@
   QB.prototype.catch = function (onR) { return this._exec().catch(onR); };
   QB.prototype.finally = function (fn) { return this._exec().finally(fn); };
 
-  window.supabase = {
-    createClient: function () {
-      return {
-        from: function (table) { return new QB(table); },
-        // 常用辅助（网页里用到的极少，兜底空实现）
-        channel: function () {
-          var c = { on: function () { return c; }, subscribe: function () { return c; } };
-          return c;
-        },
-        removeChannel: function () {}
+  /** 纯 shim 客户端：local / remote / snapshot 三模都用它 */
+  function shimClient() {
+    return {
+      from: function (table) { return new QB(table); },
+      // 常用辅助（网页里用到的极少，兜底空实现）
+      channel: function () {
+        var c = { on: function () { return c; }, subscribe: function () { return c; } };
+        return c;
+      },
+      removeChannel: function () {}
+    };
+  }
+
+  var SHIM_LIB = { createClient: function () { return shimClient(); } };
+
+  /* ================= live：真库直连，失败自动降级 =================
+   * 语义：网通 → 完全走真库（与原版 index.html 行为一致，实时读写）；
+   *       真库请求失败（网络被掐/TLS 失败/超时）→ 就地降级到
+   *       remote（快照读 + ops 队列写）或 snapshot（只读），顶部挂提示条，
+   *       并每 60 秒探测一次，恢复后自动刷新回实时。
+   */
+  var CHAIN_METHODS = ['select', 'eq', 'neq', 'is', 'not', 'in', 'gt', 'gte', 'lt', 'lte',
+                       'order', 'limit', 'range', 'single', 'maybeSingle',
+                       'insert', 'update', 'delete', 'upsert'];
+  var SUPA_URL = '';
+  var recoveryTimer = null;
+
+  /** 判断是不是"连不上"类错误（区别于正常的业务错误，如唯一键冲突） */
+  function isNetErr(e) {
+    if (!e) return false;
+    var name = '';
+    try { name = String(e.name || ''); } catch (x) {}
+    var m = '';
+    try { m = String(e.message || e.error_description || e.details || e || ''); } catch (x) {}
+    if (typeof e === 'string') m = e;
+    m = m.toLowerCase();
+    if (/failed to fetch|networkerror|network error|fetch failed|load failed|timeout|timed out|etimedout|econnrefused|econnreset|unexpected eof|aborted|net::|tls|ssl/.test(m)) return true;
+    return !m && (name === 'TypeError' || name === 'AbortError');
+  }
+
+  /** 降级：真库不可用 → 切快照读 + 队列写 */
+  function degrade(reason) {
+    if (MODE !== 'live') return;
+    MODE = remoteReady() ? 'remote' : 'snapshot';
+    FELL_BACK = true;
+    if (!loadRemoteStarted) { loadRemoteStarted = true; loadRemote(); }
+    try { markStatus(); markBanner(); } catch (e) {}
+    startRecovery();
+  }
+
+  /** 每 60 秒探一次真库，能通了就整页刷新，自动回到实时模式 */
+  function startRecovery() {
+    if (recoveryTimer || !SUPA_URL) return;
+    recoveryTimer = setInterval(function () {
+      fetch(SUPA_URL + '/auth/v1/health', { cache: 'no-store' })
+        .then(function (r) { if (r && r.status < 500) location.reload(); })
+        .catch(function () {});
+    }, 60000);
+  }
+
+  /** 包裹真库的查询构造器：记录整条链，真库失败时在 shim 上原样重放 */
+  function hybridFrom(live, table) {
+    var st = { _table: table, _chain: [], _real: null };
+    try { st._real = live.from(table); } catch (e) { st._real = null; }
+
+    CHAIN_METHODS.forEach(function (m) {
+      st[m] = function () {
+        var args = Array.prototype.slice.call(arguments);
+        st._chain.push([m, args]);
+        if (st._real) {
+          try { st._real[m].apply(st._real, args); } catch (e) { st._real = null; }
+        }
+        return st;
       };
+    });
+
+    function replayOnShim() {
+      var qb = new QB(st._table);
+      st._chain.forEach(function (c) {
+        try { qb[c[0]].apply(qb, c[1]); } catch (e) {}
+      });
+      return Promise.resolve(qb);   // QB 是 thenable，这里会拿到 {data, error}
     }
-  };
+
+    st._exec = function () {
+      if (MODE === 'live' && st._real) {
+        return Promise.resolve(st._real).then(function (res) {
+          if (res && res.error && isNetErr(res.error)) { degrade(res.error); return replayOnShim(); }
+          return res;
+        }, function (e) {
+          if (isNetErr(e)) { degrade(e); return replayOnShim(); }
+          return { data: null, error: { message: String((e && e.message) || e), code: 'LIVE' } };
+        });
+      }
+      return replayOnShim();
+    };
+    st.then = function (f, r) { return st._exec().then(f, r); };
+    st.catch = function (r) { return st._exec().catch(r); };
+    st.finally = function (f) { return st._exec().finally(f); };
+    return st;
+  }
+
+  function hybridLib() {
+    return {
+      createClient: function (url, key) {
+        SUPA_URL = String(url || '').replace(/\/+$/, '');
+        var live = REAL_LIB.createClient(url, key);
+        return {
+          from: function (t) { return hybridFrom(live, t); },
+          channel: function () {
+            try { return live.channel.apply(live, arguments); }
+            catch (e) { var c = { on: function () { return c; }, subscribe: function () { return c; } }; return c; }
+          },
+          removeChannel: function () { try { return live.removeChannel.apply(live, arguments); } catch (e) {} },
+          auth: live && live.auth ? live.auth : undefined
+        };
+      }
+    };
+  }
 
   /* ================= 启动：判定模式 ================= */
   function isIntranet(host) {
@@ -525,25 +713,45 @@
     var host = '';
     var proto = '';
     try { host = window.location.hostname; proto = window.location.protocol; } catch (e) {}
+    var intranet = isIntranet(host);
 
     if (proto === 'file:') {
       MODE = 'snapshot';
-    } else if (!isIntranet(host) && remoteReady()) {
-      // 公网（GitHub Pages 等）：先按在线模式走，省掉一次注定失败的 /api/db 请求
+      window.supabase = SHIM_LIB;
+
+    } else if (!intranet && REAL_LIB) {
+      // 公网 + 页面加载了真库 → 原版行为：直连数据库，实时读写
+      MODE = 'live';
+      window.supabase = hybridLib();
+      // 后台顺手把仓库快照拉下来：真库一旦被掐，降级能立刻有数据
+      if (remoteReady()) { loadRemoteStarted = true; loadRemote(); }
+      // 万一同源其实可达（自定义域名指向本机面板）→ 纠正为 local，享受即时读写
+      probeLocal().then(function (yes) {
+        if (!yes || MODE !== 'live') return;
+        MODE = 'local';
+        window.supabase = SHIM_LIB;
+        markStatus(); markBanner(); fireRefresh(0);
+      });
+
+    } else if (!intranet && remoteReady()) {
+      // 公网但没真库（board.html 那种自包含页）：退到在线可写（快照读 + 队列写）
       MODE = 'remote';
+      window.supabase = SHIM_LIB;
       loadRemoteStarted = true;
       loadRemote();
-      // 万一同源其实可达（自定义域名指向本机面板）→ 纠正为 local，享受即时读写
       probeLocal().then(function (yes) {
         if (!yes || MODE !== 'remote') return;
         MODE = 'local';
-        markStatus();
-        fireRefresh(0);
+        window.supabase = SHIM_LIB;
+        markStatus(); markBanner(); fireRefresh(0);
       });
+
     } else {
       MODE = 'local';
+      window.supabase = SHIM_LIB;
     }
     markStatus();
+    markBanner();
   })();
 
   // 供调试/自检：当前处在哪一档
