@@ -176,7 +176,7 @@
         return;
       }
       if (MODE === 'live') {
-        label = '⚠ 离线 · 显示最后快照（可手动切表格版）';
+        label = '⚠ 数据库连不上 · 可手动切表格版';
         bg = 'rgba(190,30,30,.88)'; op = '1';
       } else if (MODE === 'local') {
         label = '本机直连 · 数据实时';
@@ -247,6 +247,16 @@
     return true;
   }
 
+  /* 手动切「表格数据版」（2026-10-16 口径）：**不跳走、无需扫码**。
+     置标记后整页重载 → boot 直接用 shim 读同域 data/db.json
+     （与智能表格「网页数据」子表同源，本机每 10 分钟生成推送）。
+     仅当页面没配仓库快照时，才退回跳智能表格页面（那需要企微登录）。 */
+  function switchToSheetData() {
+    if (!remoteReady()) { jumpToSheet(); return; }
+    try { sessionStorage.setItem('__board_force_sheet', '1'); } catch (e) {}
+    location.reload();
+  }
+
   function markBanner() {
     try {
       if (typeof document === 'undefined') return;
@@ -257,10 +267,14 @@
 
       if (MODE === 'live' && !FELL_BACK) {
         key = 'ok';                                  // 直连数据库正常：不留任何提示
+      } else if (MANUAL_SHEET) {
+        key = 'manual';
+        bg = 'rgba(20,90,180,.95)';
+        text = '表格数据版（手动切换）' + (ago ? ' · 数据 ' + ago + '更新' : '');
       } else if (FELL_BACK) {
         key = 'down';
         bg = 'rgba(190,30,30,.95)';
-        text = '⚠ 数据库连不上，当前显示最后一次快照' + (ago ? '（数据截至 ' + ago + '前）' : '') + '，需要可手动切表格版';
+        text = '⚠ 数据库连不上（实时数据不可用）' + (ago ? '，最后一次数据 ' + ago + '前' : '');
       } else if (MODE === 'snapshot') {
         key = 'ro';
         bg = 'rgba(190,30,30,.95)';
@@ -298,17 +312,29 @@
       span.textContent = text;
       el.appendChild(span);
 
-      var u = sheetUrl();
-      if (u) {
+      var BTN_CSS = 'color:#fff;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.55);' +
+        'border-radius:6px;padding:0 10px;margin-left:12px;text-decoration:none;cursor:pointer';
+      if (key === 'manual') {
+        var back = document.createElement('a');
+        back.href = 'javascript:void(0)';
+        back.textContent = '回到实时 →';
+        back.style.cssText = BTN_CSS;
+        back.onclick = function (ev) {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          try { sessionStorage.removeItem('__board_force_sheet'); } catch (e) {}
+          location.reload();
+          return false;
+        };
+        el.appendChild(back);
+      } else if (sheetUrl()) {
         // 2026-10-15 口径：不自动倒计时跳转，改为手动按钮，切不切用户自己点
         var btn = document.createElement('a');
         btn.href = 'javascript:void(0)';
         btn.textContent = '手动切表格版 →';
-        btn.style.cssText = 'color:#fff;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.55);' +
-          'border-radius:6px;padding:0 10px;margin-left:12px;text-decoration:none;cursor:pointer';
+        btn.style.cssText = BTN_CSS;
         btn.onclick = function (ev) {
           if (ev && ev.preventDefault) ev.preventDefault();
-          jumpToSheet();
+          switchToSheetData();
           return false;
         };
         el.appendChild(btn);
@@ -500,15 +526,20 @@
         if (tries < 2) {
           return new Promise(function (res) { setTimeout(res, 300 * tries); }).then(attempt);
         }
-        // 本机数据源拿不到：公网看板 → 有 remote 配置走在线可写，否则退回只读快照
-        MODE = remoteReady() ? 'remote' : 'snapshot';
-        FELL_BACK = true;
-        markStatus();
-        if (MODE === 'remote') {
-          if (!loadRemoteStarted) { loadRemoteStarted = true; loadRemote(); }
-          return remoteExec(payload);
+        // 本机数据源拿不到：**仅在本机/内网页面才允许切模式**——
+        // 公网页面上 /api/db 405 是常态（根本没有这个端点），绝不能据此改 MODE
+        //（2026-10-16 修复：此前公网上被误切 remote，红条常驻，9-28 回退的根因之一）
+        if (isIntranet((typeof location !== 'undefined' && location.hostname) || '')) {
+          MODE = remoteReady() ? 'remote' : 'snapshot';
+          FELL_BACK = true;
+          markStatus();
+          if (MODE === 'remote') {
+            if (!loadRemoteStarted) { loadRemoteStarted = true; loadRemote(); }
+            return remoteExec(payload);
+          }
+          return selectOnly(payload);
         }
-        return selectOnly(payload);
+        throw e;
       });
     }
     return attempt();
@@ -628,7 +659,35 @@
                        'order', 'limit', 'range', 'single', 'maybeSingle',
                        'insert', 'update', 'delete', 'upsert'];
   var SUPA_URL = '';
+  var SUPA_KEY = '';
+  var MANUAL_SHEET = false;    // 用户手动切了「表格数据版」（sessionStorage 标记）
+  var liveWatchTimer = null;
   var recoveryTimer = null;
+
+  /* live 直连模式的轻量探活（2026-10-16 起 live 零包装，探活独立做）：
+     连续 2 次失败 → 挂红条提示（**不切数据、不降级**，切不切用户点按钮）；
+     探活恢复且非手动表格版 → 自动刷新回实时。 */
+  function markDown() {
+    if (FELL_BACK || MANUAL_SHEET) return;
+    FELL_BACK = true;
+    bannerKey = '';
+    try { markStatus(); markBanner(); } catch (e) {}
+  }
+
+  function startLiveWatch() {
+    if (liveWatchTimer || !SUPA_URL) return;
+    var fails = 0;
+    liveWatchTimer = setInterval(function () {
+      fetch(SUPA_URL + '/auth/v1/health',
+            { cache: 'no-store', headers: SUPA_KEY ? { apikey: SUPA_KEY } : {} })
+        .then(function (r) {
+          if (r.status >= 500) { fails++; if (fails >= 2) markDown(); return; }
+          fails = 0;
+          if (FELL_BACK && !MANUAL_SHEET) { try { location.reload(); } catch (e) {} }
+        })
+        .catch(function () { fails++; if (fails >= 2) markDown(); });
+    }, 60000);
+  }
 
   /** 判断是不是"连不上"类错误（区别于正常的业务错误，如唯一键冲突） */
   function isNetErr(e) {
@@ -667,14 +726,12 @@
   /** 包裹真库的查询构造器：记录整条链，真库失败时在 shim 上原样重放 */
   function hybridFrom(live, table) {
     var st = { _table: table, _chain: [], _real: null };
-    try { st._real = live.from(table); } catch (e) { st._real = null; }
 
     CHAIN_METHODS.forEach(function (m) {
       st[m] = function () {
         var args = Array.prototype.slice.call(arguments);
         st._chain.push([m, args]);
         if (st._real) {
-          try { st._real[m].apply(st._real, args); } catch (e) { st._real = null; }
         }
         return st;
       };
@@ -756,9 +813,28 @@
     } else if (!intranet && REAL_LIB) {
       // 公网 + 页面加载了真库 → 原版行为：直连数据库，实时读写
       MODE = 'live';
-      window.supabase = hybridLib();
-      // 后台顺手把仓库快照拉下来：真库一旦被掐，降级能立刻有数据
-      if (remoteReady()) { loadRemoteStarted = true; loadRemote(); }
+      // 2026-10-16 修复：**原版直连，零包装**。此前的 hybrid 包装层与真库
+      // builder 不兼容（链式 apply 抛 "Cannot read properties of undefined"，
+      // 真库查询根本没发出去 → 业务掉进 /api/db 兜底 → 在公网上被 405 误切
+      // remote，红条常驻）——这正是 9-28 回退的根因。现直接给原版客户端。
+      // 断网提示改由独立的 startLiveWatch 探活承担（不拦数据、不自动降级）。
+      if (sessionStorage.getItem('__board_force_sheet') === '1') {
+        // 用户手动切过「表格数据版」：本次加载直接用 shim 读仓库快照
+        MODE = 'remote';
+        MANUAL_SHEET = true;
+        window.supabase = SHIM_LIB;
+        loadRemoteStarted = true;
+        loadRemote();
+      } else {
+        window.supabase = { createClient: function (url, key) {
+          SUPA_URL = String(url || '').replace(/\/+$/, '');
+          SUPA_KEY = String(key || '');
+          startLiveWatch();
+          return REAL_LIB.createClient(url, key);   // 原版客户端原样给出
+        }};
+        // 后台顺手把仓库快照拉下来：「手动切表格版」点了能立刻有数据
+        if (remoteReady()) { loadRemoteStarted = true; loadRemote(); }
+      }
       // 万一同源其实可达（自定义域名指向本机面板）→ 纠正为 local，享受即时读写
       probeLocal().then(function (yes) {
         if (!yes || MODE !== 'live') return;
