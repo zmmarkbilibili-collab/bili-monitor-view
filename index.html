@@ -610,7 +610,7 @@ window.BILI_PANEL_CONFIG = {
         group_name: gn || `web_${new Date().toISOString().slice(0,10)}`,
         alert_only: ao, category: null, notify_interval: 1, window_start: 0, window_end: 24,
         alert_enabled: false, alert_milestone: null, alert_interval_minutes: 15,
-        view: 0, title: '', up_name: '', push_enabled: true,
+        view: 0, title: '', up_name: '', push_enabled: false,
         gap_alert_enabled: false, gap_alert_target_bvid: '[]', gap_alert_threshold: 0,
         online_alert_enabled: false, online_alert_bvids: '[]', online_alert_threshold: 0,
         online_abs_enabled: false, online_abs_conditions: '[]', online_abs_threshold: 0
@@ -1128,7 +1128,7 @@ window.BILI_PANEL_CONFIG = {
         alert_only: true, alert_interval_minutes: 30, start_time: formatLocalDateTime(),
         current_hour: 0, monitor_hours: hours, group_name: '播放量预警',
         view_refresh_minutes: refresh,
-        push_enabled: true, view: 0, title: '', up_name: ''
+        push_enabled: false, view: 0, title: '', up_name: ''
       }]);
       audit('添加播放量预警', `BV=${bv} 目标=${target} 时长=${hours}h 刷新=${refresh}分钟`);
       closeModal('viewAlertAddModal'); loadViewAlertVideos();
